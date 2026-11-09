@@ -1,0 +1,77 @@
+
+=== A. Solvency fuzz: 3000 random runs x 400 actions, every card mixed with trades ===
+Allowed cards: insolvent states = 0, negative pot = 0 (out of 1.2M actions). Largest unbacked surplus 0.0000% (floor lift hands it back).
+  Rejected card steepen      : insolvent in 500/500, price cut for every holder in 0/500
+  Rejected card reserveBonus : insolvent in 500/500, price cut for every holder in 0/500
+  Rejected card phoenixMint  : insolvent in 500/500, price cut for every holder in 0/500
+  Rejected card flatten      : insolvent in 0/500, price cut for every holder in 500/500
+
+=== B. Inferno: what a pot burn does to price, and who can profit by trading ahead of it ===
+Coin: 60 NEAR real in curve. Front-runner buys 3 NEAR before and sells after. Round trip fees = 2%.
+pot spent | price lift | lump: front-run profit | drip 12 chunks: per-chunk sandwich profit | caster lock
+   1 NEAR |   2.4% |   0.008 NEAR (0.3%) |  -0.054 NEAR (-1.8%) | caster must hold 24h
+   2 NEAR |   4.9% |   0.076 NEAR (2.5%) |  -0.049 NEAR (-1.6%) | caster must hold 24h
+   4 NEAR |   9.8% |   0.214 NEAR (7.1%) |  -0.037 NEAR (-1.2%) | caster must hold 24h
+   8 NEAR |  20.0% |   0.497 NEAR (16.6%) |  -0.015 NEAR (-0.5%) | caster must hold 24h
+Reading: a public lump Inferno is a free trade for whoever is fastest (bots). Dripped in chunks small enough that each
+chunk moves price by less than the 2% round-trip fee, nobody can sandwich a chunk; the total lift is the same.
+Buying on the announcement still profits, but that is open to everyone at once (it IS the hype), not to an insider.
+
+=== C. Shield variants: global buy cap and global sell cap per 10-minute window (first hour of launch) ===
+buy cap none : bots own 91.6% of hour-1 tokens, community orders filled 100.0%
+buy cap 10 N : bots own 100.0% of hour-1 tokens, community orders filled 0.0%
+buy cap 5 N  : bots own 100.0% of hour-1 tokens, community orders filled 0.0%
+buy cap 3 N  : bots own 100.0% of hour-1 tokens, community orders filled 0.0%
+sell cap 3% of supply / 10 min: whale finishes dumping in window 7; ordinary holders cannot sell at all until window 9+ (90 min locked in a crash).
+Reading: a global buy cap hands the whole cap to whoever is fastest each window, so bots win harder. A global sell cap is a honeypot.
+
+=== D. Happy Hour paid by the pot: +10% bonus tokens on buys for 30 min (vs the same trades with no Happy Hour) ===
+bonus paid instantly : extra price lift vs no HH 3.6%, farmers' gain vs no HH 1.211 NEAR on 10 NEAR flipped
+bonus vests 72h      : extra price lift vs no HH 3.6%, farmers' gain vs no HH 0.241 NEAR on 10 NEAR flipped
+Reading: the pot buying bonus tokens adds a little real buy pressure. Paid instantly, flippers pocket the bonus;
+vested (sell early = bonus burned), flipping earns only the small pot-driven lift and the forfeits burn, which lifts the floor.
+
+=== E. Hold the Line + Dip Catcher: can a whale farm it with two wallets? ===
+panic  0% of others sell: drop from dump 49.0% (triggers at 20%), prize to wallet B 0.074 NEAR, dump round-trip cost 0.622 NEAR -> loses money
+panic  5% of others sell: drop from dump 49.0% (triggers at 20%), prize to wallet B 0.086 NEAR, dump round-trip cost 0.622 NEAR -> loses money
+panic 15% of others sell: drop from dump 49.0% (triggers at 20%), prize to wallet B 0.109 NEAR, dump round-trip cost 0.622 NEAR -> loses money
+Reading: the wallet-B prize stays well below what the dump costs in fees and slippage, so farming it loses money.
+Rules that keep it so: eligibility snapshot taken BEFORE the drop, 1h holding age, prize = tolls + at most 20% of pot.
+Note: a whale can still dump first and rebuy after a panic; that is ordinary market risk and exists with or without the card.
+
+=== F. Blood Moon as a minority game (pick Red or Blue in secret; smaller side by tokens wins, 20% of losers' stakes burn) ===
+whale sit out         : expected return   0.0% of stake
+whale all on one side : expected return -99.3% of stake
+whale split 50/50     : expected return -1.3% of stake
+ordinary player (no whale): expected return -5.4% of stake (the 20% burn, shared)
+Reading: a whale that joins one side makes it the majority and loses; splitting just pays the burn. Size cannot buy a win here.
+
+=== G. Raid tactics: Rally / Curse / Ward each round. Does any one dominate? ===
+first guess Rally +20%, Curse -15%, Ward reflect -5% -> best mix: Rally 16%, Curse 64%, Ward 21%
+all 10%     Rally +10%, Curse -10%, Ward reflect -10% -> best mix: Rally 39%, Curse 39%, Ward 22%
+tuned       Rally +7%, Curse -10%, Ward reflect -7% -> best mix: Rally 34%, Curse 34%, Ward 33%
+Max swing per round from a perfect read: 7.0% of score. Reading the opponent right in 2 of 4 rounds closes a money gap of about 14%.
+Reading: with the first guess, Curse is played twice as often as anything else (overpowered). Tuned, it is a fair
+rock-paper-scissors: no card dominates, smart play beats a ~15% bigger wallet, but money still beats bad reads.
+Mirror (copy last round's card) beats opponents who repeat themselves and loses to ones who adapt; it stays a Rare tech card.
+
+=== H. Worst case stacking in 24h: every burn card chained back to back ===
+no caps : price 20.3%, 13.0% of circulating supply burned in a day, solvent=true
+with caps (5% burn/24h, pot spend 50%/24h, one Epic+ at a time): price 8.9%, burned 3.7%, solvent=true
+Reading: even uncapped it stays solvent (all backed), but a +20% one-day pump from cards alone invites a dump. Caps keep effects big but readable.
+
+=== I. Card supply after 60 days: 500 holders, earn + craft (3 of a tier -> 1 of the next) ===
+Common: 502 (56.5%)   Rare: 307 (34.5%)   Epic: 63 (7.1%)   Mythic: 17 (1.9%)
+
+=== J. Market-cap levels: can someone pump the coin to unlock big cards or farm the level-up card drop? ===
+Levels (real NEAR in curve): L1 0N=Common, L2 5N=Rare, L3 20N=Epic, L4 60N=Mythic, L5 120N=Graduation
+pump 3N -> 20N: round trip costs 0.342 NEAR (2.0%). Without an age rule the pumper ranks #1/201 by Conviction -> wins an Epic drop. With "held 1h before the level": no drop.
+pump 10N -> 60N: round trip costs 1.005 NEAR (2.0%). Without an age rule the pumper ranks #1/201 by Conviction -> wins an Epic drop. With "held 1h before the level": no drop.
+Reading: pumping to a level only costs fees, and that money stays in the coin, so unlocking that way is fine. The level-up
+drop is what needs protecting: only wallets that held 1h BEFORE the level was crossed get drops, ranked by Conviction.
+
+=== K. Casting for 24h: a whale with 20 cards and a bot (always first) vs 150 holders with 1-2 cards each ===
+big cards first-come       : 111 casts (Common 61, Rare 45, Epic 3, Mythic 2); whale made 18.0% of casts, 5/5 of the Epic+Mythic
+1 Epic+ per wallet per 24h : 111 casts (Common 61, Rare 45, Epic 3, Mythic 2); whale made 14.4% of casts, 1/5 of the Epic+Mythic
+Reading: separate pacing per tier keeps all tiers alive (no tier starves another): ~1 Rare every 15m, an Epic every few
+hours, 2 Mythic Eclipses a day. The per-wallet daily cap on big casts stops one whale+bot from owning every big moment.

@@ -1,0 +1,15 @@
+node_modules/
+dist/
+target/
+contract/target/
+*.wasm
+.env
+.env.*
+!.env.example
+neardev/
+*.log
+.DS_Store
+# submission payload is never committed
+submission*.json
+contract/out/
+sandbox/.keys/

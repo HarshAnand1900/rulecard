@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rulecard Coin Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a game table. Left = the coin's 3 card slots + controls, right = live readout. Other tabs are discussion pages. */
+:root{
+  --bg:#EEF1F6; --surface:#FFFFFF; --sunk:#E4E8F0; --ink:#1A2233; --muted:#5B6478; --line:#D3D9E4;
+  --accent:#2F5BD8;
+  --supply:#2F5BD8; --treasury:#A86A12; --ritual:#B8236F; --charm:#2E7D5F;
+  --good:#2E7D5F; --warn:#A86A12; --bad:#C0392B;
+  --s1:#2E7D5F; --s2:#2F5BD8; --s3:#C0392B; --s4:#A86A12; --s5:#7B3FB5;
+  --s6:#0F7C8C; --s7:#B8236F; --s8:#6B5E4E; --s9:#5E7A12;
+  --f-display:"Bungee", "Arial Black", Impact, sans-serif;
+  --f-body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#121722; --surface:#1B2230; --sunk:#151B27; --ink:#E7ECF5; --muted:#9AA4B8; --line:#2C3547;
+  --accent:#7C9BFF; --supply:#7C9BFF; --treasury:#E2A84A; --ritual:#F06BB0; --charm:#5FC79E;
+  --good:#5FC79E; --warn:#E2A84A; --bad:#FF7A6B;
+  --s1:#5FC79E; --s2:#7C9BFF; --s3:#FF7A6B; --s4:#E2A84A; --s5:#B98CF0;
+  --s6:#4FC6D6; --s7:#F06BB0; --s8:#B9AA94; --s9:#A8C95A; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#121722; --surface:#1B2230; --sunk:#151B27; --ink:#E7ECF5; --muted:#9AA4B8; --line:#2C3547;
+  --accent:#7C9BFF; --supply:#7C9BFF; --treasury:#E2A84A; --ritual:#F06BB0; --charm:#5FC79E;
+  --good:#5FC79E; --warn:#E2A84A; --bad:#FF7A6B;
+  --s1:#5FC79E; --s2:#7C9BFF; --s3:#FF7A6B; --s4:#E2A84A; --s5:#B98CF0;
+  --s6:#4FC6D6; --s7:#F06BB0; --s8:#B9AA94; --s9:#A8C95A; color-scheme:dark }
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+img{max-width:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 60px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+h1{font-family:var(--f-display);font-weight:400;font-size:clamp(26px,4vw,38px);line-height:1.05;margin:0;letter-spacing:.01em;text-wrap:balance}
+h2{font-size:20px;margin:0 0 10px;text-wrap:balance}
+h3{font-size:15px;margin:0 0 6px}
+p{margin:0 0 10px;max-width:68ch}
+.lede{color:var(--muted);margin-top:8px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:16px}
+.tag{font-family:var(--f-mono);font-size:12px;padding:3px 8px;border:1px solid var(--line);border-radius:999px;color:var(--muted);white-space:nowrap}
+nav.tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-bottom:20px}
+nav.tabs button{font:inherit;font-weight:600;background:none;border:0;padding:10px 12px;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+.grid{display:grid;gap:16px}
+.sim{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}
+@media (max-width:860px){.sim{grid-template-columns:1fr}}
+/* card slots */
+.slots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:560px){.slots{grid-template-columns:1fr}}
+.rc{--c:var(--muted);position:relative;border:2px solid var(--c);border-radius:12px;background:var(--surface);padding:12px 12px 10px;display:flex;flex-direction:column;gap:6px;min-height:230px;min-width:0}
+.rc[data-type="supply"]{--c:var(--supply)} .rc[data-type="treasury"]{--c:var(--treasury)}
+.rc[data-type="ritual"]{--c:var(--ritual)} .rc[data-type="charm"]{--c:var(--charm)}
+.rc .kind{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--c);display:flex;justify-content:space-between;gap:6px}
+.rc .nm{font-family:var(--f-display);font-size:19px;line-height:1.1}
+.rc .tx{font-size:13px}
+.rc .live{margin-top:auto;font-family:var(--f-mono);font-size:12px;background:var(--sunk);border-radius:6px;padding:6px 8px;font-variant-numeric:tabular-nums}
+.rc.fired{animation:flash .6s ease}
+@keyframes flash{0%{box-shadow:0 0 0 0 var(--c)}50%{box-shadow:0 0 0 6px color-mix(in srgb,var(--c) 30%,transparent)}100%{box-shadow:0 0 0 0 transparent}}
+@media (prefers-reduced-motion:reduce){.rc.fired{animation:none}}
+.rc.empty{border-style:dashed;align-items:center;justify-content:center;color:var(--muted);text-align:center}
+.rc .x{position:absolute;top:6px;right:6px;border:0;background:var(--sunk);color:var(--muted);border-radius:6px;width:26px;height:26px;cursor:pointer;font:inherit}
+.rc .x+.kind{padding-right:30px}
+.param{display:grid;grid-template-columns:1fr auto;gap:2px 8px;font-size:12px;align-items:center}
+.param input{grid-column:1/-1;width:100%}
+.hand{display:flex;flex-wrap:wrap;gap:6px}
+.chip{--c:var(--muted);font:inherit;font-size:13px;font-weight:600;border:1.5px solid var(--c);color:var(--c);background:var(--surface);border-radius:999px;padding:4px 10px;cursor:pointer}
+.chip[data-type="supply"]{--c:var(--supply)} .chip[data-type="treasury"]{--c:var(--treasury)}
+.chip[data-type="ritual"]{--c:var(--ritual)} .chip[data-type="charm"]{--c:var(--charm)}
+.chip[disabled]{opacity:.35;cursor:not-allowed}
+.chip .sm{font-weight:400;opacity:.8}
+.controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:560px){.controls{grid-template-columns:1fr}}
+.ctl label{display:flex;justify-content:space-between;font-size:13px;font-weight:600}
+.ctl input{width:100%}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.btn{font:inherit;font-weight:600;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:8px 14px;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:420px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.stat{background:var(--sunk);border-radius:8px;padding:8px 10px;min-width:0}
+.stat .l{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.stat .v{font-family:var(--f-mono);font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.chart{width:100%;height:150px;display:block}
+.log{list-style:none;margin:0;padding:0;max-height:300px;overflow:auto;font-size:13px;display:flex;flex-direction:column;gap:4px}
+.log li{display:grid;grid-template-columns:52px 1fr;gap:8px;padding:4px 0;border-bottom:1px solid var(--line)}
+.log .d{font-family:var(--f-mono);color:var(--muted)}
+.log .burn{color:var(--supply)} .log .pay{color:var(--ritual)} .log .tre{color:var(--treasury)} .log .blk{color:var(--bad)} .log .ok{color:var(--good)}
+/* tables */
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:640px}
+th,td{text-align:left;vertical-align:top;padding:8px 10px;border-bottom:1px solid var(--line)}
+th{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.pill{display:inline-block;font-family:var(--f-mono);font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.p-good{color:var(--good)} .p-warn{color:var(--warn)} .p-bad{color:var(--bad)}
+.t-supply{color:var(--supply)} .t-treasury{color:var(--treasury)} .t-ritual{color:var(--ritual)} .t-charm{color:var(--charm)}
+.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:760px){.two{grid-template-columns:1fr}}
+.callout{border-left:4px solid var(--accent);background:var(--surface);padding:12px 16px;border-radius:0 8px 8px 0}
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .st{flex:1 1 150px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-width:0}
+.flow .st b{display:block;font-family:var(--f-display);font-weight:400;font-size:15px;margin-bottom:4px}
+.flow .ar{align-self:center;color:var(--muted);font-family:var(--f-mono)}
+@media (max-width:560px){.flow .ar{display:none}}
+ul.clean{margin:0;padding-left:18px} ul.clean li{margin-bottom:6px}
+.q{border-top:1px solid var(--line);padding:14px 0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media (max-width:700px){.q{grid-template-columns:1fr}}
+.q .lean{background:var(--sunk);border-radius:8px;padding:10px 12px;font-size:14px}
+.q .lean b{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--accent)}
+.bar{height:10px;background:var(--sunk);border-radius:5px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent)}
+.calc{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:600px){.calc{grid-template-columns:1fr}}
+.calc label{font-size:13px;font-weight:600;display:flex;justify-content:space-between}
+.calc input{width:100%}
+.scn-ctl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 16px;margin:12px 0}
+@media (max-width:900px){.scn-ctl{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:480px){.scn-ctl{grid-template-columns:1fr}}
+.scn-ctl label{font-size:13px;font-weight:600;display:flex;justify-content:space-between;gap:6px}
+.scn-ctl input[type=range],.scn-ctl select{width:100%}
+.scn-ctl select,.metric-row select{font:inherit;font-size:13px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)}
+.scn-ctl label.chk{justify-content:flex-start;align-items:center;height:100%;font-weight:500}
+.metric-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-bottom:8px}
+.legend{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto}
+.legend button{font:inherit;font-size:12px;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:3px 10px;cursor:pointer}
+.legend button i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.legend button[aria-pressed="false"]{opacity:.4}
+.chart-box{overflow-x:auto}
+#s-chart{width:100%;min-width:520px;height:auto;display:block}
+.sweeps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+@media (max-width:900px){.sweeps{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:480px){.sweeps{grid-template-columns:1fr}}
+.hm{min-width:0}
+.hm h3{font-size:13px;display:flex;align-items:center;gap:6px}
+.hm h3 i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.hm table{min-width:0;font-family:var(--f-mono);font-size:12px;font-variant-numeric:tabular-nums}
+.hm td,.hm th{padding:4px 5px;text-align:center;border:0}
+.hm td{border-radius:4px;color:var(--ink)}
+.hm td.cur{outline:2px solid var(--ink);outline-offset:-2px}
+.sw{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:baseline}
+.r-c{color:var(--muted)} .r-r{color:var(--s2)} .r-e{color:var(--s5)} .r-m{color:var(--s4)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Rulecard Coin Lab</h1>
+      <p class="lede">A sandbox for the NEAR hackathon idea: every memecoin launches with up to 3 rule cards. Try card combos, then read through who gets to change them and how they tie to NFTs.</p>
+    </div>
+    <span class="tag">prototype · fake numbers · no chain</span>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="deck" aria-selected="true">Deck v2</button>
+    <button role="tab" data-tab="sim" aria-selected="false">Simulator</button>
+    <button role="tab" data-tab="scenarios" aria-selected="false">60-day scenarios</button>
+    <button role="tab" data-tab="launch" aria-selected="false">Launch 72h</button>
+    <button role="tab" data-tab="catalog" aria-selected="false">Card catalog (v1)</button>
+    <button role="tab" data-tab="gov" aria-selected="false">Who controls the cards</button>
+    <button role="tab" data-tab="nft" aria-selected="false">Cards as NFTs</button>
+    <button role="tab" data-tab="open" aria-selected="false">Open questions</button>
+  </nav>
+
+  <!-- DECK V2 -->
+  <section id="tab-deck" class="grid" style="gap:16px">
+    <div class="callout">
+      <h2 style="margin-bottom:6px">Deck v2: memecoin speed</h2>
+      <p style="margin:0">Effects run in minutes and hours, not days. Cards unlock as the coin grows. Cards are NFTs for one coin: you earn them, play them, and the card burns when played and turns into a Relic. The creator only sets the rules at launch; players hold and play the cards. All numbers come from <span class="mono">deck-sim.js</span> (tests A–K).</p>
+    </div>
+
+    <div class="grid two">
+      <div class="panel">
+        <h3>1 · Coin levels: cards unlock as the coin grows</h3>
+        <p class="small muted">Measured by real NEAR in the curve. The coin must stay above a level for 15 minutes to reach it, and a level never re-locks. Pumping to a level only costs about 2% in fees, and that money stays in the coin.</p>
+        <div class="tw"><table style="min-width:0">
+          <tr><th>Level</th><th>Real NEAR</th><th>Unlocks</th></tr>
+          <tr><td>L1 Spark</td><td class="mono">0</td><td><span class="pill r-c">Common</span> + the Rulebook</td></tr>
+          <tr><td>L2 Flame</td><td class="mono">5</td><td><span class="pill r-r">Rare</span>, Friendly Raid</td></tr>
+          <tr><td>L3 Blaze</td><td class="mono">20</td><td><span class="pill r-e">Epic</span>, Hard Raid</td></tr>
+          <tr><td>L4 Inferno</td><td class="mono">60</td><td><span class="pill r-m">Mythic</span> Eclipse windows</td></tr>
+          <tr><td>L5 Graduate</td><td class="mono">120</td><td>Curve full: moves to a DEX, Liquidity Rain later</td></tr>
+        </table></div>
+        <p class="small muted" style="margin-top:8px">Every level-up drops cards. Only wallets that held for 1h <i>before</i> the level was crossed get one. Without that rule, a pumper's fresh buy ranked #1 and took the Epic drop (test J).</p>
+      </div>
+      <div class="panel">
+        <h3>2 · Pacing: each tier runs on its own clock</h3>
+        <p class="small muted">With one shared meter, cheap cards drained it and the big cards never fired (test K). So each tier has its own limit, like abilities and an ult in Overwatch.</p>
+        <div class="tw"><table style="min-width:0">
+          <tr><th>Tier</th><th>Limit</th><th>Warning before it fires</th><th>Per wallet</th></tr>
+          <tr><td><span class="pill r-c">Common</span></td><td>Spark meter, 5 each (refills fast)</td><td>none</td><td>1 play / 30m</td></tr>
+          <tr><td><span class="pill r-r">Rare</span></td><td>1 Rare per coin every 15m</td><td>2m</td><td>1 play / 30m</td></tr>
+          <tr><td><span class="pill r-e">Epic</span></td><td>Ult meter 100, filled by activity</td><td>5m</td><td>1 Epic+ / 24h</td></tr>
+          <tr><td><span class="pill r-m">Mythic</span></td><td>Eclipse: a 30m window, twice a day</td><td>10m</td><td>1 Epic+ / 24h</td></tr>
+        </table></div>
+        <p class="small muted" style="margin-top:8px">One day of play: about 61 Common, 45 Rare, 3 Epic, 2 Mythic. Even when a whale with a bot always plays first, the per-wallet cap cut its share of the big plays from <b>5/5 to 1/5</b>.</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>3 · Every card, by tier</h3>
+      <p class="small muted">Rulebook = rules the creator picks at launch; they're fixed and run on their own. Hand = cards players hold as NFTs and play. Counter = what answers the card.</p>
+      <div class="tw"><table>
+        <tr><th>Card</th><th>Tier</th><th>Type</th><th>Effect (memecoin timing)</th><th>Counter / cost</th></tr>
+        <tr><td><b>Conviction</b></td><td>Core</td><td>Always on</td><td>Card power = tokens × time held, rising from 1× to 3× over 24h</td><td>—</td></tr>
+        <tr><td><b>Launch Guard</b></td><td>Rulebook</td><td>Rule</td><td>Each wallet can buy at most 1 NEAR in the first 10 minutes</td><td>No total cap: in tests a total cap gave bots 100% of it</td></tr>
+        <tr><td><b>Paper Tax</b></td><td>Rulebook</td><td>Rule</td><td>Selling within 15m of buying costs +2%, which goes to holders. Tokens moved to another wallet start their clock again</td><td>Max sell fee 3% in total</td></tr>
+        <tr><td><b>Hold the Line + Dip Catcher</b></td><td>Rulebook</td><td>Trap</td><td>Triggers on a 20% drop within 1h, then runs 6h. Sell fee +2% goes into a prize; the pot buys and burns at 5× its normal rate; people who hold earn a Survivor badge plus a share of the prize; people who buy the dip earn a Dip Catcher badge</td><td>Eligibility is checked before the drop. Whale trick in test E: prize 0.07–0.11 NEAR against a 0.62 NEAR cost to pull it off</td></tr>
+        <tr><td><b>Vault Seal / Audit Seal</b></td><td>Rulebook</td><td>Trust</td><td>Creator's tokens locked for 24h–7d / contract keys deleted, so the code can never change</td><td>—</td></tr>
+        <tr><td><b>Creator Bond</b></td><td>Rulebook</td><td>Trust</td><td>Creator stakes NEAR and loses it to holders if they unlock early</td><td>—</td></tr>
+        <tr><td><b>Ward</b></td><td><span class="pill r-c">Common</span></td><td>Hand</td><td>Blocks the next hostile card aimed at this coin (Curse, Exorcism)</td><td>Cheap answer to expensive cards</td></tr>
+        <tr><td><b>Rally</b></td><td><span class="pill r-c">Common</span></td><td>Raid</td><td>+7% to this coin's raid score for one round</td><td>Curse halves it</td></tr>
+        <tr><td><b>Tax Holiday</b></td><td><span class="pill r-c">Common</span></td><td>Hand</td><td>0% fee for 10 minutes</td><td>Pot misses those fees</td></tr>
+        <tr><td><b>Roll Call</b></td><td><span class="pill r-c">Common</span></td><td>Hand</td><td>For 1h, check-ins fill Charge twice as fast</td><td>—</td></tr>
+        <tr><td><b>Hype Siren · Rebrand · Rename · Plague</b></td><td><span class="pill r-c">Common</span></td><td>Cosmetic</td><td>Trending pin 15m · new skin 1h · ticker suffix vote 1h · a badge that spreads to wallets that trade with each other</td><td>Harmless fun</td></tr>
+        <tr><td><b>Slow Burn</b></td><td><span class="pill r-r">Rare</span></td><td>Hand</td><td>For 1h, 1% of the tokens in every trade burn, then floor lift</td><td>Within the 5% / 24h burn cap</td></tr>
+        <tr><td><b>Happy Hour</b></td><td><span class="pill r-r">Rare</span></td><td>Hand</td><td>For 15m, the pot buys +10% bonus tokens for buyers; the bonus vests over 6h</td><td>Sell early and the bonus burns: flipper gain falls from 1.2 to 0.24 NEAR</td></tr>
+        <tr><td><b>Summoning Circle</b></td><td><span class="pill r-r">Rare</span></td><td>Ritual</td><td>Within 30m, at least 25 wallets aged 1h+ holding 10% (Conviction-weighted, max 1% counted per wallet) chant with a stake; then 10% of the stakes burn and early chanters earn the most</td><td>A failed circle refunds the stakes</td></tr>
+        <tr><td><b>Meme Contest</b></td><td><span class="pill r-r">Rare</span></td><td>Ritual</td><td>Entries open 1h with a stake, then a vote; the winner gets 50% of losing stakes and 50% burns</td><td>—</td></tr>
+        <tr><td><b>Diamond Pool</b></td><td><span class="pill r-r">Rare</span></td><td>Hand</td><td>Lock tokens for 1h / 6h / 24h; leaving early costs 20%, half burned and half paid to those who stay</td><td>—</td></tr>
+        <tr><td><b>Prophecy</b></td><td><span class="pill r-r">Rare</span></td><td>Ritual</td><td>A shared target such as "+10 NEAR net inflow in 6h"; if it's hit, everyone who took part gets a Rare drop</td><td>Measures NEAR, which can't be faked</td></tr>
+        <tr><td><b>Exorcism</b></td><td><span class="pill r-r">Rare</span></td><td>Ritual</td><td>Removes a wallet matching a bot pattern from rewards for 24h, after a 30m vote (10% turnout, 66% in favour)</td><td>Ward blocks it; if the vote fails, the proposer's card burns</td></tr>
+        <tr><td><b>Curse · Mirror</b></td><td><span class="pill r-r">Rare</span></td><td>Raid</td><td>Curse: −10% to the opponent's score and halves their Rally · Mirror: copies the opponent's last card</td><td>Ward blocks Curse and reflects −7%</td></tr>
+        <tr><td><b>Friendly Raid · Alliance · Echo · Bounty</b></td><td><span class="pill r-r">Rare</span></td><td>PvP / Hand</td><td>Raid lasts 2h, 4 rounds of 30m; the losers' stakes burn on their own coin · shared prize pool between two coins · doubles the next Common or Rare (still within caps) · a task paid from the pot</td><td>Both coins must accept a raid or alliance</td></tr>
+        <tr><td><b>Inferno</b></td><td><span class="pill r-e">Epic</span></td><td>Hand</td><td>Spends 50% of the pot buying and burning tokens, spread over 1h in 12 chunks</td><td>Player can't sell for 2h after. Done in one go it's a free +16.6% for front-runners; in chunks, −0.5% (test B)</td></tr>
+        <tr><td><b>Black Hole</b></td><td><span class="pill r-e">Epic</span></td><td>Ritual</td><td>Opens a pit for 1h; people throw in their own tokens, and when it fills they all burn and contributors get a badge</td><td>Within the burn cap</td></tr>
+        <tr><td><b>Hard Raid + Takeover</b></td><td><span class="pill r-e">Epic</span></td><td>PvP</td><td>Half of the losing stakes are sold, and that NEAR buys the winner's token over 1h (half burned, half to the raiders); the loser shows the winner's banner for 12h</td><td>Opt-in from both coins' councils</td></tr>
+        <tr><td><b>Supernova</b></td><td><span class="pill r-m">Mythic</span></td><td>Hand</td><td>Spends 100% of the pot buying and burning, spread over 2h, then floor lift</td><td>Only during an Eclipse; one at a time</td></tr>
+        <tr><td><b>Blood Moon</b></td><td><span class="pill r-m">Mythic</span></td><td>Ritual</td><td>Minority game: 10m to pick Red or Blue in secret, 5m to reveal; the side with fewer staked tokens wins, and 20% of the losing stakes burn</td><td>A whale going all-in averages −99%. Gambling risk, so not in the hackathon build</td></tr>
+      </table></div>
+    </div>
+
+    <div class="grid two">
+      <div class="panel">
+        <h3>4 · Creator vs players</h3>
+        <div class="tw"><table style="min-width:0">
+          <tr><th></th><th>Creator</th><th>Players</th></tr>
+          <tr><td>Rules</td><td>Picks up to 3 Rulebook rules and a 1–3% fee at launch. They're locked after that</td><td>Can't change the rules</td></tr>
+          <tr><td>Cards</td><td>Starts with 3 Common + 1 Rare, nothing more</td><td>Earn, craft, sacrifice for, or buy cards</td></tr>
+          <tr><td>Play</td><td>Same limits as anyone, and can't play in the first hour</td><td>Must hold the coin's minimum balance, with tokens held 1h+</td></tr>
+          <tr><td>Big moments</td><td>Can't trigger them</td><td>Epic and Mythic plays, raids accepted by Cult Oath members</td></tr>
+        </table></div>
+        <p class="small muted" style="margin-top:8px">Cult Oath: lock tokens for 24h to join the council. The council accepts or refuses raid challenges and alliances.</p>
+      </div>
+      <div class="panel">
+        <h3>5 · How players get cards</h3>
+        <ul class="clean small">
+          <li><b>Card of the Day</b>: one free Common for each wallet that checked in (minimum balance, held 1h+)</li>
+          <li><b>Level-up drops</b>: top 1% by Conviction get an Epic, top 10% a Rare, everyone else eligible a Common (one per wallet per level)</li>
+          <li><b>Events</b>: Hold the Line survivor gets a Rare · dip buyer a Common · contest winner an Epic · raid MVP a Rare · Prophecy hit a Rare</li>
+          <li><b>Sacrifice</b>: burn tokens worth 0.05% of supply for a Common, 0.2% for a Rare, 1% for an Epic (6h hold needed), 3% for a Mythic (24h hold). Randomness only changes looks (art, 5% shiny)</li>
+          <li><b>Craft</b>: 3 cards of one tier make 1 of the next tier (the 3 burn)</li>
+          <li><b>Trade</b>: Rare and above can be sold on NFT markets. Commons can't be transferred, so bots have no reason to farm them</li>
+          <li><b>Hand limit 7</b>: no hoarding</li>
+        </ul>
+        <p class="small muted">60 days with 500 holders gives 56% Common, 35% Rare, 7% Epic, 2% Mythic (test I).</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>6 · Life of a card</h3>
+      <div class="flow">
+        <div class="st"><b>Earn</b>Card NFT for one coin lands in your wallet</div><span class="ar">→</span>
+        <div class="st"><b>Play</b>Checks: coin level, your balance, your cooldown, the tier's meter</div><span class="ar">→</span>
+        <div class="st"><b>Warning</b>Public alert ("🔥 Inferno in 5m"); others can answer with Ward or Mirror</div><span class="ar">→</span>
+        <div class="st"><b>Effect</b>Plays out in small chunks; caps are checked on every chunk</div><span class="ar">→</span>
+        <div class="st"><b>Relic</b>The card burns. You get a Relic you can't transfer (for example "Burned 2.1% of $X")</div>
+      </div>
+      <p class="small muted" style="margin-top:8px">If the card gets Warded, it still burns and you get no Relic. That's the risk of playing into a counter.</p>
+    </div>
+
+    <div class="grid two">
+      <div class="panel">
+        <h3>7 · Where NFTs fit</h3>
+        <ul class="clean small">
+          <li><b>Card NFT</b> (NEP-171): belongs to one coin, single use, Rare and above tradeable. A card for a popular coin is worth more.</li>
+          <li><b>Relic</b>: can't be transferred, proves a play. Counts toward Evolution.</li>
+          <li><b>Badge</b>: can't be transferred. Survivor, Dip Catcher, Raid MVP, Black Hole contributor, Cult Oath.</li>
+          <li><b>Mascot</b>: one per coin. Levels up with the coin (Evolution); Rebrand changes its skin.</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h3>8 · Hard limits (contract-enforced)</h3>
+        <ul class="clean small">
+          <li>Burns at most 5% of circulating supply per 24h; the pot spends at most 50% per 24h; sell fee at most 3%</li>
+          <li>One Epic or Mythic effect active at a time. All of it chained: +8.9% price capped vs +20.3% uncapped (test H)</li>
+          <li>No minting, no NEAR taken from the curve, no sell caps</li>
+          <li>Fuzz test: 0 states out of 1.2M where the coin couldn't pay everyone back. Steepen, Phoenix and reserve-funded Happy Hour broke that 500 out of 500 times; Flatten lowered the price every time (test A)</li>
+        </ul>
+        <p class="small muted"><b>Cut:</b> Phoenix, Steepen, Flatten, total buy/sell caps, Lottery Tax, Jackpot Block, random Wheel of Fate, random Blood Moon, reserve-funded Happy Hour, Heartbeat, Census. <b>Later:</b> Liquidity Rain.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SIMULATOR -->
+  <section id="tab-sim" hidden class="grid sim">
+    <div class="grid" style="gap:16px">
+      <div class="panel">
+        <h2>The coin's rulebook</h2>
+        <p class="small muted">Click a card below to put it in the first empty slot. Every number sits inside limits you set, so a creator can tune a card but can't make it harmful.</p>
+        <div class="slots" id="slots"></div>
+        <h3 style="margin-top:14px">Card pool</h3>
+        <div class="hand" id="hand"></div>
+      </div>
+      <div class="panel">
+        <h2>How the community behaves</h2>
+        <div class="controls">
+          <div class="ctl"><label for="c-buy">Buys per day <span class="mono" id="v-buy"></span></label><input id="c-buy" type="range" min="0" max="50" step="1" value="8"></div>
+          <div class="ctl"><label for="c-sell">Sold per day <span class="mono" id="v-sell"></span></label><input id="c-sell" type="range" min="0" max="10" step="0.5" value="2"></div>
+          <div class="ctl"><label for="c-chk">Holders checking in <span class="mono" id="v-chk"></span></label><input id="c-chk" type="range" min="0" max="100" step="5" value="55"></div>
+        </div>
+        <div class="btns" style="margin-top:14px">
+          <button class="btn primary" id="b-day">Next day</button>
+          <button class="btn" id="b-week">Run 7 days</button>
+          <button class="btn" id="b-reset">Reset coin</button>
+        </div>
+      </div>
+    </div>
+    <div class="grid" style="gap:16px;align-content:start">
+      <div class="panel">
+        <h2 id="coin-h">Day 0</h2>
+        <div class="stats" id="stats"></div>
+        <svg class="chart" id="chart" viewBox="0 0 400 150" preserveAspectRatio="none" aria-label="Price history"></svg>
+        <p class="small muted" style="margin:4px 0 0">Price in NEAR per million tokens. Curve: x·y = k with 30 NEAR / 1B virtual reserves and an 800M sale cap. 1% of every trade goes to the treasury.</p>
+      </div>
+      <div class="panel">
+        <h2>What happened</h2>
+        <ul class="log" id="log"></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCENARIOS -->
+  <section id="tab-scenarios" hidden class="grid" style="gap:16px">
+    <div class="panel">
+      <h2>How the starter rulebook behaves over 60 days</h2>
+      <p class="small muted">Rulebook: Heartbeat + Streak + Meme Contest. Each scenario runs 30 times with different random noise. Lines show the median, shaded bands the middle 80% of runs. Change a number and every scenario re-runs.</p>
+      <div class="scn-ctl">
+        <div><label for="s-thr">Heartbeat threshold <span class="mono" id="sv-thr"></span></label><input id="s-thr" type="range" min="20" max="70" step="5" value="40"></div>
+        <div><label for="s-burn">Burn per firing <span class="mono" id="sv-burn"></span></label><input id="s-burn" type="range" min="1" max="5" step="1" value="3"></div>
+        <div><label for="s-from">Heartbeat burns from</label><select id="s-from"><option value="reserve">200M token reserve</option><option value="buyback">Fee pot (buy back + burn)</option></select></div>
+        <div><label for="s-w">Pulse and Streak count</label><select id="s-w"><option value="token">Tokens held</option><option value="wallet">Wallets</option></select></div>
+        <div><label for="s-pool">Streak daily pool <span class="mono" id="sv-pool"></span></label><input id="s-pool" type="range" min="0.5" max="3" step="0.5" value="1"></div>
+        <div><label for="s-ct">Contest prize <span class="mono" id="sv-ct"></span></label><input id="s-ct" type="range" min="10" max="50" step="5" value="40"></div>
+        <div><label for="s-min">Bot wallet balance</label><select id="s-min"><option value="10000">10k tokens (minimum)</option><option value="100000" selected>100k tokens</option><option value="1000000">1M tokens</option></select></div>
+        <div><label class="chk"><input id="s-shield" type="checkbox"> Add Shield (skips 1 burn a week)</label></div>
+      </div>
+      <div class="metric-row">
+        <label for="s-metric" class="small" style="font-weight:600">Show</label>
+        <select id="s-metric">
+          <option value="supply">Total supply (% of 1B)</option>
+          <option value="circ">Circulating supply (M tokens)</option>
+          <option value="pulse">Pulse Heartbeat sees (%)</option>
+          <option value="realPulse">Real holders checking in (%)</option>
+          <option value="fires">Heartbeat firings (count)</option>
+          <option value="fee">Fee pot (NEAR)</option>
+        </select>
+        <div class="legend" id="s-legend"></div>
+      </div>
+      <div class="chart-box"><svg id="s-chart" viewBox="0 0 680 300" role="img" aria-label="Scenario chart"></svg></div>
+    </div>
+    <div class="panel">
+      <h2>Day 60</h2>
+      <div class="tw"><table id="s-table">
+        <thead><tr><th>Scenario</th><th>Supply left</th><th>Burned</th><th>Heartbeat fired</th><th>Pulse seen / real</th><th>Paid to players</th><th>Bots' share</th><th>Bot profit</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <p class="small muted" style="margin-top:8px">Medians of 30 runs. Bot profit = rewards minus gas (0.0003 NEAR per check-in, an estimate) minus about 2% trading fees on their stake.</p>
+    </div>
+    <div class="panel">
+      <h2>Picking Heartbeat's numbers</h2>
+      <p class="small muted">% of total supply burned by day 60 for every threshold × burn pair (median of 10 runs, other settings as above). You want the left column near zero and the right column high: a healthy coin is left alone, a dying one shrinks.</p>
+      <div class="sweeps" id="s-sweep"></div>
+    </div>
+    <div class="grid two">
+      <div class="panel">
+        <h2>What the default run shows</h2>
+        <ul class="clean small">
+          <li><b>Heartbeat tells healthy from dying.</b> Threshold 40, burn 3%: a steady coin burns nothing, a whale exit about 2%, hype-then-fade about 8%, a slow death about 16%.</li>
+          <li><b>Burning from the fee pot barely moves supply.</b> At most 0.4% in 60 days, because 1% fees on a small coin add up to only a few NEAR. Burning from the 200M reserve is what makes supply visibly react.</li>
+          <li><b>Keep the threshold about 20 points below a healthy pulse.</b> At 60, a steady coin with 60% check-ins still loses 12% on noisy days.</li>
+          <li><b>Counting wallets lets bots hide a dying coin.</b> 300 bots lift the pulse from 29% to 47%, and Heartbeat fires 4 times instead of 58. Counting tokens, they only reach 32%.</li>
+          <li><b>Rewards are small.</b> A steady coin pays out about 6.6 NEAR in total over 60 days, so farming it with bots loses money.</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h2>Sybil resistance, good enough for a demo</h2>
+        <p class="small">You don't need proof-of-personhood. You need splitting into many wallets to be pointless, which takes three choices:</p>
+        <ul class="clean small">
+          <li><b>Count tokens, not wallets</b> for the pulse, Streak shares and votes. 300 wallets holding 1M tokens count the same as one wallet holding 1M. To keep the coin "alive", someone has to own a real share of it and check in every day. That's a legitimate holder, not an attack.</li>
+          <li><b>Minimum balance + storage deposit + 3-day holding age</b> before a wallet counts. This blocks dust-wallet spam and protects contract storage.</li>
+          <li><b>No per-head rules in the starter set.</b> Census (holder count) and square-root voting both break under Sybil, so leave them out or label them as experimental.</li>
+        </ul>
+        <p class="small muted" style="margin:0">Say this plainly in the README: "Sybil-neutral by design: all weights are token-weighted. Not resistant to a whale; a whale keeping the pulse alive is buying the coin."</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- LAUNCH 72H -->
+  <section id="tab-launch" hidden class="grid" style="gap:16px">
+    <div class="panel">
+      <h2>The first 72 hours, hour by hour</h2>
+      <p class="small muted">Traders on the bonding curve, each with their own rules. <b>Snipers</b> buy in the first seconds and sell at 2.5×, on a 20% drop, or within 6–15 hours. A <b>whale</b> buys 8 NEAR at hour 1 and dumps at hour 24. <b>Momentum traders</b> chase 15% moves and sell on a 15% drop. The <b>community</b> arrives with attention that fades, holds, and checks in. A <b>farmer</b> buys right before any buyback it can predict and sells right after. Each setup runs 30 times with random noise. Lines show the median, bands the middle 80%.</p>
+      <div class="scn-ctl">
+        <div><label for="l-hype">Hype <span class="mono" id="lv-hype"></span></label><input id="l-hype" type="range" min="0.5" max="3" step="0.5" value="1"></div>
+        <div><label for="l-sn">Sniper accounts <span class="mono" id="lv-sn"></span></label><input id="l-sn" type="range" min="5" max="75" step="5" value="15"></div>
+        <div><label for="l-ss">NEAR per sniper <span class="mono" id="lv-ss"></span></label><input id="l-ss" type="range" min="0.3" max="4" step="0.1" value="1.5"></div>
+        <div><label for="l-vn">Curve start (virtual NEAR)</label><select id="l-vn"><option value="30" selected>30 (steep, PDF default)</option><option value="60">60</option><option value="90">90 (flatter)</option></select></div>
+        <div><label for="l-bb">Daily buyback budget <span class="mono" id="lv-bb"></span></label><input id="l-bb" type="range" min="10" max="50" step="5" value="30"></div>
+        <div><label for="l-fs">Farmer stake <span class="mono" id="lv-fs"></span></label><input id="l-fs" type="range" min="1" max="20" step="1" value="5"></div>
+      </div>
+      <div class="metric-row">
+        <label for="l-metric" class="small" style="font-weight:600">Show</label>
+        <select id="l-metric">
+          <option value="price">Price (× launch price)</option>
+          <option value="pot">Fee pot (NEAR)</option>
+          <option value="pulse">Check-in pulse (% of tokens)</option>
+        </select>
+        <span class="small muted" id="l-status"></span>
+        <div class="legend" id="l-legend"></div>
+      </div>
+      <div class="chart-box"><svg id="l-chart" viewBox="0 0 680 300" role="img" aria-label="Launch chart"></svg></div>
+    </div>
+    <div class="panel">
+      <h2>Who made money by hour 72</h2>
+      <div class="tw"><table id="l-table">
+        <thead><tr><th>Setup</th><th>Peak</th><th>Hour 72</th><th>Worst drop</th><th>Snipers</th><th>Community</th><th>Momentum</th><th>Farmer</th><th>Fees in pot</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <p class="small muted" style="margin-top:8px">Profit and loss in NEAR per group, median of 30 runs. Tokens still held are valued at the hour-72 price, which flatters holders: selling them all would move the price. The farmer column shows median profit and how often it came out ahead.</p>
+    </div>
+    <div class="grid two">
+      <div class="panel">
+        <h2>What the default run shows</h2>
+        <ul class="clean small">
+          <li><b>Snipers win on a plain curve.</b> About +31 NEAR across 15 accounts, mostly taken from momentum traders. That is the launch problem, and no card changes it much.</li>
+          <li><b>A per-account cap works until snipers split wallets.</b> It cuts sniper profit to about +10. With 75 accounts at 0.3 NEAR each, it is back to +35.</li>
+          <li><b>Locks backfire.</b> Freezing early tokens removes sell pressure, so price squeezes to about 23× and then crashes 94% when they unlock. Snipers earn more (+43). Gradual vesting does the same, more slowly.</li>
+          <li><b>An early sell tax helps a little and can't be dodged.</b> Starting at 10% and falling to 1% by hour 12, it cuts sniper profit about 20% (8% if they split wallets), more than doubles the fee pot, and raises community profit.</li>
+          <li><b>Scheduled buybacks get farmed. Drip buybacks don't.</b> The farmer comes out ahead in about half the runs against a daily lump buyback, and in every run when big snipers swell the pot. Against drip it loses its fees every time.</li>
+          <li><b>Pulse Fee does nothing at launch.</b> New buyers count as checked in, so the pulse stays around 60–65%. It is a card for weeks, not hours.</li>
+          <li><b>A flatter curve calms everything.</b> At 90 virtual NEAR the peak drops from about 8× to 3× and the worst drop from 72% to 52%. Snipers still make about +24.</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h2>What to build from this</h2>
+        <ul class="clean small">
+          <li><b>Built in, not cards:</b> drip buybacks only, the early sell tax, a capped creator first buy, and min-out on every trade.</li>
+          <li><b>Drop</b> Phoenix and any buyback at a known time. Both are free money for front-runners.</li>
+          <li><b>Don't force-lock early buyers.</b> If you want locking, make it opt-in with a reward such as a Streak bonus.</li>
+          <li><b>Keep Happy Hour</b> as the launch-day attention card: about 8% more holders, cheap and hard to abuse.</li>
+          <li><b>Heartbeat and Pulse Fee</b> are the slow cards. They tell the coin's story over days and weeks, not its first hours.</li>
+          <li><b>Say it in the README:</b> snipers can't be fully stopped on a public curve. These rules shrink their edge and leave every other group better off.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- CATALOG -->
+  <section id="tab-catalog" hidden>
+    <div class="callout" style="margin-bottom:16px">
+      <p style="margin:0"><b>Four card types.</b> <span class="t-supply">Supply</span> cards change how many tokens exist. <span class="t-treasury">Treasury</span> cards decide where the fee pot goes. <span class="t-ritual">Ritual</span> cards reward holders for doing something on-chain. <span class="t-charm">Charm</span> cards modify the other cards, which is where combos come from. One rule holds for every card: it can only touch the coin's treasury and tokens people chose to lock. It never pulls from a wallet and never changes the buy/sell curve.</p>
+    </div>
+    <div class="tw panel" style="padding:0"><table id="cat-table">
+      <thead><tr><th>Card</th><th>Rule</th><th>Who acts</th><th>When</th><th>Rarity / NFT</th><th>Watch out</th><th>In sim</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </section>
+
+  <!-- GOVERNANCE -->
+  <section id="tab-gov" hidden class="grid" style="gap:16px">
+    <div class="panel">
+      <h2>The question</h2>
+      <p>Cards are the coin's rules. If anyone can change rules whenever they want, nobody can trust the coin. If nobody can ever change them, there's no game. And with thousands of holders, "let holders decide" breaks quickly: whales outvote everyone, bots flash-buy to vote, and the creator can stack wallets. Five ways to set it up:</p>
+    </div>
+    <div class="tw panel" style="padding:0"><table>
+      <thead><tr><th>Model</th><th>Who can change a slot</th><th>How</th><th>Stops</th><th>Weakness</th><th>Hackathon fit</th></tr></thead>
+      <tbody>
+        <tr><td><b>A. Frozen</b></td><td>Nobody</td><td>Creator picks 3 cards at launch. Done forever.</td><td>Every rug-by-rule-change</td><td>No ongoing game; coins feel static</td><td><span class="pill p-good">easiest</span></td></tr>
+        <tr><td><b>B. Creator ratchet</b></td><td>Creator only</td><td>Creator can make holder-friendly changes at any time (lower a burn, raise a reward). Anything else needs a 48h timelock and holders can veto.</td><td>Creator hurting holders on a whim</td><td>Still one person in charge; deciding what counts as "friendly" takes thought</td><td><span class="pill p-good">easy</span></td></tr>
+        <tr><td><b>C. Holder council</b></td><td>Anyone who locks tokens</td><td>Any locker proposes a swap. Vote weight comes from locked tokens, how long they've been locked and their streak. Needs a quorum, then a timelock. One change per week.</td><td>A single owner deciding everything</td><td>Whales and fake wallets; voter apathy means quorum is never reached</td><td><span class="pill p-warn">medium</span></td></tr>
+        <tr><td><b>D. Slot deeds</b></td><td>Whoever owns that slot's NFT</td><td>Each slot is a NEP-171 NFT the coin mints at launch. The deed owner picks the card for that slot within its limits and earns 5% of that card's flows. Holders can veto with a 33% vote.</td><td>Stale rules; it creates a market for good rule-setters</td><td>Rights can be bought up by one person; harder to explain</td><td><span class="pill p-warn">medium</span></td></tr>
+        <tr><td><b>E. Earned plays</b></td><td>Holders who earned a card</td><td>Card NFTs are earned by playing (streaks, contest wins). The owner can propose staking their card into an open slot, and holders approve it like in C.</td><td>Pay-to-win. Influence comes from playing.</td><td>Needs C underneath, plus the NFT system</td><td><span class="pill p-bad">most work</span></td></tr>
+      </tbody>
+    </table></div>
+    <div class="callout">
+      <h3>My recommendation: Anchor slot + 2 council slots</h3>
+      <p style="margin:0">Slot 1 is the coin's identity. The creator sets it at launch and it never changes (model A), so a Heartbeat coin stays a Heartbeat coin. Slots 2 and 3 are chosen by holders (model C), and new cards come from the earned card NFTs (model E, if there's time). That gives judges one sharp hero mechanic plus a game that keeps going, and nobody can quietly rewrite the coin. Model D makes a strong pitch for the NFT track if you want a second angle.</p>
+    </div>
+    <div class="grid two">
+      <div class="panel">
+        <h2>Who can do what</h2>
+        <div class="tw"><table style="min-width:0">
+          <thead><tr><th>Role</th><th>Can</th><th>Can't</th></tr></thead>
+          <tbody>
+            <tr><td><b>Creator</b></td><td>Pick cards and numbers inside limits at launch. Set the Anchor.</td><td>Withdraw the curve's reserve. Change slots alone after launch. Buy more than a small share at launch.</td></tr>
+            <tr><td><b>Holder</b></td><td>Buy, sell, check in, submit memes, carry the Relay baton.</td><td>Vote without locking.</td></tr>
+            <tr><td><b>Locker</b></td><td>Propose and vote on slot changes, contests and bounties.</td><td>Unlock until the vote and its timelock end.</td></tr>
+            <tr><td><b>Card owner</b></td><td>Offer a card NFT for a slot and earn a cut while it's slotted.</td><td>Force it in without a vote.</td></tr>
+            <tr><td><b>Anyone</b></td><td>Call <span class="mono">tick()</span> to fire daily and weekly events, and earn a tiny tip.</td><td>Change any outcome. Tick only runs rules that already exist.</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+      <div class="panel">
+        <h2>Stopping manipulation</h2>
+        <ul class="clean">
+          <li><b>Lock to vote, and the lock must already be a day old.</b> Flash-buying the coin can't swing a vote.</li>
+          <li><b>Snapshot at proposal.</b> Weight is taken when the proposal opens, so buying during a vote does nothing.</li>
+          <li><b>Square-root weight, capped at 5% per account.</b> This softens whales. Splitting a bag across many wallets games square roots, though, which is why the cap and the streak multiplier matter: fake wallets don't check in every day.</li>
+          <li><b>Hard limits written into each card.</b> A council can choose 1–5% burn and nothing outside that range.</li>
+          <li><b>One change per week, plus a 48h timelock.</b> Holders who dislike a change have time to sell first.</li>
+          <li><b>Anyone can run the tick.</b> No bot or creator decides when events fire; there's no trusted keeper.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Vote weight calculator</h2>
+      <p class="small muted">Proposed weight = √locked × streak bonus (up to 2× at a 30-day streak), and zero if the lock is less than 1 day old. Compare one whale against a crowd of small holders.</p>
+      <div class="calc">
+        <div><label for="w-whale">Whale locks <span class="mono" id="v-whale"></span></label><input id="w-whale" type="range" min="1" max="200" value="50"></div>
+        <div><label for="w-n">Small holders <span class="mono" id="v-n"></span></label><input id="w-n" type="range" min="10" max="1000" step="10" value="100"></div>
+        <div><label for="w-s">Each small holder locks <span class="mono" id="v-s"></span></label><input id="w-s" type="range" min="10" max="2000" step="10" value="200"></div>
+        <div><label for="w-ws">Whale streak <span class="mono" id="v-ws"></span></label><input id="w-ws" type="range" min="0" max="30" value="0"></div>
+        <div><label for="w-ss">Small holder streak <span class="mono" id="v-ss"></span></label><input id="w-ss" type="range" min="0" max="30" value="12"></div>
+      </div>
+      <div id="w-out" style="margin-top:14px;display:grid;gap:10px"></div>
+    </div>
+  </section>
+
+  <!-- NFT -->
+  <section id="tab-nft" hidden class="grid" style="gap:16px">
+    <div class="panel">
+      <h2>A card's life</h2>
+      <p>This links the idea to the NFTs track ("NFTs that do something"). A rare card works like a small machine: it sits in a coin, does its job, earns while it's there and gets better with use.</p>
+      <div class="flow">
+        <div class="st"><b>Earn</b>Hit a milestone: a 10-day streak, a contest win, a coin that survives 4 weeks. Starter commons are free.</div><span class="ar">→</span>
+        <div class="st"><b>Own</b>Uncommon and rare cards are NEP-171 NFTs in your wallet, each with a serial number. They can't be bought from you, only traded between players.</div><span class="ar">→</span>
+        <div class="st"><b>Slot</b>Offer the card to a coin's open slot. If holders approve, the coin contract holds it in escrow.</div><span class="ar">→</span>
+        <div class="st"><b>Work</b>While slotted, the card owner earns 5% of the treasury flows that card routes. Each trigger gives the card XP.</div><span class="ar">→</span>
+        <div class="st"><b>Return or burn</b>Voted out: the card comes back after a cooldown. Its owner pulls it early: the card burns. That makes swaps costly, so they stay rare.</div>
+      </div>
+    </div>
+    <div class="tw panel" style="padding:0"><table>
+      <thead><tr><th>Tier</th><th>On-chain form</th><th>How you get it</th><th>Supply</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td><b>Common</b></td><td>Plain record in the game contract (cheap)</td><td>3 starters for each new user, plus easy unlocks</td><td>Unlimited</td><td>Heartbeat, Streak, Meme Contest</td></tr>
+        <tr><td><b>Uncommon</b></td><td>NEP-171 NFT</td><td>Milestones: hold 7 days, 10-day streak, launch a coin</td><td>Open</td><td>Phoenix, Shield, Bounty Board, Roll Call</td></tr>
+        <tr><td><b>Rare</b></td><td>NEP-171 NFT with serial #, level in metadata</td><td>Win a Meme Contest, a 30-day streak, a long Relay chain</td><td>Limited (e.g. 100 each)</td><td>Echo, Relay, Slow Bleed</td></tr>
+        <tr><td><b>Trophy</b></td><td>NEP-171, minted to every active holder</td><td>Your coin survives 4 weeks of Heartbeat</td><td>One per holder per coin</td><td>"Survived Week 4 of $PULSE"</td></tr>
+      </tbody>
+    </table></div>
+    <div class="grid two">
+      <div class="panel">
+        <h3>Levels, kept small</h3>
+        <p class="small">Each level widens the card's limits by one notch (Streak's pool range of 0.5–3% becomes 0.5–3.5%) and changes the art. A level never adds a new effect, so the safety review of each card stays true.</p>
+      </div>
+      <div class="panel">
+        <h3>Not gambling</h3>
+        <p class="small">No paid packs and no random drops. Every card is earned by doing something specific. That keeps it out of loot-box territory and makes it easy to explain in the README.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- OPEN QUESTIONS -->
+  <section id="tab-open" hidden class="panel">
+    <h2>Things we still need to decide</h2>
+    <div id="qs"></div>
+  </section>
+</div>
+
+<script>
+const CARDS = [
+ {id:'heartbeat',name:'Heartbeat',type:'supply',rarity:'Common',sim:true,when:'Daily',
+  who:'Holders check in. Anyone runs the tick.',
+  text:p=>`If fewer than ${p.thr}% of holders check in today, the treasury spends ${p.burn}% of itself buying tokens back and burns them.`,
+  risk:'A quiet community drains its own treasury. That is the point, but keep the burn low.',
+  params:[{k:'thr',l:'Pulse threshold',min:20,max:70,step:5,def:40,u:'%'},{k:'burn',l:'Burn',min:1,max:5,step:1,def:3,u:'%'}]},
+ {id:'phoenix',name:'Phoenix',type:'supply',rarity:'Uncommon NFT',sim:true,when:'Daily price check',
+  who:'Automatic on tick.',
+  text:p=>`If the price falls more than ${p.drop}% below its 7-day high, the treasury spends ${p.spend}% on a buyback and burn. Waits 3 days before firing again.`,
+  risk:'Can be gamed by dumping on purpose to trigger the buyback. The cooldown and cap limit this.',
+  params:[{k:'drop',l:'Drop',min:20,max:60,step:5,def:35,u:'%'},{k:'spend',l:'Spend',min:5,max:20,step:1,def:10,u:'%'}]},
+ {id:'census',name:'Census',type:'supply',rarity:'Common',sim:true,when:'On holder milestones',
+  who:'Automatic on tick.',
+  text:p=>`Each time the coin passes another ${p.step} holders, the treasury buys back and burns ${p.burn}%.`,
+  risk:'Fake wallets can inflate holder count. Count only holders above a minimum balance.',
+  params:[{k:'step',l:'Every',min:50,max:500,step:50,def:100,u:' holders'},{k:'burn',l:'Burn',min:2,max:10,step:1,def:5,u:'%'}]},
+ {id:'bleed',name:'Slow Bleed',type:'supply',rarity:'Rare NFT',sim:false,when:'Daily',
+  who:'Lockers who stop showing up.',
+  text:p=>`Locked tokens of holders who miss ${p.days} days in a row lose ${p.rate}% per day to the treasury. Wallet balances are never touched.`,
+  risk:'Touches locked tokens, so it needs a very clear warning before anyone locks.',
+  params:[{k:'days',l:'Grace',min:3,max:14,step:1,def:7,u:' days'},{k:'rate',l:'Decay',min:0.5,max:2,step:0.5,def:1,u:'%'}]},
+ {id:'contest',name:'Meme Contest',type:'treasury',rarity:'Common',sim:true,when:'Weekly',
+  who:'Holders submit. Lockers vote.',
+  text:p=>`Every week holders submit a meme and vote. The winner gets ${p.share}% of the treasury.`,
+  risk:'Vote rings. Use the same lock + snapshot rules as the council.',
+  params:[{k:'share',l:'Prize',min:10,max:50,step:5,def:40,u:'%'}]},
+ {id:'bounty',name:'Bounty Board',type:'treasury',rarity:'Uncommon NFT',sim:true,when:'Weekly',
+  who:'Lockers post and approve tasks.',
+  text:p=>`Lockers post tasks such as art, a translation or a thread. A task that passes a ${p.q}% vote is paid from the treasury, up to ${p.cap}% a week.`,
+  risk:'Insiders paying themselves. The weekly cap limits the damage.',
+  params:[{k:'q',l:'Quorum',min:10,max:40,step:5,def:20,u:'%'},{k:'cap',l:'Weekly cap',min:5,max:20,step:1,def:10,u:'%'}]},
+ {id:'rainy',name:'Rainy Day',type:'treasury',rarity:'Common',sim:true,when:'Always on',
+  who:'Nobody. It is a lock.',
+  text:p=>`The treasury is locked until the coin has ${p.target} holders. Until then no other card can spend it.`,
+  risk:'Fine on its own. Combined with Heartbeat it cancels burns, which may be what you want.',
+  params:[{k:'target',l:'Unlock at',min:50,max:1000,step:50,def:200,u:' holders'}]},
+ {id:'streak',name:'Streak',type:'ritual',rarity:'Common',sim:true,when:'Daily',
+  who:'Holders check in.',
+  text:p=>`Check in every day. Each day ${p.pool}% of the treasury is shared among today's check-ins, weighted by streak length (capped at ${p.cap} days).`,
+  risk:'Bots checking in. Require a minimum balance and a small storage deposit per player.',
+  params:[{k:'pool',l:'Daily pool',min:0.5,max:3,step:0.5,def:1,u:'%'},{k:'cap',l:'Streak cap',min:7,max:60,step:1,def:30,u:'d'}]},
+ {id:'rollcall',name:'Roll Call',type:'ritual',rarity:'Uncommon NFT',sim:true,when:'Weekly, 1 hour',
+  who:'Holders show up together.',
+  text:p=>`Once a week the coin opens a one-hour window. If ${p.thr}% of holders check in during it, everyone present shares ${p.pool}% of the treasury.`,
+  risk:'Time zones. Rotate the hour each week.',
+  params:[{k:'thr',l:'Needed',min:20,max:60,step:5,def:35,u:'%'},{k:'pool',l:'Reward',min:5,max:15,step:1,def:10,u:'%'}]},
+ {id:'relay',name:'Relay',type:'ritual',rarity:'Rare NFT',sim:true,when:'Every 24h',
+  who:'The current baton carrier.',
+  text:p=>`A baton passes from holder to holder. Each carrier has 24 hours to pass it to someone who hasn't held it yet. When the chain breaks, the last ${p.n} carriers split ${p.pool}% of the treasury.`,
+  risk:'Passing to your own second wallet. Require the receiver to be a holder for 3+ days.',
+  params:[{k:'n',l:'Paid carriers',min:3,max:10,step:1,def:5,u:''},{k:'pool',l:'Pot',min:5,max:20,step:1,def:10,u:'%'}]},
+ {id:'raid',name:'Raid',type:'ritual',rarity:'Rare NFT',sim:false,when:'Weekly',
+  who:'Two coins that both opt in.',
+  text:p=>`Challenge another coin that also has Raid. The coin with the higher check-in rate this week takes ${p.pool}% of the loser's treasury.`,
+  risk:'Contracts calling each other. Best saved for after the hackathon.',
+  params:[{k:'pool',l:'Stake',min:2,max:10,step:1,def:5,u:'%'}]},
+ {id:'echo',name:'Echo',type:'charm',rarity:'Rare NFT',sim:true,when:'Passive',
+  who:'No one. It modifies a neighbour.',
+  text:()=>`The card to the left of Echo fires twice as strongly.`,
+  risk:'Doubling a burn doubles its risk. The left card\'s limits still apply after doubling.',
+  params:[]},
+ {id:'shield',name:'Shield',type:'charm',rarity:'Uncommon NFT',sim:true,when:'Weekly',
+  who:'No one. It modifies burns.',
+  text:()=>`Absorbs the first Heartbeat or Phoenix burn each week.`,
+  risk:'Low.',
+  params:[]},
+ {id:'anchor',name:'Anchor',type:'charm',rarity:'Common',sim:false,when:'Passive',
+  who:'The creator, at launch.',
+  text:()=>`Locks the card to its left. Holders can never vote it out.`,
+  risk:'This is how the recommended Anchor slot would be built.',
+  params:[]},
+];
+const byId = Object.fromEntries(CARDS.map(c=>[c.id,c]));
+const TYPE_LABEL={supply:'Supply',treasury:'Treasury',ritual:'Ritual',charm:'Charm'};
+
+/* --- curve --- */
+const X0=30, Y0=1e9, K=X0*Y0, CAP=8e8, FEE=0.01;
+let S, slots=[{id:'heartbeat'},{id:'streak'},{id:'contest'}];
+slots.forEach(s=>s.p=defaults(s.id));
+function defaults(id){const o={};byId[id].params.forEach(p=>o[p.k]=p.def);return o}
+
+function fresh(){
+  S={day:0,x:X0,y:Y0,treasury:0,burned:0,paid:0,holders:1,chk:0,streakAvg:0,prices:[price0()],treas:[0],log:[],
+     relay:0,shieldUsed:false,phoenixCd:0,censusLvl:0,fired:new Set()};
+  buyCurve(1,false); // creator first buy, capped small
+  S.prices=[px()];
+  addLog('ok','Coin launched. Creator bought 1 NEAR worth (first buy is capped).');
+}
+function price0(){return X0/Y0}
+function px(){return S.x/S.y}
+function sold(){return Y0-S.y}
+function circ(){return Math.max(0,sold()-S.burned)}
+function buyCurve(n,feeless){
+  if(n<=0) return 0;
+  if(sold()>=CAP) return 0;
+  let fee=feeless?0:n*FEE, net=n-fee;
+  let nx=S.x+net, ny=K/nx;
+  if(Y0-ny>CAP){ny=Y0-CAP;nx=K/ny;net=nx-S.x;fee=feeless?0:net*FEE/(1-FEE)}
+  const t=S.y-ny; S.x=nx;S.y=ny; if(!feeless) S.treasury+=fee; return t;
+}
+function sellCurve(t){
+  if(t<=0) return 0;
+  const ny=S.y+t, nx=K/ny, out=S.x-nx, fee=out*FEE;
+  S.x=nx;S.y=ny;S.treasury+=fee; return out-fee;
+}
+function rainyLocked(){
+  const r=slots.find(s=>s&&s.id==='rainy'); return r && S.holders<r.p.target;
+}
+function spend(amt,why){
+  if(rainyLocked()){addLog('blk',`${why} blocked: Rainy Day keeps the treasury locked until ${slots.find(s=>s&&s.id==='rainy').p.target} holders.`);return 0}
+  amt=Math.min(amt,S.treasury); S.treasury-=amt; return amt;
+}
+function buyback(amt,card){
+  const n=spend(amt,card); if(!n) return;
+  const t=buyCurve(n,true); S.burned+=t; S.fired.add(card);
+  addLog('burn',`${card}: treasury spent ${fmtN(n)} NEAR, bought back and burned ${fmtT(t)} tokens.`);
+}
+function pay(amt,card,to){
+  const n=spend(amt,card); if(!n) return;
+  S.paid+=n; S.fired.add(card);
+  addLog('pay',`${card}: ${fmtN(n)} NEAR paid to ${to}.`);
+}
+
+function step(){
+  S.day++; S.fired=new Set();
+  const buyV=+el('c-buy').value, sellP=+el('c-sell').value, chk=+el('c-chk').value;
+  const r=Math.random;
+  // trading
+  const b=buyV*(0.6+r()*0.8);
+  const atCap=sold()>=CAP;
+  const bought=buyCurve(b,false);
+  if(atCap) addLog('blk','Sale cap reached: buying is paused, selling still works.');
+  const st=circ()*sellP/100*(0.5+r());
+  sellCurve(Math.min(st,circ()));
+  S.holders=Math.max(1,Math.round(S.holders+(bought>0?b*(2+r()*4):0)-S.holders*sellP/100*0.5*r()));
+  S.chk=Math.max(0,Math.min(100,Math.round(chk+(r()-0.5)*20)));
+  S.streakAvg=S.chk>=50?S.streakAvg+1:Math.max(0,Math.floor(S.streakAvg*0.5));
+  if(S.day%7===1) S.shieldUsed=false;
+  if(S.phoenixCd>0) S.phoenixCd--;
+  const weekly=S.day%7===0;
+  const hi7=Math.max(...S.prices.slice(-7));
+
+  slots.forEach((s,i)=>{
+    if(!s) return; const c=byId[s.id], p=s.p;
+    const m=(slots[i+1]&&slots[i+1].id==='echo')?2:1;
+    const tag=m===2?`${c.name} ×2`:c.name;
+    switch(s.id){
+      case 'heartbeat':
+        if(S.chk<p.thr){
+          if(shieldAvail()){S.shieldUsed=true;S.fired.add('Shield');addLog('ok',`Shield absorbed a Heartbeat burn (check-ins ${S.chk}% < ${p.thr}%).`)}
+          else buyback(S.treasury*p.burn*m/100,tag);
+        } break;
+      case 'phoenix':
+        if(px()<hi7*(1-p.drop/100)&&S.phoenixCd===0){
+          if(shieldAvail()){S.shieldUsed=true;S.fired.add('Shield');addLog('ok','Shield absorbed a Phoenix burn.')}
+          else {buyback(S.treasury*p.spend*m/100,tag);S.phoenixCd=3}
+        } break;
+      case 'census':{
+        const lvl=Math.floor(S.holders/p.step);
+        if(lvl>S.censusLvl){S.censusLvl=lvl;buyback(S.treasury*p.burn*m/100,`${tag} (${lvl*p.step} holders)`)}
+        break;}
+      case 'streak':
+        if(S.chk>0) pay(S.treasury*p.pool*m/100,tag,`${Math.round(S.holders*S.chk/100)} check-ins (avg streak ${Math.min(S.streakAvg,p.cap)}d)`);
+        break;
+      case 'contest':
+        if(weekly) pay(S.treasury*p.share*m/100,tag,'this week\'s winning meme');
+        break;
+      case 'bounty':
+        if(weekly){ if(r()<0.7) pay(S.treasury*p.cap*m/100*(0.4+r()*0.6),tag,'an approved task'); else addLog('tre',`${c.name}: no task reached the ${p.q}% quorum this week.`)}
+        break;
+      case 'rollcall':
+        if(weekly){ if(S.chk>=p.thr) pay(S.treasury*p.pool*m/100,tag,'everyone at Roll Call'); else addLog('tre',`${c.name}: only ${S.chk}% showed up, needed ${p.thr}%. No reward.`)}
+        break;
+      case 'relay':
+        if(r()<Math.min(0.92,S.chk/100+0.25)) S.relay++;
+        else { if(S.relay>=2){pay(S.treasury*p.pool*m/100,tag,`the last ${Math.min(p.n,S.relay)} carriers (chain of ${S.relay})`)} else addLog('tre','Relay: the baton dropped right away. No payout.'); S.relay=0 }
+        break;
+    }
+  });
+  S.prices.push(px()); S.treas.push(S.treasury);
+  render();
+}
+function shieldAvail(){return slots.some(s=>s&&s.id==='shield') && !S.shieldUsed}
+
+/* --- render --- */
+const el=id=>document.getElementById(id);
+function fmtN(n){return n>=100?n.toFixed(0):n>=1?n.toFixed(2):n.toFixed(3)}
+function fmtT(t){return t>=1e6?(t/1e6).toFixed(2)+'M':t>=1e3?(t/1e3).toFixed(1)+'k':t.toFixed(0)}
+function addLog(cls,msg){S.log.unshift({d:S.day,cls,msg}); S.log=S.log.slice(0,60)}
+
+function renderSlots(){
+  const box=el('slots'); box.innerHTML='';
+  slots.forEach((s,i)=>{
+    const d=document.createElement('div');
+    if(!s){d.className='rc empty';d.innerHTML=`<div><div class="nm" style="font-size:15px">Slot ${i+1}</div><div class="small">empty: pick a card below</div></div>`;box.appendChild(d);return}
+    const c=byId[s.id]; d.className='rc'+(S&&S.fired.has(c.name)||S&&[...S.fired].some(f=>f.startsWith(c.name))?' fired':'');
+    d.dataset.type=c.type;
+    d.innerHTML=`<button class="x" aria-label="Remove ${c.name}" data-rm="${i}">×</button>
+      <div class="kind"><span>${TYPE_LABEL[c.type]}</span><span>${i===0?'slot 1':'slot '+(i+1)}</span></div>
+      <div class="nm">${c.name}</div><div class="tx">${c.text(s.p)}</div>
+      ${c.params.map(p=>`<div class="param"><span>${p.l}</span><span class="mono">${s.p[p.k]}${p.u}</span>
+        <input type="range" id="p-${i}-${p.k}" min="${p.min}" max="${p.max}" step="${p.step}" value="${s.p[p.k]}" data-slot="${i}" data-k="${p.k}" aria-label="${c.name} ${p.l}"></div>`).join('')}
+      <div class="live">${liveText(s,i)}</div>`;
+    box.appendChild(d);
+  });
+  box.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{slots[+b.dataset.rm]=null;renderAll()});
+  box.querySelectorAll('input[type=range]').forEach(inp=>inp.oninput=()=>{const s=slots[+inp.dataset.slot];s.p[inp.dataset.k]=+inp.value;renderSlots()});
+}
+function liveText(s,i){
+  if(!S) return '';
+  const p=s.p;
+  switch(s.id){
+    case 'heartbeat': return `pulse today: ${S.chk}% ${S.chk<p.thr?'▼ below':'▲ ok'}`;
+    case 'phoenix': {const hi=Math.max(...S.prices.slice(-7));return `vs 7d high: ${((px()/hi-1)*100).toFixed(1)}%${S.phoenixCd?` · cooldown ${S.phoenixCd}d`:''}`}
+    case 'census': return `holders ${S.holders} · next at ${(S.censusLvl+1)*p.step}`;
+    case 'streak': return `avg streak ${Math.min(S.streakAvg,p.cap)}d · pool ${fmtN(S.treasury*p.pool/100)} NEAR`;
+    case 'contest': return `next contest in ${7-(S.day%7)}d · prize ${fmtN(S.treasury*p.share/100)} NEAR`;
+    case 'bounty': return `next review in ${7-(S.day%7)}d`;
+    case 'rainy': return rainyLocked()?`locked · ${S.holders}/${p.target} holders`:'unlocked';
+    case 'rollcall': return `next roll call in ${7-(S.day%7)}d`;
+    case 'relay': return `chain: ${S.relay} carriers`;
+    case 'echo': return slots[i-1]?`doubling ${byId[slots[i-1].id].name}`:'nothing on its left';
+    case 'shield': return S.shieldUsed?'used this week':'ready';
+    case 'anchor': return slots[i-1]?`${byId[slots[i-1].id].name} is locked in`:'nothing on its left';
+    default: return 'not simulated: description only';
+  }
+}
+function renderHand(){
+  const h=el('hand'); h.innerHTML='';
+  const full=!slots.includes(null);
+  CARDS.forEach(c=>{
+    const used=slots.some(s=>s&&s.id===c.id);
+    const b=document.createElement('button'); b.className='chip'; b.dataset.type=c.type;
+    b.innerHTML=`${c.name} <span class="sm">${TYPE_LABEL[c.type].toLowerCase()}${c.sim?'':' · not simulated'}</span>`;
+    b.disabled=used||full; b.title=c.text(defaults(c.id));
+    b.onclick=()=>{const i=slots.indexOf(null); if(i<0) return; slots[i]={id:c.id,p:defaults(c.id)}; renderAll()};
+    h.appendChild(b);
+  });
+}
+function renderStats(){
+  el('coin-h').textContent=`Day ${S.day}`;
+  const st=[
+    ['Price',(px()*1e6).toFixed(2)+' / M'],['Treasury',fmtN(S.treasury)+' NEAR'],['Holders',S.holders],
+    ['Sold',(sold()/CAP*100).toFixed(1)+'% of cap'],['Burned',fmtT(S.burned)],['Paid to players',fmtN(S.paid)+' NEAR'],
+  ];
+  el('stats').innerHTML=st.map(([l,v])=>`<div class="stat"><div class="l">${l}</div><div class="v">${v}</div></div>`).join('');
+  // chart
+  const ps=S.prices.map(p=>p*1e6), W=400,H=150,pad=18;
+  const mx=Math.max(...ps)*1.1, mn=0;
+  const X=i=>ps.length<2?W/2:pad+(W-pad*2)*i/(ps.length-1), Y=v=>H-pad-(H-pad*2)*(v-mn)/(mx-mn||1);
+  const pts=ps.map((v,i)=>`${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+  el('chart').innerHTML=`
+    <line x1="${pad}" x2="${W-pad}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--line)" stroke-width="1"/>
+    <line x1="${pad}" x2="${W-pad}" y1="${Y(mx/1.1)}" y2="${Y(mx/1.1)}" stroke="var(--line)" stroke-dasharray="3 3" stroke-width="1"/>
+    <polygon points="${X(0)},${Y(0)} ${pts} ${X(ps.length-1)},${Y(0)}" fill="color-mix(in srgb, var(--accent) 14%, transparent)"/>
+    <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"/>
+    <circle cx="${X(ps.length-1)}" cy="${Y(ps[ps.length-1])}" r="3.5" fill="var(--accent)"/>
+    <text x="${pad}" y="${Y(mx/1.1)-4}" font-size="10" fill="var(--muted)" font-family="IBM Plex Mono, monospace">high ${(mx/1.1).toFixed(2)}</text>`;
+  el('log').innerHTML=S.log.map(l=>`<li><span class="d">day ${l.d}</span><span class="${l.cls}">${l.msg}</span></li>`).join('');
+}
+function renderCtl(){el('v-buy').textContent=el('c-buy').value+' NEAR';el('v-sell').textContent=el('c-sell').value+'%';el('v-chk').textContent=el('c-chk').value+'%'}
+function render(){renderSlots();renderStats()}
+function renderAll(){renderHand();render()}
+
+/* catalog */
+el('cat-table').querySelector('tbody').innerHTML=CARDS.map(c=>`<tr>
+  <td><b class="t-${c.type}">${c.name}</b><br><span class="small muted">${TYPE_LABEL[c.type]}</span></td>
+  <td>${c.text(defaults(c.id))}${c.params.length?`<br><span class="small muted">Limits: ${c.params.map(p=>`${p.l.toLowerCase()} ${p.min}–${p.max}${p.u}`).join(', ')}</span>`:''}</td>
+  <td>${c.who}</td><td>${c.when}</td><td>${c.rarity}</td><td class="small">${c.risk}</td>
+  <td>${c.sim?'<span class="pill p-good">yes</span>':'<span class="pill p-warn">no</span>'}</td></tr>`).join('');
+
+/* vote calculator */
+function calc(){
+  const wl=+el('w-whale').value*1e6, n=+el('w-n').value, sl=+el('w-s').value*1e3, ws=+el('w-ws').value, ss=+el('w-ss').value;
+  el('v-whale').textContent=fmtT(wl); el('v-n').textContent=n; el('v-s').textContent=fmtT(sl);
+  el('v-ws').textContent=ws+'d'; el('v-ss').textContent=ss+'d';
+  const bonus=s=>1+Math.min(s,30)/30;
+  const rows=[
+    ['1 token = 1 vote', wl, n*sl],
+    ['Square root', Math.sqrt(wl), n*Math.sqrt(sl)],
+    ['Square root × streak (proposed)', Math.sqrt(wl)*bonus(ws), n*Math.sqrt(sl)*bonus(ss)],
+  ];
+  el('w-out').innerHTML=rows.map(([l,a,b])=>{const pa=a/(a+b)*100;return `<div>
+    <div style="display:flex;justify-content:space-between;font-size:13px;gap:8px"><b>${l}</b><span class="mono">whale ${pa.toFixed(1)}% · crowd ${(100-pa).toFixed(1)}%</span></div>
+    <div class="bar"><i style="width:${pa}%"></i></div></div>`}).join('')+
+    `<p class="small muted" style="margin:0">With the proposed 5% cap per account, the whale's share in any row would be cut down to 5%.</p>`;
+}
+['w-whale','w-n','w-s','w-ws','w-ss'].forEach(id=>el(id).oninput=calc);
+
+/* open questions */
+const QS=[
+ ['Is the product the launchpad or one coin?','A launchpad is a common idea, and meme.cooking (a launchpad) is a hackathon partner. One coin with a sharp hero card is easier to judge.','Build the launchpad, but lead the demo with one coin, $PULSE, running Heartbeat. If the factory isn\'t working by Nov 5, ship only $PULSE.'],
+ ['Which governance model?','Frozen is safe but static. A full council invites whale and bot problems we can\'t fully test in 2 weeks.','Anchor slot (frozen) + 2 council slots with lock-to-vote, √ weight and a 5% cap. Slot deeds only if there\'s time.'],
+ ['Do cards need to be NFTs at all for the hackathon?','NFTs add a NEP-171 contract, escrow and metadata. They also make a second track claim possible.','Commons as plain records from day 1. Make one rare card a real NFT (Echo) end to end, to prove the idea without building the whole system.'],
+ ['Who runs the daily tick?','Contracts can\'t wake themselves up, so something has to call tick() once a day.','Anyone can call it for a tiny tip. We also run our own small bot with a function-call key restricted to tick(), which gives a Security-track angle.'],
+ ['How do we count "holders" without bots gaming it?','Census, Heartbeat and Roll Call all depend on a holder count. One person with 500 wallets breaks them.','Count only accounts above a minimum balance that have held for 3+ days and paid a storage deposit. Say plainly in the README that this isn\'t sybil-proof.'],
+ ['Rewards in NEAR or in the coin itself?','The treasury holds NEAR from fees. Paying in NEAR is clearer. Paying in the coin means another buyback.','Pay in NEAR. Simpler and easier to explain.'],
+ ['Testnet only?','Real money brings legal and safety questions. Only the prize payout account must be on mainnet.','Testnet only. Label it as a game, not an investment.'],
+];
+el('qs').innerHTML=QS.map(([q,why,lean])=>`<div class="q"><div><h3>${q}</h3><p class="small muted" style="margin:0">${why}</p></div><div class="lean"><b>My lean</b><br>${lean}</div></div>`).join('');
+
+/* tabs */
+document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav.tabs button').forEach(x=>x.setAttribute('aria-selected',x===b));
+  document.querySelectorAll('section[id^=tab-]').forEach(s=>s.hidden=s.id!=='tab-'+b.dataset.tab);
+});
+const h0=location.hash.slice(1); if(h0){const b=document.querySelector(`nav.tabs button[data-tab="${h0}"]`); if(b) b.click()}
+
+['c-buy','c-sell','c-chk'].forEach(id=>el(id).oninput=renderCtl);
+el('b-day').onclick=step;
+el('b-week').onclick=()=>{for(let i=0;i<7;i++) step()};
+el('b-reset').onclick=()=>{fresh();renderAll()};
+
+fresh(); renderCtl(); calc();
+for(let i=0;i<10;i++) step(); // open on a running example
+renderAll();
+</script>
+<script src="sim-engine.js"></script>
+<script src="launch-engine.js"></script>
+<script>
+(function(){
+  const R=window.RulecardSim; if(!R) return;
+  const COL=['var(--s1)','var(--s2)','var(--s3)','var(--s4)','var(--s5)'];
+  const shown=R.SCENARIOS.map(()=>true);
+  const $=id=>document.getElementById(id);
+  let results=[];
+  function params(){return Object.assign({},R.DEFAULTS,{
+    hbThr:+$('s-thr').value,hbBurn:+$('s-burn').value,burnFrom:$('s-from').value,weighting:$('s-w').value,
+    stPool:+$('s-pool').value,ctShare:+$('s-ct').value,minBal:+$('s-min').value,shield:$('s-shield').checked})}
+  const METRIC={
+    supply:{f:v=>v/1e7,fmt:v=>v.toFixed(1)+'%'},
+    circ:{f:v=>v/1e6,fmt:v=>v.toFixed(0)+'M'},
+    pulse:{f:v=>v,fmt:v=>v.toFixed(0)+'%'},
+    realPulse:{f:v=>v,fmt:v=>v.toFixed(0)+'%'},
+    fires:{f:v=>v,fmt:v=>v.toFixed(0)},
+    fee:{f:v=>v,fmt:v=>v.toFixed(2)},
+  };
+  function niceTicks(lo,hi,n){const span=hi-lo||1,step0=span/n,mag=Math.pow(10,Math.floor(Math.log10(step0))),err=step0/mag,step=(err>=5?10:err>=2?5:err>=1.5?2:1)*mag;
+    const t=[];for(let v=Math.ceil(lo/step)*step;v<=hi+1e-9;v+=step)t.push(+v.toFixed(10));return t}
+  function draw(){
+    const key=$('s-metric').value,M=METRIC[key],W=680,H=300,L=56,Rp=14,T=14,B=34;
+    const ser=results.map((r,i)=>({i,p10:r[key].p10.map(M.f),p50:r[key].p50.map(M.f),p90:r[key].p90.map(M.f)})).filter(s=>shown[s.i]);
+    let lo=Infinity,hi=-Infinity; ser.forEach(s=>{lo=Math.min(lo,...s.p10);hi=Math.max(hi,...s.p90)});
+    if(key==='pulse'||key==='realPulse'){lo=0;hi=100} else if(key==='supply'){hi=100;lo=Math.min(lo,99);lo=Math.floor(lo-1)} else {lo=Math.min(0,lo);hi=hi*1.08||1}
+    if(!isFinite(lo)){lo=0;hi=1}
+    const yt=niceTicks(lo,hi,5); lo=Math.min(lo,yt[0]); hi=Math.max(hi,yt[yt.length-1]);
+    const X=d=>L+(W-L-Rp)*d/59, Y=v=>T+(H-T-B)*(1-(v-lo)/((hi-lo)||1));
+    let g='';
+    yt.forEach(v=>{g+=`<line x1="${L}" x2="${W-Rp}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${L-8}" y="${Y(v)+4}" text-anchor="end" font-size="11" fill="var(--muted)" font-family="IBM Plex Mono, monospace">${M.fmt(v)}</text>`});
+    [0,9,19,29,39,49,59].forEach(d=>{g+=`<text x="${X(d)}" y="${H-12}" text-anchor="middle" font-size="11" fill="var(--muted)" font-family="IBM Plex Mono, monospace">day ${d+1}</text>`});
+    if(key==='pulse'){const th=+$('s-thr').value;g+=`<line x1="${L}" x2="${W-Rp}" y1="${Y(th)}" y2="${Y(th)}" stroke="var(--ink)" stroke-dasharray="5 4" stroke-width="1.2"/><text x="${W-Rp}" y="${Y(th)-5}" text-anchor="end" font-size="11" fill="var(--ink)" font-family="IBM Plex Mono, monospace">Heartbeat fires below ${th}%</text>`}
+    ser.forEach(s=>{const c=COL[s.i];
+      const band=s.p90.map((v,d)=>`${X(d).toFixed(1)},${Y(v).toFixed(1)}`).concat(s.p10.map((v,d)=>`${X(d).toFixed(1)},${Y(v).toFixed(1)}`).reverse()).join(' ');
+      g+=`<polygon points="${band}" fill="${c}" fill-opacity=".12" stroke="none"/>`});
+    ser.forEach(s=>{const c=COL[s.i];
+      g+=`<polyline points="${s.p50.map((v,d)=>`${X(d).toFixed(1)},${Y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="${c}" stroke-width="2.2" stroke-linejoin="round"/>`;
+      g+=`<circle cx="${X(59)}" cy="${Y(s.p50[59])}" r="3.5" fill="${c}"/>`});
+    $('s-chart').innerHTML=g;
+  }
+  function legend(){
+    $('s-legend').innerHTML=R.SCENARIOS.map((s,i)=>`<button aria-pressed="${shown[i]}" data-i="${i}" title="${s.desc}"><i style="background:${COL[i]}"></i>${s.name}</button>`).join('');
+    $('s-legend').querySelectorAll('button').forEach(b=>b.onclick=()=>{shown[+b.dataset.i]=!shown[+b.dataset.i];legend();draw()});
+  }
+  function table(){
+    $('s-table').querySelector('tbody').innerHTML=results.map((r,i)=>{const s=r.summary,sc=R.SCENARIOS[i];
+      return `<tr><td><span class="sw" style="background:${COL[i]}"></span><b>${sc.name}</b><br><span class="small muted">${sc.desc}</span></td>
+      <td class="mono">${(s.supply/1e7).toFixed(1)}%</td><td class="mono">${s.burnedPct.toFixed(1)}% <span class="muted">(${(s.burnedPct*10).toFixed(0)}M)</span></td>
+      <td class="mono">${s.fires.toFixed(0)} days</td><td class="mono">${r.pulse.p50[59].toFixed(0)}% / ${r.realPulse.p50[59].toFixed(0)}%</td>
+      <td class="mono">${s.paidReal.toFixed(2)} NEAR</td><td class="mono">${sc.bots?s.botShare.toFixed(1)+'%':'–'}</td>
+      <td class="mono">${sc.bots?`<span class="${s.botProfit<0?'p-good':'p-bad'}">${s.botProfit.toFixed(2)} NEAR</span>`:'–'}</td></tr>`}).join('');
+  }
+  const THR=[20,30,40,50,60,70],BRN=[1,2,3,4,5],SW=['steady','whale','hype','dying'];
+  function sweep(){
+    const P=params();
+    $('s-sweep').innerHTML=SW.map(id=>{const i=R.SCENARIOS.findIndex(s=>s.id===id),sc=R.SCENARIOS[i],grid=R.sweep(sc,P,THR,BRN,10);
+      return `<div class="hm"><h3><i style="background:${COL[i]}"></i>${sc.name}</h3><table><thead><tr><th>thr \\ burn</th>${BRN.map(b=>`<th>${b}%</th>`).join('')}</tr></thead><tbody>${
+        grid.map((row,ti)=>`<tr><th>${THR[ti]}%</th>${row.map((v,bi)=>`<td class="${THR[ti]===P.hbThr&&BRN[bi]===P.hbBurn?'cur':''}" style="background:color-mix(in srgb, var(--s3) ${Math.min(80,v*4).toFixed(0)}%, var(--sunk))">${v.toFixed(1)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`}).join('');
+  }
+  function labels(){$('sv-thr').textContent=$('s-thr').value+'%';$('sv-burn').textContent=$('s-burn').value+'%';$('sv-pool').textContent=$('s-pool').value+'%';$('sv-ct').textContent=$('s-ct').value+'%'}
+  let sweepTimer;
+  function rerun(){labels();const P=params();results=R.SCENARIOS.map(sc=>R.runMany(sc,P,30,60));draw();table();clearTimeout(sweepTimer);sweepTimer=setTimeout(sweep,120)}
+  ['s-thr','s-burn','s-pool','s-ct'].forEach(id=>$(id).oninput=rerun);
+  ['s-from','s-w','s-min','s-shield'].forEach(id=>$(id).onchange=rerun);
+  $('s-metric').onchange=draw;
+  legend(); rerun();
+})();
+</script>
+<script>
+(function(){
+  const R=window.RulecardLaunch; if(!R) return;
+  const $=id=>document.getElementById(id);
+  const COL=['var(--s8)','var(--s3)','var(--s2)','var(--s6)','var(--s1)','var(--s4)','var(--s7)','var(--s5)','var(--s9)'];
+  const SHOW0=['plain','lump','happy','full','vest','tax'];
+  const shown=R.PRESETS.map(p=>SHOW0.includes(p.id));
+  let results=[], ran=false, timer;
+  function G(){return Object.assign({},R.DEFAULTS,{hype:+$('l-hype').value,snipers:+$('l-sn').value,sniperSize:+$('l-ss').value,virtualNear:+$('l-vn').value,buybackPct:+$('l-bb').value,farmerSize:+$('l-fs').value})}
+  function labels(){$('lv-hype').textContent=$('l-hype').value+'×';$('lv-sn').textContent=$('l-sn').value;$('lv-ss').textContent=(+$('l-ss').value).toFixed(1);$('lv-bb').textContent=$('l-bb').value+'% of pot';$('lv-fs').textContent=$('l-fs').value+' NEAR'}
+  function ticks(lo,hi,n){const span=hi-lo||1,s0=span/n,m=Math.pow(10,Math.floor(Math.log10(s0))),e=s0/m,st=(e>=5?10:e>=2?5:e>=1.5?2:1)*m;const t=[];for(let v=Math.ceil(lo/st)*st;v<=hi+1e-9;v+=st)t.push(+v.toFixed(10));return t}
+  const FMT={price:v=>v.toFixed(v<10?1:0)+'×',pot:v=>v.toFixed(1),pulse:v=>v.toFixed(0)+'%'};
+  function draw(){
+    const key=$('l-metric').value,W=680,H=300,L=52,Rp=14,T=14,B=34;
+    const ser=results.map((r,i)=>Object.assign({i},r[key])).filter(s=>shown[s.i]);
+    let lo=0,hi=-Infinity; ser.forEach(s=>{hi=Math.max(hi,...s.p90)});
+    if(key==='pulse') hi=100; if(!isFinite(hi)||hi<=0) hi=1; hi*=1.05;
+    const yt=ticks(lo,hi,5); hi=Math.max(hi,yt[yt.length-1]);
+    const X=h=>L+(W-L-Rp)*h/71, Y=v=>T+(H-T-B)*(1-(v-lo)/((hi-lo)||1));
+    let g='';
+    yt.forEach(v=>{g+=`<line x1="${L}" x2="${W-Rp}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${L-8}" y="${Y(v)+4}" text-anchor="end" font-size="11" fill="var(--muted)" font-family="IBM Plex Mono, monospace">${FMT[key](v)}</text>`});
+    [0,12,24,36,48,60,71].forEach(h=>{g+=`<text x="${X(h)}" y="${H-12}" text-anchor="middle" font-size="11" fill="var(--muted)" font-family="IBM Plex Mono, monospace">${h===71?'72h':h+'h'}</text>`});
+    if(key==='price') g+=`<line x1="${L}" x2="${W-Rp}" y1="${Y(1)}" y2="${Y(1)}" stroke="var(--ink)" stroke-dasharray="4 4" stroke-width="1"/><text x="${W-Rp}" y="${Y(1)-5}" text-anchor="end" font-size="11" fill="var(--ink)" font-family="IBM Plex Mono, monospace">launch price</text>`;
+    ser.forEach(s=>{const band=s.p90.map((v,h)=>`${X(h).toFixed(1)},${Y(v).toFixed(1)}`).concat(s.p10.map((v,h)=>`${X(h).toFixed(1)},${Y(v).toFixed(1)}`).reverse()).join(' ');
+      g+=`<polygon points="${band}" fill="${COL[s.i]}" fill-opacity=".10"/>`});
+    ser.forEach(s=>{g+=`<polyline points="${s.p50.map((v,h)=>`${X(h).toFixed(1)},${Y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="${COL[s.i]}" stroke-width="2.2" stroke-linejoin="round"/><circle cx="${X(71)}" cy="${Y(s.p50[71])}" r="3.5" fill="${COL[s.i]}"/>`});
+    $('l-chart').innerHTML=g;
+  }
+  function legend(){
+    $('l-legend').innerHTML=R.PRESETS.map((p,i)=>`<button aria-pressed="${shown[i]}" data-i="${i}" title="${p.desc}"><i style="background:${COL[i]}"></i>${p.name}</button>`).join('');
+    $('l-legend').querySelectorAll('button').forEach(b=>b.onclick=()=>{shown[+b.dataset.i]=!shown[+b.dataset.i];legend();if(ran)draw()});
+  }
+  const pnl=v=>`<span class="${v>=0?'p-good':'p-bad'}">${v>=0?'+':''}${v.toFixed(1)}</span>`;
+  function table(){
+    $('l-table').querySelector('tbody').innerHTML=results.map((r,i)=>{const s=r.summary,p=R.PRESETS[i];
+      return `<tr><td><span class="sw" style="background:${COL[i]}"></span><b>${p.name}</b><br><span class="small muted">${p.desc}</span></td>
+      <td class="mono">${s.peak.toFixed(1)}×</td><td class="mono">${s.final.toFixed(1)}×</td><td class="mono">${s.drawdown.toFixed(0)}%</td>
+      <td class="mono">${pnl(s.pnlSnp)}</td><td class="mono">${pnl(s.pnlComm)}</td><td class="mono">${pnl(s.pnlMom)}</td>
+      <td class="mono">${pnl(s.pnlFarm)} <span class="muted">(${r.farmWinRate.toFixed(0)}%)</span></td><td class="mono">${s.fees.toFixed(1)}</td></tr>`}).join('');
+  }
+  function rerun(){labels();$('l-status').textContent='Running…';clearTimeout(timer);timer=setTimeout(()=>{const g=G();results=R.PRESETS.map(p=>R.runMany(p,g,30));ran=true;draw();table();$('l-status').textContent=''},60)}
+  ['l-hype','l-sn','l-ss','l-bb','l-fs'].forEach(id=>$(id).oninput=rerun);
+  $('l-vn').onchange=rerun; $('l-metric').onchange=()=>{if(ran)draw()};
+  legend(); labels();
+  // run the first time the tab opens, so the other tabs stay fast
+  document.querySelector('nav.tabs button[data-tab="launch"]').addEventListener('click',()=>{if(!ran)rerun()});
+  if(location.hash==='#launch') rerun();
+})();
+</script>
+</body>
+</html>

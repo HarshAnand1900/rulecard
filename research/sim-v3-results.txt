@@ -1,0 +1,336 @@
+Rulecard v3 simulation — 2026-11-06 — 10 worlds per scenario
+
+=== base  (10 worlds × 8 coins = 80 coins, 5 days each)
+Coins reaching L2 70% · L3 25% · L4 11% · graduated 11% · died 20%
+Median hours to L2 4.75 · L3 11.7 · L4 26.0 · graduation 16.6
+Median peak market cap 3870 NEAR · median holders at end 75
+  stuck below L2: when only one rule was missing it was wallets 100%, checkins 0%
+  stuck below L3: when only one rule was missing it was wallets 100%
+  stuck below L4: when only one rule was missing it was wallets 100%
+Invariant violations: 0 · worst token-ledger error 3.2e-15
+Cards made per world by source: pack 4270 (R 57.9, E 0.00, M 0.00) · sacrifice 269 (R 15.4, E 2.20, M 0.00) · levelDrop 364 (R 58.2, E 0.60, M 0.00) · craft 170 (R 160, E 10.0, M 0.00) · raidMvp 11.7 (R 3.90, E 0.00, M 0.00) · wild 13.1 (R 0.30, E 0.00, M 0.00) · prophecy 5.40 (R 1.50, E 0.00, M 0.00) · htlSurvivor 18.9 (R 1.90, E 0.00, M 0.00) · circle 7.00 (R 1.70, E 0.00, M 0.00) · blackHoleTop 0.80 (R 0.10, E 0.00, M 0.00)
+Per world: plays 3234, crafts 170, sacrifices 269, market sales 188 (171 NEAR, 8.53 to pots), raids 12.0 (0.60 hard), alliances 0.70, Hold the Line 2.30 (survived 1.70), Wild made 50.5 / played 13.1
+Deck pressure per world: downgrades 290, out of stock R 282 / E 16.5 / M 1.00, packs 4270 (blocked by 3 Commons 1071), hand full 0.30
+Plays by card (per world): rebrand 600, taxHoliday 591, rollCall 589, echo 587, hypeSiren 579, liquidityRain 61.5, ward 40.9, rally 39.8, lastStand 33.9, happyHour 20.3, recruit 14.9, diamondPool 14.1, slowBurn 14.0, friendlyRaid 11.9, summoningCircle 10.3, prophecy 10.0, counterspell 3.60, mirror 3.40, inferno 2.90, curse 2.80, whaleTax 1.20, hardRaid 0.80, alliance 0.80, blackHole 0.80
+Direct price lift from the pot's buy-and-burn (median per play): liquidityRain +0.2%, lastStand +0.0%, inferno +0.1%
+Median price change while the effect ran: liquidityRain 0.3%, blackHole 0.3%, diamondPool 0.1%, inferno 0.0%, hypeSiren 0.0%, echo 0.0%, rebrand 0.0%, rollCall 0.0%, taxHoliday 0.0%, recruit 0.0%, summoningCircle 0.0%, happyHour 0.0%, lastStand 0.0%, slowBurn -0.2%, whaleTax -0.9%, prophecy -1.5%
+Persona outcomes (median PnL %, share of all profit, cards per wallet, Epic+Mythic share of plays, played ≥1 card, card market net NEAR per wallet):
+  whale     n=  19/world  capital  50%  PnL   -7% (mean -5%)  profit   -1120 NEAR/world  cards/wallet 13.2 (R+ 1.36)  Epic+ plays 82%  played 92%  crafted 41%  market -6.85
+  crowd     n= 544/world  capital  18%  PnL  -16% (mean 0%)  profit    13.5 NEAR/world  cards/wallet 7.51 (R+ 0.39)  Epic+ plays 8%  played 81%  crafted 18%  market 0.15
+  degen     n= 188/world  capital  17%  PnL    5% (mean 13%)  profit     950 NEAR/world  cards/wallet 1.61 (R+ 0.07)  Epic+ plays 0%  played 62%  crafted 0%  market 0.09
+  collector n=  20/world  capital   6%  PnL    0% (mean 0%)  profit    2.08 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 0.10
+  sniper    n=  38/world  capital   5%  PnL    4% (mean 7%)  profit     154 NEAR/world  cards/wallet 0.13 (R+ 0.03)  Epic+ plays 0%  played 0%  crafted 0%  market 0.02
+  wash      n=   2/world  capital   1%  PnL  -22% (mean -29%)  profit    -171 NEAR/world  cards/wallet 0.85 (R+ 0.10)  Epic+ plays 0%  played 0%  crafted 0%  market 0.06
+  creator   n=   8/world  capital   1%  PnL   42% (mean 54%)  profit     259 NEAR/world  cards/wallet 13.4 (R+ 1.46)  Epic+ plays 11%  played 96%  crafted 60%  market -0.50
+  sybil     n=  80/world  capital   1%  PnL   79% (mean 118%)  profit     567 NEAR/world  cards/wallet 4.70 (R+ 0.58)  Epic+ plays 0%  played 50%  crafted 30%  market 0.27
+Crowd wallets that entered in a coin's first 2h: median PnL 84% (n=38/world)
+Sybil farms (40 wallets × 5.5 NEAR): median return 144%, R+ cards per farm 23.4, card sales 10.6 NEAR per farm
+Wash traders: cost 93.4 NEAR each in fees/slippage; coins with a wash trader reached L2 70% vs 70% without
+Creators: honest median profit 16.9 NEAR, ruggers 30.5 NEAR (with Vault Seal 39.8, without 30.5); rug sells 149, blocked by Vault Seal 138
+Inequality: Gini of card ownership by wallet n/a · share of wallets with PnL > 0: 44% · Gini of gains 0.82
+
+=== whales  (10 worlds × 8 coins = 80 coins, 5 days each)
+Coins reaching L2 63% · L3 31% · L4 30% · graduated 30% · died 25%
+Median hours to L2 5.08 · L3 14.7 · L4 0.00 · graduation 9.10
+Median peak market cap 7574 NEAR · median holders at end 22
+  stuck below L2: when only one rule was missing it was wallets 65%, crowd 28%, mcap 5%, volume 2%
+  stuck below L3: when only one rule was missing it was wallets 100%
+Invariant violations: 0 · worst token-ledger error 2.0e-15
+Cards made per world by source: pack 2001 (R 43.4, E 0.00, M 0.00) · sacrifice 146 (R 15.4, E 2.40, M 0.00) · craft 85.5 (R 80.8, E 4.70, M 0.00) · wild 13.8 (R 0.70, E 0.00, M 0.00) · levelDrop 193 (R 30.8, E 0.00, M 0.00) · prophecy 3.30 (R 1.40, E 0.00, M 0.00) · raidMvp 6.30 (R 4.20, E 0.00, M 0.00) · htlSurvivor 7.30 (R 3.10, E 0.00, M 0.00)
+Per world: plays 1453, crafts 85.5, sacrifices 146, market sales 107 (230 NEAR, 11.5 to pots), raids 6.70 (0.00 hard), alliances 0.20, Hold the Line 1.80 (survived 1.00), Wild made 48.5 / played 13.8
+Deck pressure per world: downgrades 117, out of stock R 111 / E 8.10 / M 0.80, packs 2001 (blocked by 3 Commons 531), hand full 0.40
+Plays by card (per world): rollCall 265, hypeSiren 261, echo 260, rebrand 256, taxHoliday 252, liquidityRain 33.9, rally 22.0, lastStand 20.5, ward 18.8, happyHour 11.3, slowBurn 10.8, recruit 9.00, diamondPool 7.20, friendlyRaid 7.00, prophecy 6.20, summoningCircle 5.60, mirror 2.90, curse 2.30, counterspell 1.70, alliance 0.20, inferno 0.20
+Direct price lift from the pot's buy-and-burn (median per play): lastStand +0.0%, liquidityRain +0.3%, inferno +0.5%
+Median price change while the effect ran: liquidityRain 0.3%, recruit 0.2%, diamondPool 0.0%, summoningCircle 0.0%, hypeSiren 0.0%, rebrand 0.0%, rollCall 0.0%, echo 0.0%, taxHoliday 0.0%, lastStand 0.0%, happyHour 0.0%, slowBurn -0.1%, prophecy -0.9%, inferno -1.7%
+Persona outcomes (median PnL %, share of all profit, cards per wallet, Epic+Mythic share of plays, played ≥1 card, card market net NEAR per wallet):
+  whale     n=  35/world  capital  82%  PnL   -5% (mean -1%)  profit   -1730 NEAR/world  cards/wallet 8.82 (R+ 0.90)  Epic+ plays 100%  played 71%  crafted 24%  market -6.04
+  crowd     n= 306/world  capital   5%  PnL  -12% (mean 14%)  profit     509 NEAR/world  cards/wallet 5.26 (R+ 0.34)  Epic+ plays 0%  played 68%  crafted 13%  market 0.39
+  degen     n= 119/world  capital   5%  PnL   13% (mean 29%)  profit    1335 NEAR/world  cards/wallet 1.03 (R+ 0.06)  Epic+ plays 0%  played 42%  crafted 0%  market 0.17
+  collector n=  20/world  capital   3%  PnL    0% (mean 0%)  profit    8.93 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 0.45
+  sniper    n=  38/world  capital   2%  PnL    7% (mean 17%)  profit     393 NEAR/world  cards/wallet 0.09 (R+ 0.01)  Epic+ plays 0%  played 0%  crafted 0%  market 0.06
+  wash      n=   2/world  capital   1%  PnL  -21% (mean -27%)  profit    -159 NEAR/world  cards/wallet 0.55 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 0.00
+  creator   n=   8/world  capital   1%  PnL   56% (mean 102%)  profit     492 NEAR/world  cards/wallet 10.6 (R+ 0.86)  Epic+ plays 0%  played 98%  crafted 33%  market -0.08
+  sybil     n=  80/world  capital   1%  PnL   60% (mean 127%)  profit     609 NEAR/world  cards/wallet 4.11 (R+ 0.48)  Epic+ plays 0%  played 39%  crafted 25%  market 0.58
+Crowd wallets that entered in a coin's first 2h: median PnL 78% (n=42/world)
+Sybil farms (40 wallets × 5.5 NEAR): median return 117%, R+ cards per farm 19.3, card sales 23.2 NEAR per farm
+Wash traders: cost 66.5 NEAR each in fees/slippage; coins with a wash trader reached L2 60% vs 63% without
+Creators: honest median profit 32.9 NEAR, ruggers 50.5 NEAR (with Vault Seal 33.0, without 111); rug sells 124, blocked by Vault Seal 181
+Inequality: Gini of card ownership by wallet n/a · share of wallets with PnL > 0: 48% · Gini of gains 0.80
+
+=== sybils  (10 worlds × 8 coins = 80 coins, 5 days each)
+Coins reaching L2 89% · L3 35% · L4 11% · graduated 11% · died 11%
+Median hours to L2 3.08 · L3 8.42 · L4 0.00 · graduation 8.13
+Median peak market cap 4012 NEAR · median holders at end 84
+  stuck below L2: when only one rule was missing it was wallets 94%, mcap 6%, checkins 0%
+  stuck below L3: when only one rule was missing it was wallets 94%, volume 5%, netBuying 1%
+  stuck below L4: when only one rule was missing it was wallets 100%
+Invariant violations: 0 · worst token-ledger error 3.5e-15
+Cards made per world by source: pack 4962 (R 58.2, E 0.00, M 0.00) · sacrifice 285 (R 12.7, E 1.20, M 0.00) · levelDrop 524 (R 83.2, E 0.00, M 0.00) · craft 261 (R 243, E 18.9, M 0.00) · raidMvp 16.2 (R 3.50, E 0.00, M 0.00) · wild 10.4 (R 1.30, E 0.00, M 0.00) · prophecy 7.80 (R 0.60, E 0.00, M 0.00) · circle 8.50 (R 0.70, E 0.00, M 0.00) · htlSurvivor 17.5 (R 1.10, E 0.00, M 0.00) · blackHoleTop 1.70 (R 0.10, E 0.00, M 0.00)
+Per world: plays 3628, crafts 261, sacrifices 286, market sales 333 (256 NEAR, 12.8 to pots), raids 16.5 (1.30 hard), alliances 1.10, Hold the Line 2.50 (survived 1.70), Wild made 42.8 / played 10.4
+Deck pressure per world: downgrades 370, out of stock R 351 / E 20.9 / M 0.60, packs 4962 (blocked by 3 Commons 1484), hand full 1.30
+Plays by card (per world): rebrand 662, rollCall 651, taxHoliday 650, echo 637, hypeSiren 635, liquidityRain 83.7, rally 55.2, ward 55.0, lastStand 48.1, happyHour 24.0, slowBurn 18.4, recruit 17.5, diamondPool 17.1, friendlyRaid 16.3, summoningCircle 15.1, prophecy 14.1, inferno 7.10, counterspell 5.10, mirror 4.90, curse 3.90, blackHole 1.80, whaleTax 1.50, hardRaid 1.40, alliance 1.10
+Direct price lift from the pot's buy-and-burn (median per play): liquidityRain +0.2%, lastStand +0.0%, inferno +0.1%
+Median price change while the effect ran: whaleTax 0.6%, liquidityRain 0.3%, diamondPool 0.2%, hypeSiren 0.0%, echo 0.0%, rebrand 0.0%, rollCall 0.0%, taxHoliday 0.0%, recruit 0.0%, summoningCircle 0.0%, happyHour 0.0%, lastStand 0.0%, slowBurn -0.0%, inferno -0.1%, blackHole -0.2%, prophecy -2.2%
+Persona outcomes (median PnL %, share of all profit, cards per wallet, Epic+Mythic share of plays, played ≥1 card, card market net NEAR per wallet):
+  whale     n=  22/world  capital  52%  PnL   -7% (mean -4%)  profit   -1016 NEAR/world  cards/wallet 14.0 (R+ 1.70)  Epic+ plays 88%  played 89%  crafted 51%  market -8.64
+  crowd     n= 539/world  capital  17%  PnL  -18% (mean -6%)  profit    -546 NEAR/world  cards/wallet 7.96 (R+ 0.40)  Epic+ plays 2%  played 81%  crafted 22%  market 0.14
+  degen     n= 187/world  capital  16%  PnL    6% (mean 13%)  profit     793 NEAR/world  cards/wallet 1.57 (R+ 0.06)  Epic+ plays 0%  played 61%  crafted 1%  market 0.09
+  collector n=  20/world  capital   6%  PnL    0% (mean 0%)  profit    14.3 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 0.72
+  sniper    n=  38/world  capital   5%  PnL    8% (mean 14%)  profit     306 NEAR/world  cards/wallet 0.12 (R+ 0.04)  Epic+ plays 0%  played 0%  crafted 0%  market 0.02
+  sybil     n= 240/world  capital   3%  PnL   87% (mean 121%)  profit    1745 NEAR/world  cards/wallet 4.59 (R+ 0.60)  Epic+ plays 0%  played 46%  crafted 29%  market 0.31
+  wash      n=   2/world  capital   1%  PnL  -22% (mean -29%)  profit    -171 NEAR/world  cards/wallet 0.85 (R+ 0.10)  Epic+ plays 0%  played 0%  crafted 0%  market 0.06
+  creator   n=   8/world  capital   1%  PnL   51% (mean 75%)  profit     358 NEAR/world  cards/wallet 13.1 (R+ 1.70)  Epic+ plays 11%  played 95%  crafted 64%  market -1.23
+Crowd wallets that entered in a coin's first 2h: median PnL 72% (n=40/world)
+Sybil farms (40 wallets × 5.5 NEAR): median return 113%, R+ cards per farm 24.1, card sales 12.3 NEAR per farm
+Wash traders: cost 93.4 NEAR each in fees/slippage; coins with a wash trader reached L2 65% vs 97% without
+Creators: honest median profit 24.9 NEAR, ruggers 33.6 NEAR (with Vault Seal 88.1, without 32.7); rug sells 247, blocked by Vault Seal 165
+Inequality: Gini of card ownership by wallet n/a · share of wallets with PnL > 0: 49% · Gini of gains 0.80
+
+=== bear  (10 worlds × 8 coins = 80 coins, 5 days each)
+Coins reaching L2 38% · L3 5% · L4 0% · graduated 0% · died 51%
+Median hours to L2 7.00 · L3 11.6 · L4 0.00 · graduation 0.00
+Median peak market cap 1858 NEAR · median holders at end 6
+  stuck below L2: when only one rule was missing it was wallets 98%, mcap 2%, checkins 0%
+  stuck below L3: when only one rule was missing it was wallets 100%
+  stuck below L4: when only one rule was missing it was wallets 100%
+Invariant violations: 0 · worst token-ledger error 2.3e-15
+Cards made per world by source: pack 2407 (R 29.5, E 0.00, M 0.00) · sacrifice 181 (R 12.0, E 1.90, M 0.00) · levelDrop 141 (R 20.6, E 0.10, M 0.00) · craft 95.0 (R 89.7, E 5.30, M 0.00) · raidMvp 5.10 (R 2.10, E 0.00, M 0.00) · prophecy 5.40 (R 1.40, E 0.00, M 0.00) · circle 2.00 (R 0.30, E 0.00, M 0.00) · htlSurvivor 5.80 (R 0.10, E 0.00, M 0.00) · wild 13.3 (R 0.30, E 0.00, M 0.00) · blackHoleTop 0.40 (R 0.10, E 0.00, M 0.00)
+Per world: plays 1725, crafts 95.0, sacrifices 181, market sales 113 (101 NEAR, 5.03 to pots), raids 5.30 (0.20 hard), alliances 0.20, Hold the Line 1.20 (survived 1.00), Wild made 55.8 / played 13.3
+Deck pressure per world: downgrades 157, out of stock R 152 / E 6.60 / M 0.30, packs 2407 (blocked by 3 Commons 750), hand full 0.70
+Plays by card (per world): taxHoliday 333, rebrand 327, rollCall 316, hypeSiren 311, echo 309, liquidityRain 29.0, rally 16.2, lastStand 15.3, ward 15.2, happyHour 9.10, recruit 7.30, diamondPool 6.70, slowBurn 6.50, friendlyRaid 5.70, summoningCircle 5.60, prophecy 5.10, curse 2.00, mirror 1.60, counterspell 1.20, inferno 0.90, hardRaid 0.50, blackHole 0.40, whaleTax 0.30, alliance 0.20
+Direct price lift from the pot's buy-and-burn (median per play): liquidityRain +0.2%, lastStand +0.0%, inferno +0.5%
+Median price change while the effect ran: prophecy 3.2%, whaleTax 1.0%, inferno 0.6%, liquidityRain 0.3%, recruit 0.1%, blackHole 0.0%, rollCall 0.0%, taxHoliday 0.0%, rebrand 0.0%, echo 0.0%, hypeSiren 0.0%, slowBurn 0.0%, summoningCircle 0.0%, lastStand 0.0%, happyHour 0.0%, diamondPool 0.0%
+Persona outcomes (median PnL %, share of all profit, cards per wallet, Epic+Mythic share of plays, played ≥1 card, card market net NEAR per wallet):
+  whale     n=   8/world  capital  41%  PnL   -5% (mean -4%)  profit    -274 NEAR/world  cards/wallet 16.6 (R+ 1.41)  Epic+ plays 83%  played 100%  crafted 47%  market -10.3
+  crowd     n= 205/world  capital  15%  PnL   -8% (mean 3%)  profit     133 NEAR/world  cards/wallet 10.1 (R+ 0.47)  Epic+ plays 4%  played 95%  crafted 22%  market 0.25
+  collector n=  20/world  capital  14%  PnL    0% (mean 0%)  profit    4.30 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 0.22
+  degen     n=  74/world  capital  14%  PnL    9% (mean 16%)  profit     433 NEAR/world  cards/wallet 1.90 (R+ 0.10)  Epic+ plays 0%  played 74%  crafted 1%  market 0.06
+  sniper    n=  36/world  capital  10%  PnL    2% (mean 6%)  profit     121 NEAR/world  cards/wallet 0.08 (R+ 0.02)  Epic+ plays 0%  played 0%  crafted 0%  market 0.01
+  wash      n=   2/world  capital   3%  PnL  -24% (mean -30%)  profit    -182 NEAR/world  cards/wallet 0.20 (R+ 0.10)  Epic+ plays 0%  played 0%  crafted 0%  market 0.97
+  creator   n=   8/world  capital   2%  PnL   15% (mean 43%)  profit     204 NEAR/world  cards/wallet 15.1 (R+ 1.26)  Epic+ plays 13%  played 98%  crafted 53%  market -0.36
+  sybil     n=  80/world  capital   2%  PnL   29% (mean 51%)  profit     243 NEAR/world  cards/wallet 5.01 (R+ 0.48)  Epic+ plays 0%  played 56%  crafted 29%  market 0.21
+Crowd wallets that entered in a coin's first 2h: median PnL 30% (n=17/world)
+Sybil farms (40 wallets × 5.5 NEAR): median return 43%, R+ cards per farm 19.1, card sales 8.23 NEAR per farm
+Wash traders: cost 93.8 NEAR each in fees/slippage; coins with a wash trader reached L2 20% vs 43% without
+Creators: honest median profit 8.03 NEAR, ruggers 23.0 NEAR (with Vault Seal 44.0, without 4.69); rug sells 95, blocked by Vault Seal 86
+Inequality: Gini of card ownership by wallet n/a · share of wallets with PnL > 0: 48% · Gini of gains 0.79
+
+=== mania  (10 worlds × 8 coins = 80 coins, 5 days each)
+Coins reaching L2 94% · L3 65% · L4 46% · graduated 45% · died 4%
+Median hours to L2 2.75 · L3 6.83 · L4 21.3 · graduation 8.62
+Median peak market cap 9102 NEAR · median holders at end 82
+  stuck below L2: when only one rule was missing it was wallets 73%, volume 27%
+  stuck below L3: when only one rule was missing it was wallets 99%, netBuying 1%
+  stuck below L4: when only one rule was missing it was wallets 92%, volume 8%
+Invariant violations: 0 · worst token-ledger error 4.2e-15
+Cards made per world by source: pack 4971 (R 70.2, E 0.00, M 0.00) · sacrifice 279 (R 16.7, E 2.80, M 0.00) · levelDrop 628 (R 104, E 2.10, M 0.00) · craft 184 (R 171, E 13.4, M 0.00) · raidMvp 16.2 (R 5.20, E 0.00, M 0.00) · wild 21.4 (R 1.00, E 0.00, M 0.00) · htlSurvivor 23.3 (R 2.30, E 0.00, M 0.00) · blackHoleTop 1.00 (R 0.10, E 0.00, M 0.00) · circle 16.5 (R 2.30, E 0.00, M 0.00) · prophecy 8.40 (R 0.90, E 0.00, M 0.00)
+Per world: plays 3789, crafts 184, sacrifices 279, market sales 215 (185 NEAR, 9.23 to pots), raids 17.1 (0.90 hard), alliances 1.70, Hold the Line 3.60 (survived 2.20), Wild made 87.0 / played 21.4
+Deck pressure per world: downgrades 380, out of stock R 362 / E 26.7 / M 0.90, packs 4971 (blocked by 3 Commons 959), hand full 0.20
+Plays by card (per world): rollCall 693, rebrand 690, echo 687, hypeSiren 679, taxHoliday 679, liquidityRain 75.8, rally 60.1, ward 58.0, lastStand 33.2, happyHour 22.0, recruit 19.0, slowBurn 16.5, friendlyRaid 16.5, diamondPool 14.6, summoningCircle 11.8, prophecy 11.8, inferno 6.70, counterspell 3.80, mirror 3.80, curse 3.20, alliance 1.70, whaleTax 1.30, blackHole 1.10, hardRaid 0.90
+Direct price lift from the pot's buy-and-burn (median per play): liquidityRain +0.2%, lastStand +0.0%, inferno +0.2%
+Median price change while the effect ran: whaleTax 3.3%, blackHole 1.7%, recruit 0.3%, liquidityRain 0.3%, summoningCircle 0.2%, slowBurn 0.0%, hypeSiren 0.0%, rollCall 0.0%, echo 0.0%, taxHoliday 0.0%, rebrand 0.0%, happyHour 0.0%, inferno 0.0%, lastStand -0.0%, diamondPool -0.1%, prophecy -2.0%
+Persona outcomes (median PnL %, share of all profit, cards per wallet, Epic+Mythic share of plays, played ≥1 card, card market net NEAR per wallet):
+  whale     n=  42/world  capital  52%  PnL   -7% (mean -3%)  profit   -1848 NEAR/world  cards/wallet 6.71 (R+ 0.82)  Epic+ plays 86%  played 63%  crafted 24%  market -3.46
+  crowd     n=1270/world  capital  20%  PnL  -25% (mean -10%)  profit   -2109 NEAR/world  cards/wallet 3.96 (R+ 0.22)  Epic+ plays 6%  played 58%  crafted 9%  market 0.06
+  degen     n= 461/world  capital  20%  PnL    4% (mean 11%)  profit    1885 NEAR/world  cards/wallet 0.96 (R+ 0.04)  Epic+ plays 1%  played 37%  crafted 0%  market 0.05
+  collector n=  20/world  capital   3%  PnL    0% (mean 0%)  profit    4.86 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 0.24
+  sniper    n=  38/world  capital   2%  PnL   15% (mean 17%)  profit     384 NEAR/world  cards/wallet 0.15 (R+ 0.06)  Epic+ plays 0%  played 0%  crafted 0%  market 0.08
+  wash      n=   2/world  capital   1%  PnL  -18% (mean -24%)  profit    -146 NEAR/world  cards/wallet 1.55 (R+ 0.40)  Epic+ plays 0%  played 0%  crafted 0%  market 0.57
+  creator   n=   8/world  capital   1%  PnL   58% (mean 73%)  profit     348 NEAR/world  cards/wallet 9.34 (R+ 1.36)  Epic+ plays 7%  played 90%  crafted 43%  market -0.42
+  sybil     n=  80/world  capital   1%  PnL   97% (mean 138%)  profit     661 NEAR/world  cards/wallet 3.98 (R+ 0.57)  Epic+ plays 0%  played 34%  crafted 26%  market 0.35
+Crowd wallets that entered in a coin's first 2h: median PnL 42% (n=133/world)
+Sybil farms (40 wallets × 5.5 NEAR): median return 124%, R+ cards per farm 22.8, card sales 13.9 NEAR per farm
+Wash traders: cost 77.9 NEAR each in fees/slippage; coins with a wash trader reached L2 95% vs 93% without
+Creators: honest median profit 19.4 NEAR, ruggers 47.9 NEAR (with Vault Seal 47.9, without 54.7); rug sells 210, blocked by Vault Seal 178
+Inequality: Gini of card ownership by wallet n/a · share of wallets with PnL > 0: 35% · Gini of gains 0.85
+
+=== noCards  (10 worlds × 8 coins = 80 coins, 5 days each)
+Coins reaching L2 63% · L3 1% · L4 1% · graduated 1% · died 23%
+Median hours to L2 5.17 · L3 0.00 · L4 0.00 · graduation 25.2
+Median peak market cap 3076 NEAR · median holders at end 16
+  stuck below L2: when only one rule was missing it was wallets 94%, mcap 6%, crowd 0%
+  stuck below L3: when only one rule was missing it was milestone 100%
+Invariant violations: 0 · worst token-ledger error 1.7e-15
+Persona outcomes (median PnL %, share of all profit, cards per wallet, Epic+Mythic share of plays, played ≥1 card, card market net NEAR per wallet):
+  whale     n=  13/world  capital  47%  PnL   -5% (mean -2%)  profit    -462 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 0.00
+  crowd     n= 368/world  capital  17%  PnL   -6% (mean 6%)  profit     427 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 0.00
+  degen     n= 134/world  capital  16%  PnL   10% (mean 17%)  profit     839 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 0.00
+  collector n=  20/world  capital   9%  PnL    0% (mean 0%)  profit    0.00 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 0.00
+  sniper    n=  36/world  capital   7%  PnL    5% (mean 10%)  profit     213 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 0.00
+  wash      n=   2/world  capital   2%  PnL  -23% (mean -30%)  profit    -179 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 0.00
+  creator   n=   8/world  capital   1%  PnL   46% (mean 57%)  profit     276 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 0.00
+  sybil     n=  80/world  capital   1%  PnL   16% (mean 52%)  profit     249 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 0.00
+Crowd wallets that entered in a coin's first 2h: median PnL 71% (n=40/world)
+Sybil farms (40 wallets × 5.5 NEAR): median return 22%, R+ cards per farm 0.00, card sales 0.00 NEAR per farm
+Wash traders: cost 98.7 NEAR each in fees/slippage; coins with a wash trader reached L2 60% vs 63% without
+Creators: honest median profit 17.1 NEAR, ruggers 29.9 NEAR (with Vault Seal 105, without 27.0); rug sells 11, blocked by Vault Seal 108
+Inequality: Gini of card ownership by wallet n/a · share of wallets with PnL > 0: 48% · Gini of gains 0.79
+
+=== base+fixes  (10 worlds × 8 coins = 80 coins, 5 days each)
+Coins reaching L2 74% · L3 44% · L4 16% · graduated 11% · died 24%
+Median hours to L2 4.58 · L3 10.1 · L4 18.9 · graduation 16.1
+Median peak market cap 3577 NEAR · median holders at end 27
+  stuck below L2: when only one rule was missing it was wallets 47%, mcap 27%, volume 26%
+  stuck below L3: when only one rule was missing it was wallets 91%, mcap 9%
+  stuck below L4: when only one rule was missing it was mcap 56%, volume 36%, milestone 4%, netBuying 3%, wallets 1%
+Invariant violations: 0 · worst token-ledger error 3.1e-15
+Cards made per world by source: pack 3142 (R 80.8, E 0.00, M 0.00) · sacrifice 274 (R 37.8, E 1.90, M 0.00) · levelDrop 579 (R 82.5, E 1.70, M 0.70) · craft 203 (R 184, E 19.1, M 0.00) · raidMvp 22.3 (R 11.2, E 0.00, M 0.00) · circle 15.0 (R 2.90, E 0.00, M 0.00) · prophecy 9.60 (R 3.50, E 0.00, M 0.00) · wild 18.5 (R 1.40, E 0.00, M 0.00) · blackHoleTop 2.10 (R 0.90, E 0.00, M 0.00) · htlSurvivor 18.2 (R 3.40, E 0.00, M 0.00)
+Per world: plays 2395, crafts 203, sacrifices 274, market sales 235 (310 NEAR, 15.5 to pots), raids 23.1 (2.30 hard), alliances 1.70, Hold the Line 2.30 (survived 1.80), Wild made 47.8 / played 18.5
+Deck pressure per world: downgrades 248, out of stock R 230 / E 24.7 / M 1.70, packs 3142 (blocked by 3 Commons 304), hand full 0.00
+Plays by card (per world): rebrand 402, echo 399, hypeSiren 398, taxHoliday 395, rollCall 392, liquidityRain 78.5, ward 62.8, rally 58.6, lastStand 29.7, happyHour 29.4, friendlyRaid 22.6, slowBurn 22.5, recruit 20.8, diamondPool 18.1, prophecy 16.4, summoningCircle 16.1, inferno 9.70, counterspell 6.20, mirror 4.90, curse 4.70, hardRaid 2.30, blackHole 2.10, whaleTax 1.70, alliance 1.70
+Direct price lift from the pot's buy-and-burn (median per play): liquidityRain +0.4%, inferno +0.3%, lastStand +0.0%
+Median price change while the effect ran: blackHole 1.4%, liquidityRain 0.5%, summoningCircle 0.1%, slowBurn 0.0%, lastStand 0.0%, hypeSiren 0.0%, echo 0.0%, rebrand 0.0%, taxHoliday 0.0%, rollCall 0.0%, happyHour 0.0%, recruit 0.0%, diamondPool 0.0%, inferno -0.0%, prophecy -0.1%, whaleTax -1.2%
+Persona outcomes (median PnL %, share of all profit, cards per wallet, Epic+Mythic share of plays, played ≥1 card, card market net NEAR per wallet):
+  whale     n=  19/world  capital  49%  PnL   -6% (mean -0%)  profit    -533 NEAR/world  cards/wallet 10.8 (R+ 2.46)  Epic+ plays 85%  played 87%  crafted 48%  market -12.1
+  crowd     n= 556/world  capital  19%  PnL  -14% (mean 1%)  profit    37.2 NEAR/world  cards/wallet 5.96 (R+ 0.54)  Epic+ plays 13%  played 80%  crafted 22%  market 0.24
+  degen     n= 201/world  capital  18%  PnL    8% (mean 14%)  profit    1008 NEAR/world  cards/wallet 1.68 (R+ 0.11)  Epic+ plays 1%  played 54%  crafted 1%  market 0.18
+  collector n=  20/world  capital   7%  PnL    0% (mean 0%)  profit    11.7 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 0.59
+  sniper    n=  35/world  capital   5%  PnL    2% (mean 5%)  profit     115 NEAR/world  cards/wallet 0.29 (R+ 0.09)  Epic+ plays 0%  played 0%  crafted 0%  market 0.17
+  wash      n=   2/world  capital   1%  PnL  -41% (mean -42%)  profit    -253 NEAR/world  cards/wallet 1.35 (R+ 0.20)  Epic+ plays 0%  played 0%  crafted 0%  market 1.62
+  creator   n=   8/world  capital   1%  PnL   17% (mean 24%)  profit     116 NEAR/world  cards/wallet 10.2 (R+ 1.23)  Epic+ plays 2%  played 98%  crafted 30%  market 0.11
+  sybil     n=  80/world  capital   1%  PnL   49% (mean 106%)  profit     510 NEAR/world  cards/wallet 4.16 (R+ 0.57)  Epic+ plays 0%  played 36%  crafted 29%  market 0.29
+Crowd wallets that entered in a coin's first 2h: median PnL 89% (n=36/world)
+Sybil farms (40 wallets × 5.5 NEAR): median return 79%, R+ cards per farm 23.0, card sales 11.5 NEAR per farm
+Wash traders: cost 132 NEAR each in fees/slippage; coins with a wash trader reached L2 85% vs 70% without
+Creators: honest median profit 9.95 NEAR, ruggers 11.0 NEAR (with Vault Seal 17.3, without 9.55); rug sells 162, blocked by Vault Seal 152
+Inequality: Gini of card ownership by wallet n/a · share of wallets with PnL > 0: 43% · Gini of gains 0.82
+
+=== whales+fixes  (10 worlds × 8 coins = 80 coins, 5 days each)
+Coins reaching L2 73% · L3 41% · L4 34% · graduated 34% · died 20%
+Median hours to L2 4.92 · L3 10.6 · L4 0.00 · graduation 7.92
+Median peak market cap 8562 NEAR · median holders at end 12
+  stuck below L2: when only one rule was missing it was crowd 55%, wallets 42%, netBuying 4%
+  stuck below L3: when only one rule was missing it was wallets 53%, crowd 26%, netBuying 11%, volume 10%
+  stuck below L4: when only one rule was missing it was wallets 99%, crowd 1%
+Invariant violations: 0 · worst token-ledger error 1.4e-15
+Cards made per world by source: pack 1269 (R 41.1, E 0.00, M 0.00) · sacrifice 139 (R 25.0, E 3.00, M 0.00) · levelDrop 322 (R 60.9, E 0.80, M 0.00) · craft 85.5 (R 77.5, E 8.00, M 0.00) · raidMvp 9.10 (R 6.60, E 0.00, M 0.00) · htlSurvivor 8.60 (R 4.20, E 0.00, M 0.00) · wild 19.0 (R 1.00, E 0.00, M 0.00) · prophecy 5.70 (R 3.20, E 0.00, M 0.00) · blackHoleTop 0.90 (R 0.30, E 0.00, M 0.00) · circle 0.50 (R 0.00, E 0.00, M 0.00)
+Per world: plays 915, crafts 85.5, sacrifices 139, market sales 127 (381 NEAR, 19.1 to pots), raids 9.30 (0.60 hard), alliances 0.50, Hold the Line 3.20 (survived 1.80), Wild made 51.7 / played 19.0
+Deck pressure per world: downgrades 86.9, out of stock R 75.5 / E 12.1 / M 1.30, packs 1269 (blocked by 3 Commons 150), hand full 0.10
+Plays by card (per world): hypeSiren 150, rebrand 148, rollCall 147, echo 144, taxHoliday 143, liquidityRain 42.6, lastStand 19.7, ward 18.5, rally 15.9, slowBurn 14.3, happyHour 14.0, friendlyRaid 11.8, recruit 9.20, diamondPool 8.50, summoningCircle 8.00, prophecy 7.90, inferno 3.20, curse 2.80, mirror 2.40, counterspell 1.50, blackHole 1.00, hardRaid 0.60, whaleTax 0.60, alliance 0.50
+Direct price lift from the pot's buy-and-burn (median per play): liquidityRain +0.6%, lastStand +0.0%, inferno +0.4%
+Median price change while the effect ran: prophecy 0.9%, liquidityRain 0.5%, whaleTax 0.2%, lastStand 0.0%, inferno 0.0%, hypeSiren 0.0%, rebrand 0.0%, rollCall 0.0%, taxHoliday 0.0%, echo 0.0%, slowBurn 0.0%, happyHour 0.0%, recruit 0.0%, summoningCircle -0.0%, diamondPool -0.0%, blackHole -2.7%
+Persona outcomes (median PnL %, share of all profit, cards per wallet, Epic+Mythic share of plays, played ≥1 card, card market net NEAR per wallet):
+  whale     n=  38/world  capital  85%  PnL   -6% (mean -2%)  profit   -2605 NEAR/world  cards/wallet 5.35 (R+ 0.99)  Epic+ plays 90%  played 62%  crafted 20%  market -9.20
+  crowd     n= 328/world  capital   5%  PnL  -15% (mean 18%)  profit     849 NEAR/world  cards/wallet 3.58 (R+ 0.38)  Epic+ plays 7%  played 59%  crafted 11%  market 0.54
+  degen     n= 121/world  capital   4%  PnL   13% (mean 32%)  profit    1323 NEAR/world  cards/wallet 1.03 (R+ 0.08)  Epic+ plays 0%  played 33%  crafted 0%  market 0.36
+  collector n=  20/world  capital   3%  PnL    0% (mean 1%)  profit    20.8 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 1.04
+  sniper    n=  38/world  capital   2%  PnL    4% (mean 14%)  profit     314 NEAR/world  cards/wallet 0.19 (R+ 0.06)  Epic+ plays 0%  played 0%  crafted 0%  market 0.29
+  wash      n=   2/world  capital   1%  PnL  -39% (mean -40%)  profit    -243 NEAR/world  cards/wallet 1.00 (R+ 0.30)  Epic+ plays 0%  played 0%  crafted 0%  market 2.05
+  creator   n=   8/world  capital   0%  PnL   36% (mean 38%)  profit     181 NEAR/world  cards/wallet 7.61 (R+ 1.01)  Epic+ plays 3%  played 95%  crafted 23%  market 0.18
+  sybil     n=  80/world  capital   0%  PnL  196% (mean 187%)  profit     899 NEAR/world  cards/wallet 3.57 (R+ 0.62)  Epic+ plays 0%  played 26%  crafted 30%  market 0.93
+Crowd wallets that entered in a coin's first 2h: median PnL 89% (n=43/world)
+Sybil farms (40 wallets × 5.5 NEAR): median return 203%, R+ cards per farm 24.9, card sales 37.4 NEAR per farm
+Wash traders: cost 118 NEAR each in fees/slippage; coins with a wash trader reached L2 75% vs 72% without
+Creators: honest median profit 20.6 NEAR, ruggers 24.7 NEAR (with Vault Seal 25.8, without 24.7); rug sells 138, blocked by Vault Seal 109
+Inequality: Gini of card ownership by wallet n/a · share of wallets with PnL > 0: 48% · Gini of gains 0.80
+
+=== sybils+fixes  (10 worlds × 8 coins = 80 coins, 5 days each)
+Coins reaching L2 91% · L3 51% · L4 18% · graduated 9% · died 9%
+Median hours to L2 3.33 · L3 9.08 · L4 17.6 · graduation 14.4
+Median peak market cap 4172 NEAR · median holders at end 31
+  stuck below L2: when only one rule was missing it was mcap 88%, wallets 13%
+  stuck below L3: when only one rule was missing it was wallets 61%, volume 35%, netBuying 3%, mcap 1%
+  stuck below L4: when only one rule was missing it was mcap 54%, volume 33%, milestone 7%, wallets 5%, netBuying 0%
+Invariant violations: 0 · worst token-ledger error 2.4e-15
+Cards made per world by source: pack 4105 (R 88.0, E 0.00, M 0.00) · sacrifice 305 (R 28.6, E 1.50, M 0.00) · levelDrop 813 (R 104, E 1.20, M 0.90) · craft 293 (R 268, E 25.0, M 0.00) · raidMvp 27.6 (R 11.5, E 0.00, M 0.00) · prophecy 9.00 (R 3.30, E 0.00, M 0.00) · wild 10.9 (R 0.90, E 0.00, M 0.00) · htlSurvivor 33.3 (R 3.40, E 0.00, M 0.00) · circle 15.0 (R 2.70, E 0.00, M 0.00) · blackHoleTop 2.50 (R 1.20, E 0.00, M 0.00)
+Per world: plays 3054, crafts 293, sacrifices 305, market sales 434 (426 NEAR, 21.3 to pots), raids 27.9 (2.40 hard), alliances 1.40, Hold the Line 3.50 (survived 2.20), Wild made 44.2 / played 10.9
+Deck pressure per world: downgrades 370, out of stock R 344 / E 32.5 / M 1.60, packs 4105 (blocked by 3 Commons 548), hand full 0.10
+Plays by card (per world): hypeSiren 515, echo 508, taxHoliday 507, rollCall 504, rebrand 499, liquidityRain 107, rally 76.2, ward 71.5, lastStand 53.6, happyHour 35.2, friendlyRaid 26.7, recruit 25.1, diamondPool 24.5, slowBurn 23.8, prophecy 18.9, summoningCircle 17.7, inferno 11.7, mirror 6.40, curse 6.30, counterspell 5.40, whaleTax 2.90, hardRaid 2.70, blackHole 2.60, alliance 1.70, supernova 0.20
+Direct price lift from the pot's buy-and-burn (median per play): liquidityRain +0.4%, inferno +0.3%, lastStand +0.0%, supernova +0.7%
+Median price change while the effect ran: supernova 23.8%, whaleTax 1.0%, inferno 0.5%, liquidityRain 0.4%, hypeSiren 0.0%, echo 0.0%, rebrand 0.0%, taxHoliday 0.0%, rollCall 0.0%, happyHour 0.0%, summoningCircle 0.0%, lastStand 0.0%, diamondPool -0.0%, slowBurn -0.0%, blackHole -0.1%, recruit -0.1%, prophecy -0.3%
+Persona outcomes (median PnL %, share of all profit, cards per wallet, Epic+Mythic share of plays, played ≥1 card, card market net NEAR per wallet):
+  whale     n=  21/world  capital  49%  PnL   -8% (mean -5%)  profit    -970 NEAR/world  cards/wallet 10.8 (R+ 2.35)  Epic+ plays 93%  played 87%  crafted 49%  market -14.0
+  crowd     n= 605/world  capital  18%  PnL  -20% (mean -8%)  profit    -698 NEAR/world  cards/wallet 6.45 (R+ 0.50)  Epic+ plays 5%  played 83%  crafted 22%  market 0.19
+  degen     n= 214/world  capital  18%  PnL    2% (mean 10%)  profit     671 NEAR/world  cards/wallet 1.73 (R+ 0.07)  Epic+ plays 1%  played 58%  crafted 1%  market 0.12
+  collector n=  20/world  capital   6%  PnL    0% (mean 1%)  profit    21.0 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 1.05
+  sniper    n=  36/world  capital   4%  PnL    7% (mean 12%)  profit     254 NEAR/world  cards/wallet 0.24 (R+ 0.07)  Epic+ plays 0%  played 0%  crafted 0%  market 0.12
+  sybil     n= 240/world  capital   3%  PnL   83% (mean 128%)  profit    1839 NEAR/world  cards/wallet 4.29 (R+ 0.66)  Epic+ plays 0%  played 35%  crafted 32%  market 0.41
+  wash      n=   2/world  capital   1%  PnL  -38% (mean -42%)  profit    -253 NEAR/world  cards/wallet 1.40 (R+ 0.30)  Epic+ plays 0%  played 0%  crafted 0%  market 2.01
+  creator   n=   8/world  capital   1%  PnL   23% (mean 26%)  profit     124 NEAR/world  cards/wallet 9.97 (R+ 1.24)  Epic+ plays 0%  played 95%  crafted 34%  market -0.13
+Crowd wallets that entered in a coin's first 2h: median PnL 71% (n=41/world)
+Sybil farms (40 wallets × 5.5 NEAR): median return 112%, R+ cards per farm 26.5, card sales 16.6 NEAR per farm
+Wash traders: cost 132 NEAR each in fees/slippage; coins with a wash trader reached L2 80% vs 95% without
+Creators: honest median profit 11.2 NEAR, ruggers 17.8 NEAR (with Vault Seal 25.4, without 11.6); rug sells 425, blocked by Vault Seal 313
+Inequality: Gini of card ownership by wallet n/a · share of wallets with PnL > 0: 46% · Gini of gains 0.82
+
+=== bear+fixes  (10 worlds × 8 coins = 80 coins, 5 days each)
+Coins reaching L2 45% · L3 14% · L4 1% · graduated 0% · died 48%
+Median hours to L2 7.75 · L3 10.8 · L4 22.2 · graduation 0.00
+Median peak market cap 1854 NEAR · median holders at end 7
+  stuck below L2: when only one rule was missing it was wallets 68%, volume 26%, mcap 6%, checkins 0%
+  stuck below L3: when only one rule was missing it was volume 55%, wallets 33%, milestone 12%
+  stuck below L4: when only one rule was missing it was wallets 59%, milestone 41%
+Invariant violations: 0 · worst token-ledger error 1.4e-15
+Cards made per world by source: pack 1751 (R 45.2, E 0.00, M 0.00) · sacrifice 175 (R 21.6, E 2.30, M 0.00) · levelDrop 207 (R 35.6, E 0.20, M 0.10) · craft 108 (R 97.7, E 9.80, M 0.00) · raidMvp 10.0 (R 5.80, E 0.00, M 0.00) · prophecy 2.40 (R 1.30, E 0.00, M 0.00) · blackHoleTop 1.00 (R 0.40, E 0.00, M 0.00) · htlSurvivor 7.70 (R 1.70, E 0.00, M 0.00) · circle 1.50 (R 0.40, E 0.00, M 0.00) · wild 14.0 (R 0.70, E 0.00, M 0.00)
+Per world: plays 1212, crafts 108, sacrifices 175, market sales 142 (155 NEAR, 7.77 to pots), raids 10.0 (0.80 hard), alliances 0.80, Hold the Line 1.50 (survived 1.10), Wild made 40.3 / played 14.0
+Deck pressure per world: downgrades 103, out of stock R 94.6 / E 8.10 / M 0.60, packs 1751 (blocked by 3 Commons 298), hand full 0.10
+Plays by card (per world): rebrand 209, echo 208, taxHoliday 204, rollCall 202, hypeSiren 201, liquidityRain 43.8, ward 23.7, rally 21.1, lastStand 17.4, happyHour 13.7, recruit 10.3, friendlyRaid 10.3, diamondPool 10.0, slowBurn 9.50, summoningCircle 7.60, prophecy 6.70, inferno 4.10, counterspell 2.80, curse 2.30, mirror 1.70, alliance 1.10, blackHole 1.00, hardRaid 0.80, whaleTax 0.50
+Direct price lift from the pot's buy-and-burn (median per play): liquidityRain +0.4%, lastStand +0.0%, inferno +0.1%
+Median price change while the effect ran: blackHole 3.7%, liquidityRain 0.5%, whaleTax 0.4%, inferno 0.1%, diamondPool 0.0%, rollCall 0.0%, echo 0.0%, hypeSiren 0.0%, taxHoliday 0.0%, rebrand 0.0%, recruit 0.0%, slowBurn 0.0%, happyHour 0.0%, lastStand 0.0%, summoningCircle 0.0%, prophecy -0.7%
+Persona outcomes (median PnL %, share of all profit, cards per wallet, Epic+Mythic share of plays, played ≥1 card, card market net NEAR per wallet):
+  whale     n=   9/world  capital  43%  PnL   -5% (mean -1%)  profit    -171 NEAR/world  cards/wallet 12.4 (R+ 2.50)  Epic+ plays 92%  played 100%  crafted 53%  market -12.5
+  crowd     n= 217/world  capital  14%  PnL   -2% (mean 10%)  profit     294 NEAR/world  cards/wallet 7.36 (R+ 0.65)  Epic+ plays 7%  played 93%  crafted 26%  market 0.31
+  degen     n=  79/world  capital  14%  PnL    5% (mean 12%)  profit     370 NEAR/world  cards/wallet 1.83 (R+ 0.14)  Epic+ plays 0%  played 63%  crafted 1%  market 0.12
+  collector n=  20/world  capital  13%  PnL    0% (mean 0%)  profit    3.97 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 0.20
+  sniper    n=  36/world  capital   9%  PnL    1% (mean 3%)  profit    70.9 NEAR/world  cards/wallet 0.14 (R+ 0.03)  Epic+ plays 0%  played 0%  crafted 0%  market 0.04
+  wash      n=   2/world  capital   3%  PnL  -46% (mean -46%)  profit    -277 NEAR/world  cards/wallet 0.45 (R+ 0.05)  Epic+ plays 0%  played 0%  crafted 0%  market 0.05
+  creator   n=   8/world  capital   2%  PnL    3% (mean 12%)  profit    55.3 NEAR/world  cards/wallet 10.4 (R+ 0.84)  Epic+ plays 1%  played 99%  crafted 31%  market -0.01
+  sybil     n=  80/world  capital   2%  PnL   29% (mean 54%)  profit     261 NEAR/world  cards/wallet 4.23 (R+ 0.52)  Epic+ plays 0%  played 43%  crafted 27%  market 0.26
+Crowd wallets that entered in a coin's first 2h: median PnL 40% (n=16/world)
+Sybil farms (40 wallets × 5.5 NEAR): median return 35%, R+ cards per farm 20.8, card sales 10.6 NEAR per farm
+Wash traders: cost 142 NEAR each in fees/slippage; coins with a wash trader reached L2 45% vs 45% without
+Creators: honest median profit 1.32 NEAR, ruggers 4.76 NEAR (with Vault Seal 15.6, without 2.52); rug sells 276, blocked by Vault Seal 210
+Inequality: Gini of card ownership by wallet n/a · share of wallets with PnL > 0: 51% · Gini of gains 0.79
+
+=== mania+fixes  (10 worlds × 8 coins = 80 coins, 5 days each)
+Coins reaching L2 96% · L3 81% · L4 55% · graduated 48% · died 3%
+Median hours to L2 2.75 · L3 5.92 · L4 15.9 · graduation 11.2
+Median peak market cap 10624 NEAR · median holders at end 38
+  stuck below L2: when only one rule was missing it was wallets 57%, mcap 43%
+  stuck below L3: when only one rule was missing it was wallets 61%, volume 39%
+  stuck below L4: when only one rule was missing it was volume 60%, netBuying 30%, mcap 9%, milestone 1%
+Invariant violations: 0 · worst token-ledger error 2.4e-15
+Cards made per world by source: pack 3517 (R 86.8, E 0.00, M 0.00) · sacrifice 266 (R 31.7, E 1.40, M 0.00) · levelDrop 955 (R 137, E 3.00, M 1.30) · craft 198 (R 176, E 21.5, M 0.10) · circle 14.5 (R 3.00, E 0.00, M 0.00) · raidMvp 20.2 (R 9.70, E 0.00, M 0.00) · wild 29.1 (R 1.20, E 0.00, M 0.00) · prophecy 10.8 (R 2.90, E 0.00, M 0.00) · htlSurvivor 26.7 (R 6.70, E 0.00, M 0.00) · blackHoleTop 2.50 (R 1.20, E 0.00, M 0.00)
+Per world: plays 2706, crafts 198, sacrifices 266, market sales 256 (332 NEAR, 16.6 to pots), raids 21.6 (2.50 hard), alliances 1.90, Hold the Line 3.80 (survived 2.00), Wild made 103 / played 29.1
+Deck pressure per world: downgrades 320, out of stock R 299 / E 37.7 / M 2.30, packs 3517 (blocked by 3 Commons 192), hand full 0.30
+Plays by card (per world): taxHoliday 461, rollCall 461, rebrand 460, echo 451, hypeSiren 445, liquidityRain 98.1, ward 60.7, rally 58.5, lastStand 32.2, happyHour 31.4, recruit 22.8, slowBurn 22.1, friendlyRaid 20.2, diamondPool 18.6, prophecy 14.4, summoningCircle 14.3, inferno 10.2, counterspell 5.30, mirror 4.80, curse 4.60, whaleTax 2.90, hardRaid 2.60, blackHole 2.60, alliance 2.00, supernova 0.20
+Direct price lift from the pot's buy-and-burn (median per play): liquidityRain +0.4%, inferno +0.2%, lastStand +0.0%, supernova +0.4%
+Median price change while the effect ran: supernova 4.8%, whaleTax 2.3%, prophecy 1.4%, liquidityRain 0.6%, rollCall 0.2%, diamondPool 0.1%, rebrand 0.1%, hypeSiren 0.1%, summoningCircle 0.1%, echo 0.0%, taxHoliday 0.0%, happyHour 0.0%, recruit 0.0%, lastStand 0.0%, blackHole -0.1%, inferno -0.2%, slowBurn -0.4%
+Persona outcomes (median PnL %, share of all profit, cards per wallet, Epic+Mythic share of plays, played ≥1 card, card market net NEAR per wallet):
+  whale     n=  49/world  capital  55%  PnL   -6% (mean -3%)  profit   -1697 NEAR/world  cards/wallet 4.69 (R+ 0.97)  Epic+ plays 86%  played 66%  crafted 24%  market -4.65
+  crowd     n=1306/world  capital  20%  PnL  -26% (mean -10%)  profit   -1848 NEAR/world  cards/wallet 3.01 (R+ 0.26)  Epic+ plays 14%  played 57%  crafted 9%  market 0.09
+  degen     n= 467/world  capital  19%  PnL    3% (mean 11%)  profit    1638 NEAR/world  cards/wallet 1.05 (R+ 0.06)  Epic+ plays 0%  played 35%  crafted 0%  market 0.08
+  collector n=  20/world  capital   3%  PnL    0% (mean 0%)  profit    2.19 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 0.11
+  sniper    n=  37/world  capital   2%  PnL   12% (mean 16%)  profit     350 NEAR/world  cards/wallet 0.24 (R+ 0.08)  Epic+ plays 0%  played 0%  crafted 0%  market 0.14
+  wash      n=   2/world  capital   1%  PnL  -31% (mean -33%)  profit    -198 NEAR/world  cards/wallet 2.00 (R+ 0.60)  Epic+ plays 0%  played 0%  crafted 0%  market 1.37
+  creator   n=   8/world  capital   0%  PnL   31% (mean 41%)  profit     195 NEAR/world  cards/wallet 6.76 (R+ 1.26)  Epic+ plays 0%  played 84%  crafted 29%  market 0.17
+  sybil     n=  80/world  capital   0%  PnL  186% (mean 166%)  profit     798 NEAR/world  cards/wallet 3.93 (R+ 0.71)  Epic+ plays 0%  played 24%  crafted 31%  market 0.53
+Crowd wallets that entered in a coin's first 2h: median PnL 56% (n=128/world)
+Sybil farms (40 wallets × 5.5 NEAR): median return 188%, R+ cards per farm 28.6, card sales 21.1 NEAR per farm
+Wash traders: cost 95.2 NEAR each in fees/slippage; coins with a wash trader reached L2 95% vs 97% without
+Creators: honest median profit 19.1 NEAR, ruggers 18.7 NEAR (with Vault Seal 18.7, without 17.3); rug sells 295, blocked by Vault Seal 369
+Inequality: Gini of card ownership by wallet n/a · share of wallets with PnL > 0: 35% · Gini of gains 0.85
+
+=== noCards+fixes  (10 worlds × 8 coins = 80 coins, 5 days each)
+Coins reaching L2 71% · L3 0% · L4 0% · graduated 0% · died 19%
+Median hours to L2 4.25 · L3 0.00 · L4 0.00 · graduation 0.00
+Median peak market cap 2874 NEAR · median holders at end 16
+  stuck below L2: when only one rule was missing it was wallets 70%, mcap 18%, volume 12%
+  stuck below L3: when only one rule was missing it was milestone 100%
+Invariant violations: 0 · worst token-ledger error 1.1e-15
+Persona outcomes (median PnL %, share of all profit, cards per wallet, Epic+Mythic share of plays, played ≥1 card, card market net NEAR per wallet):
+  whale     n=  13/world  capital  45%  PnL   -7% (mean -4%)  profit    -697 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 0.00
+  crowd     n= 398/world  capital  18%  PnL   -9% (mean -0%)  profit   -33.8 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 0.00
+  degen     n= 136/world  capital  17%  PnL    5% (mean 12%)  profit     615 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 0.00
+  collector n=  20/world  capital   9%  PnL    0% (mean 0%)  profit    0.00 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 0.00
+  sniper    n=  37/world  capital   7%  PnL    2% (mean 8%)  profit     167 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 0.00
+  wash      n=   2/world  capital   2%  PnL  -45% (mean -47%)  profit    -280 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 0.00
+  creator   n=   8/world  capital   1%  PnL   12% (mean 14%)  profit    66.0 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 0.00
+  sybil     n=  80/world  capital   1%  PnL   34% (mean 54%)  profit     259 NEAR/world  cards/wallet 0.00 (R+ 0.00)  Epic+ plays 0%  played 0%  crafted 0%  market 0.00
+Crowd wallets that entered in a coin's first 2h: median PnL 58% (n=39/world)
+Sybil farms (40 wallets × 5.5 NEAR): median return 67%, R+ cards per farm 0.00, card sales 0.00 NEAR per farm
+Wash traders: cost 140 NEAR each in fees/slippage; coins with a wash trader reached L2 85% vs 67% without
+Creators: honest median profit 2.36 NEAR, ruggers 10.4 NEAR (with Vault Seal 17.8, without 10.1); rug sells 527, blocked by Vault Seal 222
+Inequality: Gini of card ownership by wallet n/a · share of wallets with PnL > 0: 44% · Gini of gains 0.80
+
+(50s)
