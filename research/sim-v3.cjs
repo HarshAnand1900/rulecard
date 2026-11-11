@@ -23,11 +23,19 @@ function gini(a) { const s = [...a].filter(v => v >= 0).sort((x, y) => x - y); c
 
 // ------------------------------------------------------------------ spec constants
 const HOUR = 60, DAY = 1440, SIM = 5 * DAY;
-const V = 900, YV = 1.073e9, SALE = 793.1e6, YEND = YV - SALE, POOLTOK = 206.9e6, SUPPLY = 1e9, FEE = 0.01;
+// CURVE=1.5 scales the whole curve (all prices and graduation NEAR); LVL=1.5 raises only the L2-L4 targets
+const CSCALE = +process.env.CURVE || 1, LSCALE = +process.env.LVL || 1;
+const V = 900 * CSCALE, YV = 1.073e9, SALE = 793.1e6, YEND = YV - SALE, POOLTOK = 206.9e6, SUPPLY = 1e9, FEE = 0.01;
 const LEVELS = [null, null,
   { mcap: 1500, back: 250, wallets: 30, wmin: 3, crowd: 0.20, vol: 500, chk: 15, age: 30, ms: null, hold: 15, wait: 30 },
   { mcap: 3000, back: 650, wallets: 80, wmin: 5, crowd: 0.30, vol: 2000, chk: 40, age: 180, ms: 'rare', hold: 30, wait: 60 },
   { mcap: 6000, back: 1200, wallets: 200, wmin: 5, crowd: 0.40, vol: 6000, chk: 100, age: 720, ms: 'raidOrHtl', hold: 60, wait: 120 }];
+for (const g of LEVELS) if (g) { g.mcap *= CSCALE * LSCALE; g.back *= CSCALE * LSCALE; g.vol *= CSCALE * LSCALE; }
+// LVLM="2703,6757,10811" sets L2-L4 market caps directly (NEAR); backing = 90% of the real NEAR that cap needs; volume scales with the cap
+if (process.env.LVLM) process.env.LVLM.split(',').map(Number).forEach((m, i) => {
+  const g = LEVELS[i + 2], m0 = V / YV * 1e9, real = V * (Math.sqrt(m / m0) - 1);
+  g.vol *= m / g.mcap; g.mcap = m; g.back = 0.9 * real;
+});
 const THR = [1, 2, 3, 5, 10, 25];
 let FIX = false, PACK_EVERY = 360, POTFEE = FEE;
 const PLAY = { C: [1, 30], R: [3, 60], E: [10, 120], M: [25, 240] };
@@ -479,12 +487,14 @@ function evalLevel(W, c, t) {
 }
 function levelUp(W, c, L, cross, t) {
   c.level = L; c.crossed[L] = t; c.metSince = null; W.st.levelUps++;
+  (c.snap || (c.snap = {}))[L] = { t: t - c.born, vol: c.totalVol, real: c.real, pot: c.pot };
   if (FIX && L === 4) earn(c, t, 'M');
   if (!W.sc.cards) return;
   const g = LEVELS[L];
   for (const H of c.holders.values()) if (qual(H, g.wmin, g.wait, cross)) grant(W, H.a, c, rollTier(DROP[L], H.a.rep), 'levelDrop');
 }
 function graduate(W, c, t) {
+  (c.snap || (c.snap = {}))[5] = { t: t - c.born, vol: c.totalVol, real: c.real, pot: c.pot };
   c.grad = true; c.gradT = t; c.level = Math.max(c.level, 4);
   // wrap up everything still running
   for (const e of c.effects) e.done = true; c.effects = [];
@@ -701,7 +711,7 @@ function summarize(W) {
   const out = { coins: [], persona: {}, st: W.st, farms: {}, wash: [], creators: [] };
   for (const c of W.coins) {
     const holders = [...c.holders.values()].filter(H => tokTotal(H) > 0).length;
-    out.coins.push({ id: c.id, q: c.q, level: c.level, grad: c.grad, gradT: c.gradT && c.gradT - c.born, dead: c.dead, crossed: Object.fromEntries(Object.entries(c.crossed).map(([k, v]) => [k, v - c.born])), peak: c.stats.peakMcap, end: mcap(c), holders, plays: c.stats.plays, playsT: c.stats.playsT, raids: c.stats.raids, htl: c.stats.htl, fails: c.fails, wash: c.wash, sybil: c.sybil, rules: [...c.rules], made: c.deck.made, vol: c.totalVol });
+    out.coins.push({ id: c.id, q: c.q, level: c.level, grad: c.grad, gradT: c.gradT && c.gradT - c.born, dead: c.dead, crossed: Object.fromEntries(Object.entries(c.crossed).map(([k, v]) => [k, v - c.born])), peak: c.stats.peakMcap, end: mcap(c), holders, plays: c.stats.plays, playsT: c.stats.playsT, raids: c.stats.raids, htl: c.stats.htl, fails: c.fails, wash: c.wash, sybil: c.sybil, rules: [...c.rules], made: c.deck.made, vol: c.totalVol, snap: c.snap || {} });
   }
   const val = (a) => { let v = a.cash; for (const cid of a.coins) { const c = W.coins[cid], H = c.holders.get(a.id); if (H) v += tokTotal(H) * price(c) * 0.9; } return v; };
   for (const a of W.agents) {
@@ -762,6 +772,28 @@ function report(name, runs) {
 }
 
 const seeds = +process.argv[2] || 10, only = process.argv[3];
+// FEES=1 node sim-v3.cjs 10 -> fee accumulated per level (printed, results file untouched)
+if (process.env.FEES) {
+  const md = (a) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : 0; };
+  const avg = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
+  const n0 = (v) => v.toFixed(0).padStart(6);
+  for (const name of (process.env.SCN ? process.env.SCN.split(',') : ['base+fixes', 'bear+fixes', 'mania+fixes', 'whales+fixes'])) {
+    const coins = []; for (let s = 1; s <= seeds; s++) coins.push(...run(name, s * 7919).coins);
+    console.log(`\n${name}: ${coins.length} coins (${seeds} worlds). Medians [averages] at the moment each level is reached. Fee = total volume × rate.`);
+    console.log('level   reached   time(h)   real NEAR    total volume       fee @1%       fee @2%   fee/day while at this level @1%');
+    for (const L of [2, 3, 4, 5]) {
+      const got = coins.filter(c => c.snap[L]); if (!got.length) { console.log(`L${L}`.padEnd(8) + '    0%'); continue; }
+      const s = got.map(c => c.snap[L]);
+      const perDay = got.filter(c => c.snap[L + 1] || L === 5).map(c => { const a = c.snap[L], b = c.snap[L + 1]; return b ? (b.vol - a.vol) * 0.01 / Math.max((b.t - a.t) / 1440, 1 / 24) : null; }).filter(v => v !== null);
+      const f = (k, m = 1) => `${n0(md(s.map(x => x[k] * m)))} [${avg(s.map(x => x[k] * m)).toFixed(0)}]`.padStart(14);
+      console.log((L === 5 ? 'Grad' : `L${L}`).padEnd(8) + `${(got.length / coins.length * 100).toFixed(0)}%`.padStart(7) + (md(s.map(x => x.t / 60)).toFixed(1)).padStart(10) +
+        f('real') + f('vol') + f('vol', 0.01) + f('vol', 0.02) + (perDay.length ? `${n0(md(perDay))} [${avg(perDay).toFixed(0)}]` : '   – (no next level)').padStart(18));
+    }
+    const stuck = coins.filter(c => !c.grad && c.level >= 2);
+    console.log(`coins that stopped below graduation: median lifetime fees @1% = ${md(stuck.map(c => c.vol * 0.01)).toFixed(0)} NEAR (by level ${[2, 3, 4].map(l => `L${l}: ${md(stuck.filter(c => c.level === l).map(c => c.vol * 0.01)).toFixed(0)}`).join(', ')})`);
+  }
+  process.exit(0);
+}
 const t0 = Date.now(); const lines = [`Rulecard v3 simulation — ${new Date().toISOString().slice(0, 10)} — ${seeds} worlds per scenario`];
 for (const name of Object.keys(SCEN)) { if (only && name !== only) continue; const runs = []; for (let s = 1; s <= seeds; s++) runs.push(run(name, s * 7919)); const r = report(name, runs); console.log(r); lines.push(r); }
 lines.push(`\n(${((Date.now() - t0) / 1000).toFixed(0)}s)`);

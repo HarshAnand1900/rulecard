@@ -1,244 +1,519 @@
-// On-chain mode: the same game, every action is a real transaction on the local NEAR sandbox.
-import { useEffect, useRef, useState } from 'react';
-import { CARDS, CardType, RULES, RuleId, LEVELS, LEVEL_NAMES, HOUR, MIN } from '../../engine/cards';
-import { Chain, toNear, toTok, nearToYocto, fmtTok, TOKEN } from './near';
+// Rulecard app: Discover, Launch and the coin page. Every action is a real transaction (local sandbox in dev).
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Chain, toNear, toTok, nearToYocto, tokToUnits, fmtTok, fmtNear } from './near';
+import type {
+  CoinEntry, CoinView, HolderView, Ritual, LevelView, LogEntry, HandView, Proposal, RaidView, Card, Question, Rule, BuyQuote,
+} from './types';
+import { TIER_OF, TIER_NAME, CARD_TEXT, RULE_TEXT, LEVEL_NAME } from './types';
+import PriceChart, { type PricePoint } from './PriceChart';
 
-interface Effect { id: number; card: CardType; tier: string; caster: string; starts: number; ends: number; done: boolean; chunks: number; chunks_done: number; burned: string; lock_ms: number; total: string; forfeit: string; bonus: string; }
-interface CoinV {
-  id: number; name: string; ticker: string; creator: string; created: number; fee_bps: number; rules: RuleId[];
-  price_yocto_per_token: string; real: string; circ: string; pot: string; prize_pot: string; burned: string; mcap_yocto: string;
-  level: number; spark: number; ult: number; rare_free_at: number; in_eclipse: boolean; pulse_ppm: number;
-  effects: Effect[]; htl: null | { start: number; end: number; dip_budget: string; dip_done: number; total_w: string }; last_htl: number;
-  graduated: boolean; skin: string; solvent: boolean; now: number; level_pending: number | null;
-  raid: number | null; banner_of: number | null; banner_until: number;
-}
-interface RaidSide { coin: number; total: string; score: string; tactics: (CardType | null)[]; mvp: string | null; }
-interface Raid { id: number; hard: boolean; status: 'Pending' | 'Active' | 'Settling' | 'Done' | 'Expired'; caster: string; accept_by: number; starts: number; ends: number; round: number; sides: RaidSide[]; winner: number | null; spoils_chunks: number; raider_pool: string; log: string[]; }
-interface Nft { id: string; kind: string; coin: number; owner: string; card: CardType | null; tier: string | null; shiny: boolean; title: string; soulbound: boolean; }
-interface Holding { bal: string; acq: number; last_checkin: number; last_cast: number; locked_until: number; vest: [string, number][]; }
+const MIN = 60_000, HOUR = 60 * MIN;
+const dur = (ms: number) => { ms = Math.max(0, ms); const d = Math.floor(ms / (24 * HOUR)), h = Math.floor((ms % (24 * HOUR)) / HOUR), m = Math.floor((ms % HOUR) / MIN); return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m ${Math.floor((ms % MIN) / 1000)}s`; };
+const short = (a: string) => a.replace(/\.test\.near$/, '').replace(/\.rulecard$/, '');
+const pct = (a: number, b: number) => (b > 0 ? Math.min(100, (a / b) * 100) : 0);
+const TACTIC = ['', 'Rally', 'Curse', 'Ward'];
+const tacticName = (code: number) => (code ? `${TACTIC[Math.floor(code / 10)]} ×${['1', '2', '3'][code % 10]}` : '—');
 
-const hhmm = (t: number) => new Date(t).toISOString().slice(11, 16);
-const dur = (ms: number) => { ms = Math.max(0, ms); const h = Math.floor(ms / HOUR), m = Math.floor((ms % HOUR) / MIN); return h ? `${h}h ${m}m` : `${m}m ${Math.floor((ms % MIN) / 1000)}s`; };
-const short = (a: string) => a.replace(/\.test\.near$/, '');
+type Page = { kind: 'discover' } | { kind: 'launch' } | { kind: 'coin'; id: string };
+type Tab = 'trade' | 'today' | 'cards' | 'vault' | 'raid' | 'log';
 
 export default function ChainApp() {
-  const [ch, setCh] = useState<Chain | null>(null); const [err, setErr] = useState('');
-  const [me, setMe] = useState('you'); const [coins, setCoins] = useState<CoinV[]>([]); const [sel, setSel] = useState<number | null>(null);
-  const [mine, setMine] = useState<Mine>({ bal: 0, hold: null, nfts: [], claims: [[], false], stakes: {}, reg: null, round: null, checks: {}, raids: [] });
-  const [busy, setBusy] = useState(''); const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
-  const hist = useRef<Record<number, { t: number; p: number }[]>>({});
-  const [launching, setLaunching] = useState(false);
+  const [ch, setCh] = useState<Chain | null>(null);
+  const [err, setErr] = useState('');
+  const [me, setMe] = useState('you');
+  const [page, setPage] = useState<Page>({ kind: 'discover' });
+  const [coins, setCoins] = useState<CoinEntry[]>([]);
+  const [busy, setBusy] = useState('');
+  const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
+  const [tick, setTick] = useState(0);
+  const [bal, setBal] = useState(0);
 
   useEffect(() => { Chain.open().then(setCh).catch(e => setErr(e.message)); }, []);
-  const coin = coins.find(c => c.id === sel) ?? coins[0];
+  const refresh = useCallback(() => setTick(t => t + 1), []);
+  useEffect(() => { if (!ch) return; ch.view<CoinEntry[]>(ch.keys.factoryId, 'list_coins', {}).then(setCoins).catch(e => setErr(e.message)); ch.balance(me).then(setBal); }, [ch, tick, me]);
+  useEffect(() => { const i = setInterval(refresh, 5000); return () => clearInterval(i); }, [refresh]);
+  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 5000); return () => clearTimeout(t); }, [toast]);
 
-  async function refresh(c = ch) {
-    if (!c) return;
-    const list: CoinV[] = await c.view('list_coins', {});
-    setCoins(list);
-    for (const k of list) { const h = (hist.current[k.id] ||= []); const p = toNear(k.mcap_yocto); if (!h.length || h[h.length - 1].t !== k.now) h.push({ t: k.now, p }); if (h.length > 2000) h.shift(); }
-    const cur = list.find(x => x.id === sel) ?? list[0]; const acc = c.id(me);
-    const [bal, nfts] = await Promise.all([c.balance(me), c.view<Nft[]>('nfts_for_owner', { account_id: acc })]);
-    let hold = null, claims: [number[], boolean] = [[], false], stakes: Record<number, number> = {}, reg = null, round = null; const checks: Record<string, string | null> = {};
-    const raids: { r: Raid; mine: number[] }[] = [];
-    if (cur) {
-      [hold, claims] = await Promise.all([c.view('get_holding', { coin_id: cur.id, account_id: acc }), c.view('claims_of', { coin_id: cur.id, account_id: acc })]);
-      for (const e of cur.effects.filter(e => e.card === 'diamondPool' || e.card === 'blackHole')) stakes[e.id] = toTok(await c.view('get_stake', { coin_id: cur.id, fx_id: e.id, account_id: acc }));
-      const start = cur.htl?.start ?? cur.last_htl;
-      if (start) { reg = await c.view('get_htl_reg', { coin_id: cur.id, start, account_id: acc }); round = cur.htl ? null : await c.view('htl_round', { coin_id: cur.id, start }); }
-      const target = list.find(x => x.id !== cur.id && x.level >= 2 && !x.raid)?.id ?? null;
-      for (const n of nfts.filter(n => n.coin === cur.id && n.kind === 'card')) checks[n.id] = await c.view('cast_check', { account_id: acc, card_id: n.id, target: n.card === 'friendlyRaid' || n.card === 'hardRaid' ? target : null });
-      // raids this coin took part in (the contract keeps them for claims)
-      for (let id = 1; id <= 40; id++) { const r: Raid | null = await c.view('get_raid', { raid_id: id }); if (!r) break; if (r.sides.some(s => s.coin === cur.id) && r.status !== 'Expired') { const m = [toTok(await c.view('get_raid_stake', { raid_id: id, side: 0, account_id: acc })), toTok(await c.view('get_raid_stake', { raid_id: id, side: 1, account_id: acc }))]; raids.push({ r, mine: m }); } }
-    }
-    setMine({ bal, hold, nfts, claims, stakes, reg, round, checks, raids: raids.filter(x => x.r.status !== 'Done' || x.mine[0] + x.mine[1] > 0).slice(-3) });
-  }
-  useEffect(() => { if (!ch) return; refresh(); const t = setInterval(() => refresh().catch(() => {}), 2500); return () => clearInterval(t); }, [ch, me, sel]);
-
-  async function act(label: string, f: () => Promise<unknown>) {
+  const act = useCallback(async (label: string, fn: () => Promise<unknown>, done?: string) => {
     setBusy(label);
-    try { await f(); setToast({ ok: true, text: label }); } catch (e: any) { setToast({ ok: false, text: e.message }); }
-    setBusy(''); refresh(); setTimeout(() => setToast(null), 4000);
-  }
+    try { await fn(); setToast({ ok: true, text: done ?? `${label}: done` }); }
+    catch (e: any) { setToast({ ok: false, text: `${label}: ${e.message}` }); }
+    finally { setBusy(''); refresh(); }
+  }, [refresh]);
 
-  if (err) return <div className="panel" style={{ margin: 16 }}><h2>Sandbox not ready</h2><p>{err}</p><pre className="mono small">./sandbox/start.sh{'\n'}node sandbox/deploy.mjs</pre></div>;
-  if (!ch) return <div className="panel" style={{ margin: 16 }}>Connecting to the local NEAR sandbox…</div>;
-  const now = coin?.now ?? Date.now();
+  if (err) return <div className="panel" style={{ margin: 16 }}><h2>Can't reach the chain</h2><p>{err}</p></div>;
+  if (!ch) return <div className="panel" style={{ margin: 16 }}>Connecting to the sandbox…</div>;
+  const ctx = { ch, me, act, busy, tick, coins, go: setPage };
 
   return (
-    <div className="app">
+    <>
       <header className="top">
-        <div className="brand"><span className="logo">RULECARD</span><span className="tag">NEAR sandbox · {ch.keys.contractId}</span></div>
-        <div className="clock">
-          <span className="mono big">{coin ? hhmm(now) : '--:--'} UTC</span>
-          <button className="btn ghost" disabled={!!busy} onClick={() => act('+15 min of blocks', () => ch.fastForward(15, me))}>+15m</button>
-          <button className="btn ghost" disabled={!!busy} onClick={() => act('+1h of blocks', () => ch.fastForward(60, me))}>+1h</button>
-          {coin && <button className="btn ghost" disabled={!!busy} onClick={() => act('Cranked', () => ch.call(me, 'crank', { coin_id: coin.id }))}>Crank</button>}
-          {busy && <span className="small muted">⏳ {busy}…</span>}
+        <div className="brand">
+          <button className="logo linkish" onClick={() => setPage({ kind: 'discover' })}>RULECARD</button>
+          <span className="tag">memecoins with mechanics · sandbox</span>
         </div>
+        <nav className="seg" aria-label="Pages">
+          <button aria-pressed={page.kind === 'discover'} onClick={() => setPage({ kind: 'discover' })}>Discover</button>
+          <button aria-pressed={page.kind === 'launch'} onClick={() => setPage({ kind: 'launch' })}>Launch a coin</button>
+        </nav>
         <div className="who">
-          <select value={me} onChange={e => setMe(e.target.value)} aria-label="Player">{ch.players().map(p => <option key={p}>{p}</option>)}</select>
-          <span className="mono">{mine.bal.toFixed(2)} NEAR</span>
+          <label className="small muted">Playing as{' '}
+            <select value={me} onChange={e => setMe(e.target.value)}>{ch.players().map(p => <option key={p} value={p}>{p}</option>)}</select>
+          </label>
+          <span className="mono small">{fmtNear(bal)} NEAR</span>
+          <span className="seg small" role="group" aria-label="Move sandbox time">
+            {[[15, '+15m'], [60, '+1h'], [360, '+6h'], [1440, '+1d']].map(([m, l]) => (
+              <button key={l} disabled={!!busy} onClick={() => act(`Time ${l}`, () => ch.fastForward(m as number, coins.map(c => c.account_id)), `Moved the chain clock ${l}`)}>{l}</button>
+            ))}
+          </span>
         </div>
       </header>
-      <div className="layout">
-        <aside className="side">
-          <button className="btn primary wide" onClick={() => setLaunching(true)}>+ Launch a coin</button>
-          <nav className="coins" aria-label="Coins"><h3>On-chain coins</h3>
-            {!coins.length && <p className="muted small">No coins yet. Launch one, or run the bots: node sandbox/bots.mjs</p>}
-            {coins.map(c => <button key={c.id} className={`coinrow ${c.id === coin?.id ? 'on' : ''}`} onClick={() => setSel(c.id)}>
-              <span className="lvl">L{c.level}</span><span className="cr-main"><b>${c.ticker}</b>{c.htl && <span className="htlmini">HOLD</span>}<span className="muted small">{toNear(c.mcap_yocto).toFixed(1)} N mcap</span></span><span />
-            </button>)}
-          </nav>
-          <section className="collection"><h3>Your relics & badges</h3>
-            <ul>{mine.nfts.filter(n => n.kind !== 'card').map(n => <li key={n.id} className="small">{n.kind === 'badge' ? '🏅' : '🗿'} {n.title}</li>)}</ul>
-          </section>
-        </aside>
-        {coin ? <Coin ch={ch} c={coin} coins={coins} me={me} mine={mine} hist={hist.current[coin.id] || []} act={act} busy={!!busy} /> : <main className="main" />}
-      </div>
-      {launching && <Launch onClose={() => setLaunching(false)} onLaunch={(name, ticker, fee, rules, first) => act('Launched', async () => { const id = await ch.call(me, 'launch_coin', { name, ticker, fee_bps: fee, rules }, nearToYocto(first)); setSel(id); setLaunching(false); })} />}
-      {toast && <div className={`toast ${toast.ok ? 'ok' : 'err'}`} role="status">{toast.text}</div>}
-    </div>
+      {busy && <div className="busy" role="status">⏳ {busy}…</div>}
+      {toast && <div className={`toast ${toast.ok ? 'ok' : 'bad'}`} role="status">{toast.text}</div>}
+      <main className="page">
+        {page.kind === 'discover' && <Discover {...ctx} />}
+        {page.kind === 'launch' && <Launch {...ctx} />}
+        {page.kind === 'coin' && <CoinPage {...ctx} id={page.id} />}
+      </main>
+    </>
   );
 }
 
-type Act = (l: string, f: () => Promise<unknown>) => void;
-interface Mine { bal: number; hold: Holding | null; nfts: Nft[]; claims: [number[], boolean]; stakes: Record<number, number>; reg: any; round: any; checks: Record<string, string | null>; raids: { r: Raid; mine: number[] }[]; }
-function Coin({ ch, c, coins, me, mine, hist, act, busy }: { ch: Chain; c: CoinV; coins: CoinV[]; me: string; mine: Mine; hist: { t: number; p: number }[]; act: Act; busy: boolean }) {
-  const [amt, setAmt] = useState('1'); const [pct, setPct] = useState('25'); const [opt, setOpt] = useState<Record<string, any>>({});
-  const bal = mine.hold ? toTok(mine.hold.bal) : 0; const now = c.now; const part = BigInt(Math.floor(bal * (parseFloat(pct) || 0) / 100 * 1000)) * (TOKEN / 1000n);
-  const cards: Nft[] = mine.nfts.filter((n: Nft) => n.coin === c.id && n.kind === 'card');
-  const sellPart = (f: number) => (BigInt(mine.hold?.bal ?? '0') * BigInt(Math.round(f * 100))) / 100n;
+type Ctx = { ch: Chain; me: string; act: (l: string, f: () => Promise<unknown>, d?: string) => Promise<void>; busy: string; tick: number; coins: CoinEntry[]; go: (p: Page) => void };
+
+// ------------------------------------------------------------------ Discover
+function Discover({ ch, coins, tick, go }: Ctx) {
+  const [rows, setRows] = useState<Record<string, { c: CoinView; r: Ritual; raid: RaidView | null }>>({});
+  useEffect(() => {
+    (async () => {
+      const out: typeof rows = {};
+      for (const e of coins) {
+        try { const [c, r, raid] = await Promise.all([ch.view<CoinView>(e.account_id, 'get_coin'), ch.view<Ritual>(e.account_id, 'get_ritual'), ch.view<RaidView | null>(e.account_id, 'get_raid')]); out[e.account_id] = { c, r, raid }; } catch { /* skip */ }
+      }
+      setRows(out);
+    })();
+  }, [ch, coins, tick]);
   return (
-    <main className="main">
-      {c.banner_of && <div className="banner takeover">🏴 Conquered by ${coins.find(x => x.id === c.banner_of)?.ticker} for {dur(c.banner_until - now)}</div>}
-      {mine.raids.map(x => <RaidPanel key={x.r.id} ch={ch} r={x.r} mine={x.mine} coins={coins} c={c} me={me} act={act} busy={busy} now={now} hold={bal} />)}
-      {c.htl && <div className="banner htl"><div><b>HOLD THE LINE</b> · {dur(c.htl.end - now)} left · prize {toNear(c.prize_pot).toFixed(3)} N + 20% of pot · dip buys {c.htl.dip_done}/36</div>
-        <div className="small">{mine.reg ? (mine.reg.out ? 'You sold below your shield. You are out.' : 'Shield up. Don\'t sell and claim your share when it ends.') : 'Held 1h before the drop? Raise your shield to join the prize.'}
-          {!mine.reg && <button className="btn sm primary" disabled={busy} onClick={() => act('Shield raised', () => ch.call(me, 'htl_register', { coin_id: c.id }))}>Raise shield</button>}</div></div>}
-      {!c.htl && c.last_htl > 0 && mine.reg && !mine.reg.out && <div className="banner takeover">You survived Hold the Line. Pool {mine.round ? toNear(mine.round.pool).toFixed(3) : '?'} N <button className="btn sm primary" disabled={busy} onClick={() => act('Prize claimed', () => ch.call(me, 'htl_claim', { coin_id: c.id, start: c.last_htl }))}>Claim prize</button></div>}
-
-      <section className="coinhead panel" style={{ gridTemplateColumns: 'minmax(0,1fr) auto' }}>
-        <div className="ch-text"><h1>${c.ticker} <span className="muted">{c.name}</span></h1>
-          <div className="chips">{c.rules.map(r => <span key={r} className="chip rule" title={RULES[r].text}>{RULES[r].name}</span>)}<span className="chip">fee {c.fee_bps / 100}%</span><span className="chip">by {short(c.creator)}</span><span className={`chip ${c.solvent ? '' : 'gold'}`}>{c.solvent ? 'solvent ✓' : 'INSOLVENT'}</span>{c.skin !== 'classic' && <span className="chip gold">skin: {c.skin}</span>}</div></div>
-        <div className="stats">
-          <S l="Market cap" v={`${toNear(c.mcap_yocto).toFixed(2)} N`} /><S l="Real NEAR" v={toNear(c.real).toFixed(3)} /><S l="Pot" v={toNear(c.pot).toFixed(3)} />
-          <S l="Burned" v={fmtTok(toTok(c.burned))} /><S l="Circulating" v={fmtTok(toTok(c.circ))} /><S l="Pulse" v={`${(c.pulse_ppm / 1e4).toFixed(0)}%`} />
-        </div>
-      </section>
-
-      <div className="grid2">
-        <section className="panel"><Spark hist={hist} />
-          <div className="levels">{LEVELS.map((n, i) => { const lv = i + 1, done = c.level >= lv, next = c.level + 1 === lv; return (
-            <div key={lv} className={`lv ${done ? 'done' : ''}`}><div className="lv-bar"><i style={{ width: (done ? 100 : next ? Math.min(100, toNear(c.real) / n * 100) : 0) + '%' }} /></div>
-              <b>L{lv} {LEVEL_NAMES[i]}</b><span className="muted small">{n}N</span>{next && c.level_pending && <span className="small up">holding {dur(now - c.level_pending)}/15m</span>}
-              {done && lv >= 2 && mine.hold && !mine.claims[0].includes(lv) && <button className="btn sm" disabled={busy} onClick={() => act(`L${lv} drop claimed`, () => ch.call(me, 'claim_level_drop', { coin_id: c.id, level: lv }))}>claim drop</button>}
-            </div>); })}</div>
-        </section>
-        <section className="panel">
-          <div className="meters">
-            <M label="Spark" v={c.spark} max={30} cls="spark" /><M label="Ult" v={c.ult} max={100} cls="ult" />
-            <div className="mrow"><span>Rare slot</span><b className="mono">{now >= c.rare_free_at ? 'ready' : dur(c.rare_free_at - now)}</b></div>
-            <div className="mrow"><span>Eclipse</span><b className={`mono ${c.in_eclipse ? 'gold' : ''}`}>{c.in_eclipse ? 'OPEN' : 'closed'}</b></div>
-          </div>
-          <div className="trade"><h3>Trade (real transactions)</h3>
-            <div className="trow"><input aria-label="NEAR to spend" value={amt} onChange={e => setAmt(e.target.value)} /><span className="muted">NEAR</span>
-              <button className="btn buy" disabled={busy} onClick={() => act('Bought', async () => { const q = await ch.view('quote_buy', { coin_id: c.id, near: nearToYocto(parseFloat(amt) || 0).toString() }); await ch.call(me, 'buy', { coin_id: c.id, min_tokens: (BigInt(q) * 98n / 100n).toString() }, nearToYocto(parseFloat(amt) || 0)); })}>Buy</button></div>
-            <div className="trow">{[0.25, 0.5, 1].map(f => <button key={f} className="btn sell" disabled={busy || !bal} onClick={() => act('Sold', () => ch.call(me, 'sell', { coin_id: c.id, tokens: sellPart(f).toString(), min_near: '0' }))}>Sell {f * 100}%</button>)}</div>
-            <div className="trow">
-              <button className="btn" disabled={busy} onClick={() => act('Checked in', () => ch.call(me, 'check_in', { coin_id: c.id }))}>✓ Check in</button>
-              <button className="btn" disabled={busy || mine.claims[1]} onClick={() => act('Card of the Day', () => ch.call(me, 'claim_card_of_day', { coin_id: c.id }))}>🎴 Card of the Day{mine.claims[1] ? ' ✓' : ''}</button>
-            </div>
-            <p className="muted small">You hold {fmtTok(bal)}{mine.hold?.vest?.length ? ` + ${fmtTok(mine.hold.vest.reduce((x: number, v: [string, number]) => x + toTok(v[0]), 0))} vesting` : ''}{mine.hold && now < mine.hold.locked_until ? ` · locked ${dur(mine.hold.locked_until - now)}` : ''}</p>
-          </div>
-        </section>
+    <section>
+      <h1>Discover</h1>
+      <p className="muted">Every coin is its own NEP-141 contract with a curve, a pot, a Vault and a deck of rule cards. No admin key anywhere.</p>
+      {!coins.length && <div className="panel">No coins yet. <button className="btn" onClick={() => go({ kind: 'launch' })}>Launch the first one</button></div>}
+      <div className="coin-grid">
+        {coins.map(e => {
+          const row = rows[e.account_id]; if (!row) return <div key={e.account_id} className="panel coin-card">Loading ${e.symbol}…</div>;
+          const { c, r, raid } = row;
+          const ritual = (pct(r.gm_count, r.gm_target) + pct(toNear(r.lock_near), toNear(r.lock_target))) / 2;
+          return (
+            <button key={e.account_id} className="panel coin-card" onClick={() => go({ kind: 'coin', id: e.account_id })}>
+              <div className="row between"><strong className="big">${c.symbol}</strong><span className={`lvl l${c.level}`}>L{c.level} {LEVEL_NAME[c.level]}</span></div>
+              <div className="muted small">{c.name} · by {short(c.creator)}</div>
+              <div className="row between mono"><span>{fmtNear(toNear(c.mcap))} NEAR mcap</span><span>{c.holders} holders</span></div>
+              <Ring value={ritual} label="Ritual" />
+              <div className="chips">
+                <span className="chip">⚡ {c.energy}</span><span className="chip">🜂 pot {fmtNear(toNear(c.pot))}</span>
+                {raid && raid.phase === 2 && <span className="chip hot">⚔ in a raid</span>}
+                {c.hype_until > c.now && <span className="chip hot">📣 Trending</span>}
+                {c.rules.map(x => <span key={x} className="chip" title={RULE_TEXT[x]}>{x}</span>)}
+              </div>
+            </button>
+          );
+        })}
       </div>
-
-      {c.effects.some(e => !e.done) && <section className="panel">
-        <div className="row-between"><h2>On the table</h2><label className="small muted">stake <input className="tiny" value={pct} onChange={e => setPct(e.target.value)} />% of your bag</label></div>
-        <div className="fx">{c.effects.filter(e => !e.done || e.card === 'diamondPool').map(e => { const live = now >= e.starts; const st = mine.stakes[e.id] || 0; const unlock = e.ends + e.lock_ms; return (
-          <div key={e.id} className={`fxcard t-${e.tier} ${live ? 'live' : 'soon'}`}>
-            <div className="row-between"><b>{CARDS[e.card].name}</b><span className="mono small">{!live ? `starts in ${dur(e.starts - now)}` : now < e.ends ? `${dur(e.ends - now)} left` : e.card === 'diamondPool' && now < unlock ? `unlocks in ${dur(unlock - now)}` : 'ended'}</span></div>
-            <div className="small muted">by {short(e.caster)}</div>
-            <div className="small">
-              {e.chunks > 0 && <>{e.chunks_done}/{e.chunks} chunks · {fmtTok(toTok(e.burned))} burned</>}
-              {e.card === 'happyHour' && <>{fmtTok(toTok(e.bonus))} bonus bought by the pot</>}
-              {e.card === 'blackHole' && <>{fmtTok(toTok(e.total))} in the pit{live && now < e.ends && <button className="btn sm" disabled={busy} onClick={() => act('Fed the Black Hole', () => ch.call(me, 'feed_black_hole', { coin_id: c.id, fx_id: e.id, amount: part.toString() }))}>Throw in</button>}</>}
-              {e.card === 'diamondPool' && <>{fmtTok(toTok(e.total))} locked · you {fmtTok(st)}
-                {live && now < e.ends && <button className="btn sm" disabled={busy} onClick={() => act('Joined the pool', () => ch.call(me, 'join_diamond', { coin_id: c.id, fx_id: e.id, amount: part.toString() }))}>Join</button>}
-                {st > 0 && now < unlock && <button className="btn sm sell" disabled={busy} onClick={() => act('Left early', () => ch.call(me, 'leave_diamond', { coin_id: c.id, fx_id: e.id }))}>Leave (-20%)</button>}
-                {st > 0 && now >= unlock && <button className="btn sm primary" disabled={busy} onClick={() => act('Claimed', () => ch.call(me, 'claim_diamond', { coin_id: c.id, fx_id: e.id }))}>Claim</button>}</>}
-            </div>
-          </div>); })}</div>
-      </section>}
-
-      <section className="panel"><h2>Your hand <span className="muted small">({cards.length}/7) · ${c.ticker} cards, real NFTs</span></h2>
-        {!cards.length && <p className="muted">No cards for this coin yet.</p>}
-        <div className="hand">{cards.map(n => { const t = n.card!; const why = mine.checks[n.id]; const o = opt[n.id] || {}; return (
-          <div key={n.id} className={`card t-${n.tier} ${n.shiny ? 'shiny' : ''}`}>
-            <div className="c-top"><span>{n.tier}{n.shiny ? ' ✦' : ''}</span><span>#{n.id}</span></div>
-            <div className="c-name">{CARDS[t].name}</div><div className="c-text">{CARDS[t].text}</div>
-            <div className="c-foot">
-              {t === 'diamondPool' && <select value={o.lock ?? 1} onChange={e => setOpt({ ...opt, [n.id]: { ...o, lock: +e.target.value } })}>{[1, 6, 24].map(h => <option key={h} value={h}>lock {h}h</option>)}</select>}
-              {(t === 'friendlyRaid' || t === 'hardRaid') && <select value={o.target ?? ''} onChange={e => setOpt({ ...opt, [n.id]: { ...o, target: +e.target.value } })}><option value="">target…</option>{coins.filter(x => x.id !== c.id).map(x => <option key={x.id} value={x.id}>${x.ticker} L{x.level}</option>)}</select>}
-              {t === 'rebrand' && <select value={o.skin ?? 'neon'} onChange={e => setOpt({ ...opt, [n.id]: { ...o, skin: e.target.value } })}>{['neon', 'gold', 'void'].map(s => <option key={s}>{s}</option>)}</select>}
-              <button className="btn sm primary" disabled={busy || !!why} title={why ?? ''} onClick={() => act(`Played ${CARDS[t].name}`, () => ch.call(me, 'cast', { card_id: n.id, lock_hours: t === 'diamondPool' ? (o.lock ?? 1) : null, skin: t === 'rebrand' ? (o.skin ?? 'neon') : null, target: t === 'friendlyRaid' || t === 'hardRaid' ? (o.target ?? coins.find(x => x.id !== c.id && x.level >= 2 && !x.raid)?.id ?? null) : null }))}>Play</button>
-              {why && <span className="why">{why}</span>}
-            </div>
-          </div>); })}</div>
-      </section>
-    </main>
-  );
-}
-
-function RaidPanel({ ch, r, mine, coins, c, me, act, busy, now, hold }: { ch: Chain; r: Raid; mine: number[]; coins: CoinV[]; c: CoinV; me: string; act: Act; busy: boolean; now: number; hold: number }) {
-  const [pct, setPct] = useState('25');
-  const tk = (i: number) => coins.find(x => x.id === r.sides[i].coin)?.ticker ?? '?';
-  const sc = r.sides.map(s => Number(BigInt(s.score) / 10000n) / 100); const tot = sc[0] + sc[1] || 1;
-  const side = r.sides.findIndex(s => s.coin === c.id);
-  const status = r.status === 'Pending' ? `waiting for $${tk(1)} · ${dur(r.accept_by - now)}` : r.status === 'Active' ? `round ${Math.min(4, r.round + 1)}/4 · ends in ${dur(r.ends - now)}` : r.status === 'Settling' ? `paying spoils (${12 - r.spoils_chunks}/12)` : r.winner === null ? 'tie' : `$${tk(r.winner)} won`;
-  const amount = BigInt(Math.floor(hold * (parseFloat(pct) || 0) / 100 * 1000)) * (TOKEN / 1000n);
-  return (
-    <section className={`panel raid ${r.hard ? 'hard' : 'friendly'}`}>
-      <div className="row-between"><h2>⚔️ {r.hard ? 'HARD' : 'Friendly'} raid #{r.id}: ${tk(0)} vs ${tk(1)}</h2><span className="mono small">{status}</span></div>
-      <div className="raidbar"><i style={{ width: (100 * sc[0] / tot) + '%' }} /><span>{sc[0].toFixed(1)}</span><span>{sc[1].toFixed(1)}</span></div>
-      <div className="small muted">Staked: ${tk(0)} {fmtTok(toTok(r.sides[0].total))} · ${tk(1)} {fmtTok(toTok(r.sides[1].total))}{mine[0] + mine[1] > 0 ? ` · yours ${fmtTok(mine[0] + mine[1])}` : ''}. Tactics stay hidden until the round ends; play Rally / Curse / Ward / Mirror from your hand.</div>
-      <div className="trow">
-        {r.status === 'Pending' && side === 1 && <button className="btn primary" disabled={busy} onClick={() => act('Raid accepted', () => ch.call(me, 'raid_accept', { raid_id: r.id }))}>Accept for ${tk(1)}</button>}
-        {r.status === 'Active' && <><input className="tiny" value={pct} onChange={e => setPct(e.target.value)} aria-label="Percent to stake" />% of your ${c.ticker}
-          <button className="btn" disabled={busy || !hold} onClick={() => act('Staked for the raid', () => ch.call(me, 'raid_stake', { raid_id: r.id, coin_id: c.id, amount: amount.toString() }))}>Stake</button></>}
-        {r.status === 'Done' && mine[0] + mine[1] > 0 && <button className="btn primary" disabled={busy} onClick={() => act('Raid payout claimed', () => ch.call(me, 'raid_claim', { raid_id: r.id }))}>Claim payout</button>}
-        {(r.status === 'Active' || r.status === 'Settling') && <button className="btn ghost" disabled={busy} onClick={() => act('Raid advanced', () => ch.call(me, 'crank', { coin_id: c.id }))}>Advance</button>}
-      </div>
-      <ul className="raidlog">{r.log.map((l, i) => <li key={i} className="small">{l}</li>)}</ul>
     </section>
   );
 }
 
-const S = ({ l, v }: { l: string; v: string }) => <div className="stat"><div className="l">{l}</div><div className="v mono">{v}</div></div>;
-const M = ({ label, v, max, cls }: { label: string; v: number; max: number; cls: string }) => <div className="meter"><div className="mrow"><span>{label}</span><b className="mono">{v}/{max}</b></div><div className={`mbar ${cls}`}><i style={{ width: (100 * v / max) + '%' }} /></div></div>;
-
-function Spark({ hist }: { hist: { t: number; p: number }[] }) {
-  if (hist.length < 2) return <p className="muted small">Market cap chart fills in as blocks come in.</p>;
-  const W = 560, H = 160, t0 = hist[0].t, t1 = hist[hist.length - 1].t || t0 + 1, ps = hist.map(h => h.p), lo = Math.min(...ps) * 0.97, hi = Math.max(...ps) * 1.03;
-  const d = hist.map((h, i) => `${i ? 'L' : 'M'}${((h.t - t0) / (t1 - t0 || 1) * W).toFixed(1)},${(H - (h.p - lo) / (hi - lo || 1) * H).toFixed(1)}`).join(' ');
-  const up = ps[ps.length - 1] >= ps[0];
-  return <div><h3>Market cap <span className="mono">{ps[ps.length - 1].toFixed(2)} N</span></h3><svg viewBox={`0 0 ${W} ${H}`} className="chart" role="img" aria-label="Market cap chart"><path d={d} className={up ? 'line up' : 'line down'} /></svg></div>;
+// ------------------------------------------------------------------ Launch
+const RULES: Rule[] = ['LaunchGuard', 'PaperTax', 'SoftTax', 'WhaleCap', 'CreatorLock', 'Ruthless', 'WarCoin', 'PeaceCoin'];
+function Launch({ ch, me, act, busy, go }: Ctx) {
+  const [name, setName] = useState(''); const [sym, setSym] = useState(''); const [seed, setSeed] = useState(20); const [rules, setRules] = useState<Rule[]>([]);
+  const [deposit, setDeposit] = useState(5);
+  useEffect(() => { ch.view(ch.keys.factoryId, 'get_params').then((p: any) => setDeposit(toNear(p.deploy_deposit))); }, [ch]);
+  const toggle = (r: Rule) => setRules(rs => rs.includes(r) ? rs.filter(x => x !== r) : rs.length < 3 ? [...rs, r] : rs);
+  const ok = name.length > 0 && /^[a-zA-Z0-9]{2,10}$/.test(sym) && seed >= 5 && seed <= 100 && !(rules.includes('PaperTax') && rules.includes('SoftTax'));
+  return (
+    <section className="narrow">
+      <h1>Launch a coin</h1>
+      <div className="panel stack">
+        <label>Name <input value={name} maxLength={32} onChange={e => setName(e.target.value)} placeholder="Frog Pond" /></label>
+        <label>Ticker <input value={sym} maxLength={10} onChange={e => setSym(e.target.value.toUpperCase())} placeholder="FROG" /></label>
+        <div>
+          <h3>Creator rules <span className="muted small">(up to 3, locked forever)</span></h3>
+          <div className="rule-grid">{RULES.map(r => <button key={r} className="rule" aria-pressed={rules.includes(r)} onClick={() => toggle(r)}><strong>{r}</strong><span className="small muted">{RULE_TEXT[r]}</span></button>)}</div>
+        </div>
+        <label>Seed (NEAR, all into the pot) <input type="number" min={5} max={100} value={seed} onChange={e => setSeed(Number(e.target.value))} /></label>
+        <p className="small muted">The pot is your coin's fuel for burn cards. You can't take it back. Plus {fmtNear(deposit)} NEAR for the coin contract's storage.</p>
+        <p className="small">Fees: 2% per trade = 0.3% protocol · 0.2% creator escrow (paid at graduation) · 1.5% pot. <strong>No admin key: nobody can change these numbers, not even you.</strong></p>
+        <button className="btn primary" disabled={!ok || !!busy} onClick={() => act('Launch', async () => {
+          await ch.call(me, ch.keys.factoryId, 'create_coin', { name, symbol: sym, icon: null, rules }, nearToYocto(seed + deposit));
+          go({ kind: 'coin', id: ch.coinId(sym) });
+        }, `$${sym} launched`)}>Launch ${sym || 'COIN'} for {fmtNear(seed + deposit)} NEAR</button>
+      </div>
+    </section>
+  );
 }
 
-function Launch({ onClose, onLaunch }: { onClose: () => void; onLaunch: (n: string, t: string, fee: number, rules: RuleId[], first: number) => void }) {
-  const [name, setName] = useState(''); const [ticker, setTicker] = useState(''); const [fee, setFee] = useState(100); const [rules, setRules] = useState<RuleId[]>(['holdTheLine']); const [first, setFirst] = useState('0.5');
-  const toggle = (r: RuleId) => setRules(rules.includes(r) ? rules.filter(x => x !== r) : rules.length < 3 ? [...rules, r] : rules);
+// ------------------------------------------------------------------ Coin page
+interface CoinData { c: CoinView; h: HolderView | null; r: Ritual; lv: LevelView; hand: HandView | null; table: Proposal[]; hist: Proposal[]; raid: RaidView | null; raids: RaidView[]; log: LogEntry[]; plan: number[]; prices: PricePoint[]; }
+
+function CoinPage(p: Ctx & { id: string }) {
+  const { ch, me, act, busy, tick, id } = p;
+  const [d, setD] = useState<CoinData | null>(null);
+  const [tab, setTab] = useState<Tab>('trade');
+  const [lockPrompt, setLockPrompt] = useState<bigint | null>(null);
+  useEffect(() => {
+    (async () => {
+      const acc = ch.id(me); const v = <T,>(m: string, a: object = {}) => ch.view<T>(id, m, a);
+      const [c, h, r, lv, hand, table, hist, raid, raids, log, plan, prices] = await Promise.all([
+        v<CoinView>('get_coin'), v<HolderView | null>('get_holder', { account_id: acc }), v<Ritual>('get_ritual'), v<LevelView>('get_level_progress'),
+        v<HandView | null>('get_hand', { account_id: acc }), v<Proposal[]>('get_table'), v<Proposal[]>('get_history'), v<RaidView | null>('get_raid'), v<RaidView[]>('get_raids'),
+        v<LogEntry[]>('get_log', { limit: 100 }), v<number[]>('get_my_plan', { account_id: acc }), v<PricePoint[]>('get_prices'),
+      ]);
+      setD({ c, h, r, lv, hand, table, hist, raid, raids, log, plan, prices });
+    })().catch(() => {});
+  }, [ch, me, id, tick]);
+  if (!d) return <div className="panel">Loading…</div>;
+  const { c, h } = d;
+  const now = c.now;
+  const call = (label: string, m: string, a: object = {}, dep = 0n, done?: string) => act(label, () => ch.call(me, id, m, a, dep), done);
+  const gmReady = !h || h.last_gm === 0 || now >= h.next_gm;
+  const idleBurning = h && h.last_gm > 0 && now >= h.idle_burn_starts;
+  const ritualPct = (pct(d.r.gm_count, d.r.gm_target) + pct(toNear(d.r.lock_near), toNear(d.r.lock_target))) / 2;
+  const tabs: [Tab, string][] = [['trade', 'Trade'], ['today', 'Today'], ['cards', 'Cards'], ['vault', 'Vault'], ['raid', 'Raid'], ['log', 'Log']];
+  const props = { ...p, d, now, call };
+
   return (
-    <div className="modal" role="dialog" aria-modal="true" aria-label="Launch a coin" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="panel sheet"><h2>Launch on-chain</h2>
-        <label>Name <input value={name} onChange={e => setName(e.target.value)} /></label>
-        <label>Ticker <input value={ticker} onChange={e => setTicker(e.target.value.toUpperCase())} /></label>
-        <label>Fee <select value={fee} onChange={e => setFee(+e.target.value)}>{[100, 150, 200].map(f => <option key={f} value={f}>{f / 100}%</option>)}</select></label>
-        <fieldset><legend>Rulebook (max 3)</legend>{(Object.keys(RULES) as RuleId[]).map(r => <label key={r} className="rulepick"><input type="checkbox" checked={rules.includes(r)} onChange={() => toggle(r)} /> <b>{RULES[r].name}</b> <span className="muted small">{RULES[r].text}</span></label>)}</fieldset>
-        <label>First buy (attached, max 1 NEAR) <input value={first} onChange={e => setFirst(e.target.value)} /></label>
-        <div className="trow"><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" onClick={() => onLaunch(name, ticker, fee, rules, parseFloat(first) || 0)}>Launch</button></div>
+    <section>
+      <div className="panel coin-head">
+        <div>
+          <div className="row gap"><h1>${c.symbol}</h1><span className={`lvl l${c.level}`}>L{c.level} {LEVEL_NAME[c.level]}</span>{c.graduated && <span className="chip gold">Graduated</span>}</div>
+          <div className="muted small">{c.name} · by {short(c.creator)} · <span className="mono">{short(id)}</span></div>
+          <div className="chips">{c.rules.map(x => <span key={x} className="chip" title={RULE_TEXT[x]}>{x}</span>)}{d.raid?.phase === 2 && <span className="chip hot">⚔ raid on</span>}{c.hype_until > now && <span className="chip hot">📣 Trending</span>}</div>
+        </div>
+        <div className="mono head-nums">
+          <div><span className="muted small">price</span> {(toNear(c.price) * 1e6).toFixed(3)} µN</div>
+          <div><span className="muted small">mcap</span> {fmtNear(toNear(c.mcap))} N</div>
+          <div><span className="muted small">in curve</span> {fmtNear(toNear(c.real))} N</div>
+        </div>
+        <div className="head-actions">
+          <button className={`btn gm ${idleBurning ? 'burning' : ''}`} disabled={!h || !gmReady || !!busy} onClick={() => call('gm', 'gm', {}, 0n, 'gm! +Energy, idle clock reset')}>
+            ☀ gm{h && !gmReady ? ` in ${dur(h.next_gm - now)}` : ''}
+          </button>
+          <div className="small muted">{!h ? 'Buy to join' : idleBurning ? <span className="down">Idle burn running: gm to stop</span> : h.last_gm ? `idle burn starts in ${dur(h.idle_burn_starts - now)}` : 'gm every 6h'}</div>
+          <button className="linkish" onClick={() => setTab('today')}><Ring value={ritualPct} label="Ritual" small /></button>
+        </div>
+      </div>
+
+      <div className="stats">
+        <Stat label="Energy" value={`${c.energy}/100`} bar={c.energy} />
+        <Stat label="Pot" value={`${fmtNear(toNear(c.pot))} N`} sub={`spent today ${fmtNear(toNear(c.pot_spent_today))}`} />
+        <Stat label="Vault" value={`${(pct(toTok(c.vault_locked), toTok(c.circulating))).toFixed(1)}% locked`} />
+        <Stat label="Reward pool" value={fmtTok(toTok(c.reward_pool))} />
+        <Stat label="Deck" value={c.deck.filter(x => x.limit).map(x => `${TIER_NAME[x.tier][0]} ${x.out}/${x.limit}`).join(' · ')} />
+        <Stat label="Burned" value={fmtTok(toTok(c.burned))} sub={`supply ${fmtTok(toTok(c.total_supply))}`} />
+      </div>
+
+      <PriceChart points={d.prices} log={d.log} now={now} />
+
+      <nav className="tabs" aria-label="Coin sections">{tabs.map(([t, l]) => <button key={t} aria-pressed={tab === t} onClick={() => setTab(t)}>{l}</button>)}</nav>
+      {lockPrompt !== null && (
+        <div className="panel lock-prompt">
+          <strong>Lock 24h?</strong> Locked tokens are safe from idle burn and earn half of what idle burn takes.
+          <div className="row gap"><button className="btn primary" onClick={() => { const a = lockPrompt; setLockPrompt(null); call('Lock 24h', 'lock', { amount: a.toString(), hours: 24 }); }}>Lock {fmtTok(toTok(lockPrompt))} for 24h</button><button className="btn" onClick={() => setLockPrompt(null)}>Not now</button></div>
+        </div>
+      )}
+      {tab === 'trade' && <TradeTab {...props} onBought={t => setLockPrompt(t)} />}
+      {tab === 'today' && <TodayTab {...props} />}
+      {tab === 'cards' && <CardsTab {...props} />}
+      {tab === 'vault' && <VaultTab {...props} />}
+      {tab === 'raid' && <RaidTab {...props} />}
+      {tab === 'log' && <LogTab {...props} />}
+    </section>
+  );
+}
+
+type TabProps = Ctx & { id: string; d: CoinData; now: number; call: (label: string, m: string, a?: object, dep?: bigint, done?: string) => Promise<void> };
+
+function TradeTab({ ch, me, id, d, now, busy, act, onBought }: TabProps & { onBought: (t: bigint) => void }) {
+  const [side, setSide] = useState<'buy' | 'sell'>('buy');
+  const [amt, setAmt] = useState(5);
+  const [q, setQ] = useState<BuyQuote | null>(null);
+  const [sq, setSq] = useState<any>(null);
+  const { c, h, hand } = d;
+  useEffect(() => {
+    if (side === 'buy' && amt > 0) ch.view<BuyQuote>(id, 'quote_buy', { near: nearToYocto(amt).toString(), account_id: ch.id(me) }).then(setQ).catch(() => setQ(null));
+    if (side === 'sell' && amt > 0) ch.view(id, 'quote_sell', { amount: tokToUnits(amt).toString(), account_id: ch.id(me) }).then(setSq).catch(() => setSq(null));
+  }, [ch, id, me, side, amt, d]);
+  const myTok = h ? toTok(h.balance) : 0;
+  const locked = hand && now < hand.no_trade_until;
+  return (
+    <div className="grid2">
+      <div className="panel stack">
+        <div className="seg" role="group"><button aria-pressed={side === 'buy'} onClick={() => { setSide('buy'); setAmt(5); }}>Buy</button><button aria-pressed={side === 'sell'} onClick={() => { setSide('sell'); setAmt(Math.floor(myTok / 2)); }}>Sell</button></div>
+        <label>{side === 'buy' ? 'NEAR to spend' : `Tokens to sell (you have ${fmtTok(myTok)})`}<input type="number" min={0} value={amt} onChange={e => setAmt(Number(e.target.value))} /></label>
+        {side === 'buy' && q && <div className="quote mono small">≈ {fmtTok(toTok(q.tokens))} ${c.symbol} · fee {fmtNear(toNear(q.fee))} N{toNear(q.storage) > 0 ? ` · first-buy storage ${toNear(q.storage)} N` : ''} · impact {(q.impact_bps / 100).toFixed(2)}%</div>}
+        {side === 'sell' && sq && <div className="quote mono small">≈ {fmtNear(toNear(sq.near_out))} NEAR · fee {fmtNear(toNear(sq.fee))}{toNear(sq.tax) > 0 ? <span className="down"> · taxes {fmtNear(toNear(sq.tax))}</span> : ''} · impact {(sq.impact_bps / 100).toFixed(2)}%</div>}
+        {locked && <div className="warn">You have a live Prophecy bet: no trading until {new Date(hand!.no_trade_until).toISOString().slice(11, 16)}.</div>}
+        {hand && toTok(hand.tagged) > 0 && <div className="warn">Tagged: {fmtTok(toTok(hand.tagged))} tokens bought while a pot card was on the table. Selling them before {dur(hand.tag_until - now)} pays 10% to the pot.</div>}
+        {d.raid?.phase === 2 && <div className="warn">A raid is on: selling pays +3% and lowers your side's Buy score.</div>}
+        {c.rules.includes('PaperTax') && <div className="small muted">Paper Tax: 10% on selling tokens bought less than 1h ago.</div>}
+        <button className="btn primary" disabled={!!busy || amt <= 0 || !!locked || (side === 'buy' && c.graduated)} onClick={() => side === 'buy'
+          ? act('Buy', async () => { const t: string = await ch.call(me, id, 'buy', {}, nearToYocto(amt)); onBought(BigInt(t)); }, 'Bought')
+          : act('Sell', () => ch.call(me, id, 'sell', { amount: tokToUnits(amt).toString() }), 'Sold')}>{side === 'buy' ? `Buy with ${amt} NEAR` : `Sell ${fmtTok(amt)}`}</button>
+      </div>
+      <div className="panel stack">
+        <h2>You</h2>
+        {!h ? <p className="muted">You don't hold ${c.symbol} yet.</p> : <>
+          <Row k="Balance" v={`${fmtTok(myTok)} (≈ ${fmtNear(toNear(h.value))} N with locks)`} />
+          <Row k="Locked in the Vault" v={fmtTok(toTok(h.locked))} />
+          <Row k="Qualified (≥ 2 NEAR for 1h)" v={h.qualified ? 'yes' : 'not yet'} />
+          <Row k="Lost today / cap" v={`${fmtTok(toTok(h.lost_today))} / ${fmtTok(toTok(h.loss_cap_today))}`} />
+          {toTok(h.pending_idle_burn) > 0 && <Row k="Idle burn due" v={<span className="down">{fmtTok(toTok(h.pending_idle_burn))}</span>} />}
+        </>}
+        <h3>Curve</h3>
+        <Row k="Sold" v={`${(100 - pct(toTok(c.curve_room), 793_191_832)).toFixed(1)}% · graduates at ~3,946 N`} />
+        <Row k="Fully backed" v={c.solvent ? 'yes ✓' : 'NO'} />
       </div>
     </div>
   );
 }
+
+function TodayTab({ d, now }: TabProps) {
+  const { r, lv } = d;
+  const end = (r.day + 1) * 24 * HOUR;
+  const nm: Record<string, string> = { market_cap: 'Market cap (NEAR)', real_near: 'Real NEAR in curve', volume_24h: 'Volume 24h (NEAR)', checkins_24h: 'Check-ins 24h', net_buying_1h: 'Net buying 1h (buys ≥ sells)', coin_age_ms: 'Coin age' };
+  const val = (k: string, v: string) => k === 'checkins_24h' ? v : k === 'coin_age_ms' ? dur(Number(v)) : fmtNear(toNear(v));
+  return (
+    <div className="grid2">
+      <div className="panel stack">
+        <div className="row between"><h2>Today's Ritual</h2><span className="mono small">ends in {dur(end - now)}</span></div>
+        <Bar label="gm" value={r.gm_count} max={r.gm_target} text={`${r.gm_count} / ${r.gm_target} wallets`} />
+        <Bar label="Locked" value={toNear(r.lock_near)} max={toNear(r.lock_target)} text={`${fmtNear(toNear(r.lock_near))} / ${fmtNear(toNear(r.lock_target))} NEAR`} />
+        <p className="small">Made it: the pot burns <strong>{r.streak >= 2 ? '7%' : '5%'}</strong> and everyone who did a gm gets their next pack sooner. Missed: idle burn ×2 for 6h.</p>
+        <p className="small muted">Streak: 🔥 {r.streak} day{r.streak === 1 ? '' : 's'}{r.last_made !== null && ` · yesterday ${r.last_made ? 'made ✓' : 'missed ✗'}`}</p>
+        {r.double_from.some(s => now > s && now <= s + 6 * HOUR) && <div className="warn">Ritual missed: idle burn ×2 right now.</div>}
+      </div>
+      <div className="panel stack">
+        <div className="row between"><h2>{lv.next ? `To L${lv.next} ${LEVEL_NAME[lv.next]}` : 'Top level'}</h2>{lv.all_met_since && <span className="chip hot">hold {dur(lv.all_met_since + lv.hold_ms - now)}</span>}</div>
+        {lv.rules.map(x => <div key={x.name} className={`rule-row ${x.met ? 'met' : ''}`}><span>{x.met ? '✓' : '✗'} {nm[x.name] ?? x.name}</span><span className="mono small">{val(x.name, x.current)} / {val(x.name, x.target)}</span></div>)}
+      </div>
+    </div>
+  );
+}
+
+function CardTile({ card, count, exp, now, actions }: { card: Card; count?: number; exp?: number; now: number; actions?: ReactNode }) {
+  const t = TIER_OF[card]; const info = CARD_TEXT[card];
+  return (
+    <div className={`card t${t}`}>
+      <div className="row between small"><span className="energy">⚡{info.energy}</span><span className="muted">{info.way}</span></div>
+      <div className="card-name">{info.name}{count && count > 1 ? <span className="count">×{count}</span> : null}</div>
+      <div className="small tier">{TIER_NAME[t]}</div>
+      <div className="small">{info.text}</div>
+      {exp ? <div className={`small ${exp - now < 3 * HOUR ? 'down' : 'muted'}`}>fades in {dur(exp - now)}</div> : null}
+      {actions && <div className="card-actions">{actions}</div>}
+    </div>
+  );
+}
+
+function CardsTab({ ch, me, id, d, now, busy, call }: TabProps) {
+  const { hand, c } = d;
+  const [q, setQ] = useState<'Tide' | 'Line' | 'Crowd' | 'Vault'>('Tide');
+  const [qv, setQv] = useState(7);
+  const commons = hand ? hand.commons.filter(([, n]) => n > 0) : [];
+  const held = commons.reduce((a, [, n]) => a + n, 0);
+  const question = (): Question => q === 'Tide' ? 'Tide' : q === 'Line' ? { Line: { price: ((BigInt(c.price) * BigInt(100 + qv)) / 100n).toString() } } : q === 'Crowd' ? { Crowd: { n: qv } } : { Vault: { bps: qv * 100 } };
+  const play = (card: Card) => card === 'Prophecy' ? call('Play Prophecy', 'play_card', { card, question: question() }) : call(`Play ${CARD_TEXT[card].name}`, 'play_card', { card, question: null });
+  const levelDrops = [2, 3, 4].filter(l => l <= c.level && hand && !(hand.drops_claimed & (1 << l)));
+  return (
+    <div className="stack">
+      <div className="panel row between wrap">
+        <div className="small">{hand ? <>Commons {held}/12 · Rares {hand.cards.filter(x => TIER_OF[x.card] === 1).length}/3 · Epics {hand.cards.filter(x => TIER_OF[x.card] === 2).length}/3</> : 'Buy to collect cards'}</div>
+        <div className="row gap">
+          {levelDrops.map(l => <button key={l} className="btn" disabled={!!busy} onClick={() => call(`L${l} drop`, 'claim_level_drop', { level: l })}>Claim L{l} drop</button>)}
+          <button className="btn primary" disabled={!hand || !!busy || now < (hand?.next_pack ?? 0)} onClick={() => call('Claim pack', 'claim_pack', {}, 0n, 'Pack opened')}>
+            {hand && now < hand.next_pack ? `Next pack in ${dur(hand.next_pack - now)}` : 'Claim pack'}
+          </button>
+        </div>
+      </div>
+      {hand && hand.cut_used > 0 && <p className="small muted">Helping cut {dur(hand.cut_used)} off this pack's wait (max 1h).</p>}
+      <div className="panel">
+        <h2>Your hand</h2>
+        {!commons.length && !hand?.cards.length && <p className="muted">No cards yet: gm, then claim a pack.</p>}
+        <div className="hand">
+          {commons.map(([card, n]) => <CardTile key={card} card={card} count={n} now={now} actions={['Ember', 'RollCall', 'HypeSiren'].includes(card) ? <>
+            <button className="btn small" disabled={!!busy} onClick={() => play(card)}>Play</button>
+            <button className="btn small ghost" disabled={!!busy} onClick={() => call('Drop', 'drop_card', { card })}>Drop</button></> : <button className="btn small ghost" disabled={!!busy} onClick={() => call('Drop', 'drop_card', { card })}>Drop</button>} />)}
+          {hand?.cards.map((x, i) => <CardTile key={i} card={x.card} exp={x.exp} now={now} actions={<>
+            {x.card === 'Prophecy' && <div className="stack small">
+              <select value={q} onChange={e => setQ(e.target.value as any)}><option value="Tide">Tide: net buying in 2h?</option><option value="Line">Line: price above +X% in 2h?</option><option value="Crowd">Crowd: N new wallets?</option><option value="Vault">Vault: locked share +X points?</option></select>
+              {q !== 'Tide' && <input className="tiny" type="number" value={qv} onChange={e => setQv(Number(e.target.value))} title={q === 'Line' ? '5–10 (%) above, or -10 to -5 below' : q === 'Crowd' ? '3–30 wallets' : '1–10 points'} />}
+            </div>}
+            <button className="btn small" disabled={!!busy} onClick={() => play(x.card)}>Play</button>
+            <button className="btn small ghost" disabled={!!busy} onClick={() => call('Drop', 'drop_card', { card: x.card })}>Drop</button></>} />)}
+        </div>
+      </div>
+      <div className="panel">
+        <h2>Table</h2>
+        {!d.table.length && <p className="muted small">Nothing on the table. Cards that need backers or signers show here.</p>}
+        {d.table.map(t => <TableRow key={t.id} t={t} now={now} me={ch.id(me)} busy={busy} call={call} />)}
+        {!!d.hist.length && <><h3>Recent</h3>{d.hist.slice().reverse().map(t => <div key={t.id} className="small row between"><span>{CARD_TEXT[t.card].name} by {short(t.proposer)}</span><span className="muted">{t.result}</span></div>)}</>}
+      </div>
+    </div>
+  );
+}
+
+function TableRow({ t, now, me, busy, call }: { t: Proposal; now: number; me: string; busy: string; call: TabProps['call'] }) {
+  const [amt, setAmt] = useState(t.card === 'Ember' ? 2 : 5);
+  const [yes, setYes] = useState(true);
+  const phaseName = t.phase === 0 ? (t.card === 'Inferno' ? 'signing' : 'backing') : t.phase === 1 ? (t.card === 'Prophecy' ? 'betting' : 'fuel window') : t.card === 'Prophecy' ? 'waiting for the answer' : 'fires within 2 min';
+  const mine = t.backers.includes(me) || t.proposer === me;
+  const yesT = t.bets.filter(b => b.yes).reduce((a, b) => a + toTok(b.amount), 0), noT = t.bets.filter(b => !b.yes).reduce((a, b) => a + toTok(b.amount), 0);
+  return (
+    <div className={`table-row t${TIER_OF[t.card]}`}>
+      <div className="row between wrap">
+        <strong>{CARD_TEXT[t.card].name}</strong>
+        <span className="small muted">by {short(t.proposer)} · {phaseName} · {dur(t.phase_end - now)}</span>
+      </div>
+      {t.question && <div className="small">Q: {typeof t.question === 'string' ? 'Will the coin be a net buyer over 2h?' : 'Line' in t.question ? `Price above ${(toNear(t.question.Line.price) * 1e6).toFixed(3)} µN?` : 'Crowd' in t.question ? `${t.question.Crowd.n}+ new wallets?` : `Vault share +${t.question.Vault.bps / 100} points?`}</div>}
+      {t.phase === 0 && <div className="row gap small"><Bar label={t.card === 'Inferno' ? 'signers' : t.card === 'Ember' ? 'copies' : 'backers'} value={t.backers.length} max={t.needed} text={`${t.backers.length}/${t.needed}`} />
+        {!mine && <button className="btn small" disabled={!!busy} onClick={() => call(t.card === 'Inferno' ? 'Sign' : 'Back', t.card === 'Inferno' ? 'sign' : 'back', { id: t.id }, 0n, 'Thanks: your next pack comes 10 min sooner')}>{t.card === 'Inferno' ? 'Sign' : t.card === 'Ember' ? 'Add my Ember' : 'Back'}</button>}</div>}
+      {t.card === 'Ember' && t.phase === 0 && <div className="row gap small">Stoke: <input className="tiny" type="number" value={amt} onChange={e => setAmt(Number(e.target.value))} /> NEAR (max 5) <button className="btn small" disabled={!!busy} onClick={() => call('Stoke', 'stoke', { id: t.id }, nearToYocto(amt))}>Stoke</button> <span className="muted">stoked {fmtNear(toNear(t.chip_total))}</span></div>}
+      {t.card === 'Inferno' && t.phase === 1 && <div className="row gap small">Fuel: <input className="tiny" type="number" value={amt} onChange={e => setAmt(Number(e.target.value))} /> NEAR (max 20) <button className="btn small" disabled={!!busy} onClick={() => call('Fuel', 'fuel', { id: t.id }, nearToYocto(amt), 'Fuelled: locked 24h with +5%')}>Fuel</button> <span className="muted">{fmtNear(toNear(t.chip_total))} N from {t.chips.length} wallets</span></div>}
+      {t.card === 'Prophecy' && t.phase >= 1 && <div className="row gap small wrap">
+        <span>Yes {fmtTok(yesT)} · No {fmtTok(noT)} · {new Set(t.bets.map(b => b.account)).size} wallets (min 8)</span>
+        {t.phase === 1 && <><select value={yes ? 'y' : 'n'} onChange={e => setYes(e.target.value === 'y')}><option value="y">Yes</option><option value="n">No</option></select>
+          <input className="tiny" type="number" value={amt} onChange={e => setAmt(Number(e.target.value))} title="tokens (thousands)" />k tokens
+          <button className="btn small" disabled={!!busy} onClick={() => call('Bet', 'bet', { id: t.id, yes, amount: tokToUnits(amt * 1000).toString() }, 0n, 'Bet placed: no trading until it resolves')}>Bet</button></>}
+      </div>}
+    </div>
+  );
+}
+
+function VaultTab({ d, now, busy, call }: TabProps) {
+  const { h, c } = d;
+  const [amt, setAmt] = useState(0); const [hours, setHours] = useState(24);
+  if (!h) return <div className="panel muted">Buy to use the Vault.</div>;
+  return (
+    <div className="grid2">
+      <div className="panel stack">
+        <h2>Lock</h2>
+        <p className="small muted">Locked tokens can't be sold. They're safe from idle burn and earn half of everything idle burn and early exits take, by weight.</p>
+        <label>Tokens (you have {fmtTok(toTok(h.balance))}) <input type="number" value={amt} onChange={e => setAmt(Number(e.target.value))} /></label>
+        <div className="seg" role="group">{[6, 24, 72].map(x => <button key={x} aria-pressed={hours === x} onClick={() => setHours(x)}>{x}h ×{x === 6 ? '1' : x === 24 ? '1.5' : '2'}</button>)}</div>
+        <div className="row gap"><button className="btn ghost small" onClick={() => setAmt(Math.floor(toTok(h.balance)))}>All</button>
+          <button className="btn primary" disabled={!!busy || amt <= 0} onClick={() => call('Lock', 'lock', { amount: tokToUnits(amt).toString(), hours }, 0n, `Locked for ${hours}h`)}>Lock {fmtTok(amt)} for {hours}h</button></div>
+        <h3>Coin Vault</h3>
+        <Row k="Locked" v={`${fmtTok(toTok(c.vault_locked))} (${pct(toTok(c.vault_locked), toTok(c.circulating)).toFixed(1)}% of circulating)`} />
+      </div>
+      <div className="panel stack">
+        <h2>Your locks</h2>
+        {!h.locks.length && <p className="muted small">No locks.</p>}
+        {h.locks.map((l, i) => <div key={i} className="row between lock-row">
+          <span className="mono">{fmtTok(toTok(l.amount))} ×{l.mult / 10}</span>
+          {now >= l.until ? <button className="btn small primary" disabled={!!busy} onClick={() => call('Unlock', 'unlock', { index: i })}>Unlock</button>
+            : <span className="row gap small"><span className="muted">{dur(l.until - now)}</span><button className="btn small danger" disabled={!!busy} onClick={() => call('Leave early', 'leave_early', { index: i }, 0n, 'Left early: 20% penalty')}>Leave early (−20%)</button></span>}
+        </div>)}
+        <Row k="Earned so far" v={fmtTok(toTok(h.vault_earned))} />
+        <button className="btn" disabled={!!busy || toTok(h.vault_earned) <= 0} onClick={() => call('Claim', 'claim_vault')}>Claim earnings</button>
+        <h3>Idle burn</h3>
+        <Row k="Last gm" v={h.last_gm ? `${dur(now - h.last_gm)} ago` : 'never'} />
+        <Row k="Burn starts" v={now >= h.idle_burn_starts ? <span className="down">running (1% every 6h)</span> : `in ${dur(h.idle_burn_starts - now)}`} />
+        <Row k="Lost today / 8% cap" v={`${fmtTok(toTok(h.lost_today))} / ${fmtTok(toTok(h.loss_cap_today))}`} />
+      </div>
+    </div>
+  );
+}
+
+function RaidTab({ ch, id, d, now, busy, call, coins, act, me }: TabProps) {
+  const { raid, c, hand } = d;
+  const [target, setTarget] = useState('');
+  const others = coins.filter(x => x.account_id !== id);
+  const [slots, setSlots] = useState<(Card | null)[]>([null, null, null]);
+  useEffect(() => { setSlots(d.plan.length === 3 ? d.plan.map(x => (x ? (['Rally', 'Curse', 'Ward'][x - 1] as Card) : null)) : [null, null, null]); }, [d.plan.join()]);
+  const tactics = hand ? hand.commons.filter(([k]) => ['Rally', 'Curse', 'Ward'].includes(k)) : [];
+  const roundStart = (i: number) => raid ? raid.muster_end + i * 25 * MIN : 0;
+  const phase = raid ? (raid.phase === 0 ? 'signing' : raid.phase === 1 ? 'waiting for the target' : raid.phase === 3 ? 'settling' : now < raid.muster_end ? `Muster: ${dur(raid.muster_end - now)}` : raid.round !== null ? `Round ${raid.round + 1}: ${dur(roundStart(raid.round) + 20 * MIN - now)}` : now >= raid.end ? 'over: settle it' : 'break') : '';
+  const other = raid ? (raid.attacking ? raid.defender : raid.attacker) : '';
+  return (
+    <div className="stack">
+      {!raid && <div className="panel stack">
+        <h2>Start a raid</h2>
+        <p className="small muted">Needs {[0, 0, 3, 5, 8][c.level] || 3} signers at L{c.level}. No card, no Energy. The target can't decline if it's the same level or higher, not shielded and not near graduation.</p>
+        <div className="row gap"><select value={target} onChange={e => setTarget(e.target.value)}><option value="">Pick a coin…</option>{others.map(o => <option key={o.account_id} value={o.account_id}>${o.symbol}</option>)}</select>
+          <button className="btn primary" disabled={!target || !!busy || c.level < 2} onClick={() => call('Propose raid', 'start_raid', { target })}>Propose raid</button></div>
+        {c.level < 2 && <p className="small down">Raids start at L2.</p>}
+      </div>}
+      {raid && <div className="panel stack">
+        <div className="row between wrap"><h2>{raid.attacking ? `$${c.symbol} ⚔ ${short(other).split('.')[0].toUpperCase()}` : `${short(other).split('.')[0].toUpperCase()} ⚔ $${c.symbol}`}</h2><span className="chip hot">{phase}</span></div>
+        {raid.phase === 0 && <div className="row gap"><Bar label="signers" value={raid.backers} max={raid.needed} text={`${raid.backers}/${raid.needed}`} />
+          <button className="btn" disabled={!!busy} onClick={() => call('Sign raid', 'sign_raid')}>Sign</button>
+          <button className="btn primary" disabled={!!busy} onClick={() => call('Launch raid', 'launch_raid', {}, 0n, 'Raid sent to the target')}>Launch</button></div>}
+        {raid.phase === 2 && <>
+          <div className="rounds">{[0, 1, 2].map(i => <div key={i} className={`round ${raid.round === i ? 'live' : ''}`}>
+            <div className="small muted">Round {i + 1}</div>
+            <div className="mono">{(Number(raid.live_base[i]) / 100).toFixed(1)}</div>
+            <div className="small">Buy {(raid.buy[i] / 100).toFixed(1)} · Crowd {raid.crowd[i]} · Lock {(raid.lock[i] / 100).toFixed(1)}</div>
+            <div className="small">{raid.tactic[i] ? `tactic: ${tacticName(raid.tactic[i])}` : 'tactic hidden'}</div>
+          </div>)}</div>
+          <h3>Your plan <span className="muted small">({raid.planners} wallets have plans)</span></h3>
+          <div className="row gap wrap">{slots.map((s, i) => <label key={i} className="small">R{i + 1}{' '}
+            <select disabled={now >= roundStart(i)} value={s ?? ''} onChange={e => setSlots(x => x.map((y, j) => (j === i ? ((e.target.value || null) as Card | null) : y)))}>
+              <option value="">empty</option>{['Rally', 'Curse', 'Ward'].map(k => <option key={k} value={k}>{k}</option>)}
+            </select></label>)}
+            <button className="btn" disabled={!!busy} onClick={() => call('Save plan', 'set_plan', { slots })}>Save plan</button>
+            <span className="small muted">In hand: {tactics.map(([k, n]) => `${k} ×${n}`).join(', ') || 'none'}</span></div>
+          <div className="row gap"><button className="btn primary" disabled={!!busy || raid.round === null} onClick={() => call('Battle cry', 'battle_cry', {}, 0n, 'Battle cry! +Crowd')}>📯 Battle cry</button>
+            {now >= raid.end && raid.attacking && <button className="btn" disabled={!!busy} onClick={() => call('Settle', 'settle_raid', {}, 0n, 'Raid settled')}>Settle raid</button>}
+            {now >= raid.end && !raid.attacking && <button className="btn" disabled={!!busy} onClick={() => act('Settle', () => ch.call(me, other, 'settle_raid'), 'Raid settled')}>Settle raid</button>}</div>
+        </>}
+      </div>}
+      {!!d.raids.length && <div className="panel"><h2>Past raids</h2>{d.raids.slice().reverse().map(r => <div key={r.seq} className="row between small past-raid">
+        <span>{r.attacking ? `attacked ${short(r.defender).split('.')[0].toUpperCase()}` : `defended vs ${short(r.attacker).split('.')[0].toUpperCase()}`}</span>
+        <span>{r.result ? <><strong className={r.result.outcome > 0 ? 'up' : r.result.outcome < 0 ? 'down' : ''}>{r.result.outcome > 0 ? 'won' : r.result.outcome < 0 ? 'lost' : 'tie'}</strong> · spoils {fmtNear(toNear(r.result.spoils))} N · tactics {r.tactic.map(tacticName).join(' / ')}</> : r.note}</span>
+        {r.result && r.result.outcome > 0 && <button className="btn small" disabled={!!busy} onClick={() => call('Win pack', 'claim_raid_pack', {}, 0n, 'Win pack opened')}>Claim win pack</button>}
+      </div>)}</div>}
+    </div>
+  );
+}
+
+function LogTab({ d }: TabProps) {
+  const { c, log } = d;
+  const [f, setF] = useState<'mb' | 'all'>('mb');
+  const rows = useMemo(() => log.filter(e => f === 'all' || ['mint', 'burn', 'to_vault'].includes(e.kind)), [log, f]);
+  return (
+    <div className="panel">
+      <div className="row between wrap"><h2>Every mint and burn</h2><div className="seg small" role="group"><button aria-pressed={f === 'mb'} onClick={() => setF('mb')}>Mints & burns</button><button aria-pressed={f === 'all'} onClick={() => setF('all')}>Everything</button></div></div>
+      <p className="mono small">Total supply 1,000,000,000 → {Math.round(toTok(c.total_supply)).toLocaleString()} (−{(toTok(c.burned) / 1e7).toFixed(3)}%)</p>
+      <table className="log"><thead><tr><th>Time (UTC)</th><th>What</th><th>Tokens</th><th>NEAR</th><th>Who / why</th></tr></thead>
+        <tbody>{rows.map(e => <tr key={e.seq} className={e.kind}>
+          <td className="mono">{new Date(e.at).toISOString().slice(5, 16).replace('T', ' ')}</td>
+          <td>{({ mint: '🌱 mint', burn: '🔥 burn', to_vault: '🔒 to Vault', buy: 'buy', sell: 'sell', lock: 'lock', unlock: 'unlock', card: '🃏 card', raid: '⚔ raid', ritual_made: '🕯 ritual made', ritual_missed: 'ritual missed', level_up: '⬆ level', seed: 'seed', graduated: '🎓 graduated' } as Record<string, string>)[e.kind] ?? e.kind}</td>
+          <td className="mono">{toTok(e.amount) ? fmtTok(toTok(e.amount)) : ''}</td>
+          <td className="mono">{toNear(e.near) ? fmtNear(toNear(e.near)) : ''}</td>
+          <td className="small">{e.account ? short(e.account) : ''} {e.memo}</td>
+        </tr>)}</tbody></table>
+      <p className="small muted">Also emitted as NEP-297 events (nep141 ft_mint / ft_burn / ft_transfer and rulecard game events) for any indexer.</p>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ small pieces
+function Ring({ value, label, small }: { value: number; label: string; small?: boolean }) {
+  const r = small ? 16 : 22, c = 2 * Math.PI * r, s = small ? 40 : 54;
+  return (
+    <span className="ring-wrap" title={`${label}: ${value.toFixed(0)}%`}>
+      <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} aria-hidden="true">
+        <circle cx={s / 2} cy={s / 2} r={r} className="ring-bg" />
+        <circle cx={s / 2} cy={s / 2} r={r} className="ring-fg" strokeDasharray={c} strokeDashoffset={c * (1 - value / 100)} transform={`rotate(-90 ${s / 2} ${s / 2})`} />
+      </svg>
+      <span className="small">{label} {value.toFixed(0)}%</span>
+    </span>
+  );
+}
+function Stat({ label, value, sub, bar }: { label: string; value: string; sub?: string; bar?: number }) {
+  return <div className="stat"><div className="small muted">{label}</div><div className="mono">{value}</div>{bar !== undefined && <div className="meter"><i style={{ width: `${bar}%` }} /></div>}{sub && <div className="small muted">{sub}</div>}</div>;
+}
+function Bar({ label, value, max, text }: { label: string; value: number; max: number; text: string }) {
+  return <div className="bar"><span className="small">{label}</span><div className="meter"><i style={{ width: `${pct(value, max)}%` }} /></div><span className="mono small">{text}</span></div>;
+}
+function Row({ k, v }: { k: string; v: ReactNode }) { return <div className="row between small"><span className="muted">{k}</span><span className="mono">{v}</span></div>; }

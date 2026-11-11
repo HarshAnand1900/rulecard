@@ -73,7 +73,7 @@ Home / Discover
  │              ├── Holders & crowd share
  │              └── Activity feed
  ├── Launch a coin (wizard)
- ├── Forge (Craft · Sacrifice · Salvage/Wild)
+ ├── Forge (Sacrifice · Salvage/Wild)
  ├── Card Market
  ├── Profile (hand, holdings, relics, claims)
  ├── Events (raids live, Eclipse countdown, leaderboards)
@@ -229,7 +229,6 @@ Goal, progress, time left, sponsor, bounty size, list of contributors.
 
 | Tab | Content |
 |---|---|
-| **Craft** | pick 3 same-tier cards of one coin, pick the result type, deck stock check, confirm |
 | **Sacrifice** | coin picker, burn-amount slider showing live odds (Common / Rare / Epic / Mythic bars), pity counter (x/5), pick 1 of 2 types, cooldown |
 | **Salvage / Wild** | cards from dead or graduated coins → Shards; buy Wild Common (3) or Wild Rare (10); Wild cards show "Bonds on first play" |
 
@@ -277,6 +276,9 @@ Level up & graduate. Link each to the spec.
 | TxButton | label, pending, success, error |
 | Toast | message, link |
 | EmptyState | text and action ("No cards yet: check in to earn a pack") |
+| HandCounter | per tier: held / limit (e.g. Commons 12/12, Rares 2/3); turns red at the limit |
+| ClaimButton | "Claim pack" when there's room; otherwise "Drop 1 Common to claim" (tier colour), which opens MakeRoomSheet |
+| MakeRoomSheet | your hand of the blocking tier, "Pick 1 card to drop"; tap a card to mark it, confirm; Rare+ also shows **List on market** |
 
 ---
 
@@ -295,6 +297,9 @@ Level up & graduate. Link each to the spec.
 | Eclipse open | gold glow on Mythic cards and the global chip |
 | Dead coin | "No trades for 24h: you can still sell back to the curve" + Salvage link |
 | Graduated | normal-coin mode + Hall of Fame |
+| Hand full | the pack icon shakes when tapped and the full tier's counter pulses red ("12/12"); the Claim button reads "Drop 1 Common to claim". Tier colours: Common grey, Rare blue, Epic purple, Mythic gold |
+| Drop | the chosen card cracks and fades (Common) or flies back to the coin's deck stack (Rare+), with a toast: "Curse dropped" / "Inferno returned to the $DOGE deck"; then the Claim button lights up |
+| Pack open | cards fly from the pack into the hand, one by one, with the tier glow on each |
 | Errors | not enough Holding, slot taken, raid already accepted, sold out |
 
 ---
@@ -308,6 +313,7 @@ Level up & graduate. Link each to the spec.
 4. **Raid:** Play Friendly Raid → pick target → bet 3 NEAR → wait for accept → arena → seal Curse in round 2 → reveal → settle → claim.
 5. **Prophecy:** Play → pick target → bet Call → others bet → progress bar → settle → claim.
 6. **Level up:** checklist turns all ✓ → hold timer → level-up celebration → drop card reveal animation.
+6b. **Hand full:** tap Claim pack → pack shakes, "Commons 11/12" pulses → button says "Drop 1 Common to claim" → MakeRoomSheet → tap an old Curse → it cracks and fades → Claim lights up → pack opens, 2 cards fly in.
 7. **Graduation:** "Graduating…" overlay (trading paused) → pool created → Hall of Fame page.
 
 ---

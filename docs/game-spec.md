@@ -1,5 +1,7 @@
 # Rulecard game spec v4.1
 
+> **Newer:** [`reference.md`](reference.md) is the current full reference (v5). Use it where they differ.
+
 The single source of truth for every card, meter and rule. It replaces `research/rules-v3.md` and
 `research/rules-v4.md` wherever they disagree. Numbers are starting values, to be tuned by the simulation.
 
@@ -240,6 +242,9 @@ If a cap is hit, the effect shrinks to fit. It never fails silently: the UI says
 ---
 
 ## 8. Cards (27)
+
+> **Superseded by [`cards-v5.md`](cards-v5.md)** (28 cards, balance rules for money/skill/luck, Omens, Mastery,
+> 2% fee with 1.5% to the pot). The v4 list below is kept for reference only.
 
 Format for each card:
 - **Who:** Holding needed.
