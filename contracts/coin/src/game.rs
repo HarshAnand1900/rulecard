@@ -36,7 +36,9 @@ impl Coin {
 
     /// Lock tokens in the Vault for 6, 24 or 72 hours (weight ×1, ×1.5, ×2). Locked tokens are safe from idle burn
     /// and earn half of everything idle burn takes.
+    #[payable]
     pub fn lock(&mut self, amount: U128, hours: u8) -> u32 {
+        near_sdk::assert_one_yocto();
         let now = env::block_timestamp_ms();
         let a = env::predecessor_account_id();
         let mult: u8 = match hours { 6 => 10, 24 => 15, 72 => 20, _ => env::panic_str("lock for 6, 24 or 72 hours") };
@@ -51,7 +53,14 @@ impl Coin {
         self.reweigh(&mut h);
         self.raid_lock(&mut h, now, amount.0);
         let value = self.pool().value(amount.0);
-        self.ritual.lock_near = U128(self.ritual.lock_near.0 + value);
+        // Ritual: count only locked tokens above the most this wallet already had counted today, so unlocking and
+        // relocking the same tokens doesn't count twice.
+        let today = now / DAY;
+        if h.rl_day != today + 1 { h.rl_day = today + 1; h.rl_counted = 0; }
+        let locked_now = self.locked_of(&h);
+        let new_tokens = locked_now.saturating_sub(h.rl_counted);
+        h.rl_counted = h.rl_counted.max(locked_now);
+        self.ritual.lock_near = U128(self.ritual.lock_near.0 + self.pool().value(new_tokens));
         let idx = (h.locks.len() - 1) as u32;
         self.save(&a, h);
         events::rulecard("lock", json!({ "account_id": a, "amount": amount, "hours": hours, "near_value": U128(value) }));
@@ -79,7 +88,9 @@ impl Coin {
     }
 
     /// Leave a lock early: 20% penalty, half to the other lockers, half burned.
+    #[payable]
     pub fn leave_early(&mut self, index: u32) -> U128 {
+        near_sdk::assert_one_yocto();
         let now = env::block_timestamp_ms();
         let a = env::predecessor_account_id();
         self.touch(now);

@@ -168,7 +168,9 @@ impl Coin {
     pub fn fuel(&mut self, id: u32) { self.chip_in(id, Card::Inferno, 1, FUEL_MAX) }
 
     /// Bet tokens on a Prophecy (Bold: if you lose, you lose half). You can't trade this coin until it resolves.
+    #[payable]
     pub fn bet(&mut self, id: u32, yes: bool, amount: U128) {
+        near_sdk::assert_one_yocto();
         let now = env::block_timestamp_ms();
         let a = env::predecessor_account_id();
         self.touch(now);

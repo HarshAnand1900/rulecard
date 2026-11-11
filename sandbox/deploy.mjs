@@ -40,7 +40,9 @@ await make('protocol', 5);
 for (const [mode, name] of [['real', 'rulecard'], ['demo', 'demo']]) {
   const id = keys.factories[mode];
   console.log(`sandbox ${networkId}: deploying the ${mode} factory as ${id}`);
-  keys.accounts[`factory_${mode}`] = await make(name, 50);
+  const fkp = KeyPair.fromRandom('ed25519');
+  await rootAcc.createAccount(id, fkp.getPublicKey(), BigInt(utils.format.parseNearAmount('50')));
+  await ks.setKey(networkId, id, fkp);
   const factory = await near.account(id);
   // One transaction: deploy, init, store the coin code. Nobody can store different code in between.
   await factory.signAndSendTransaction({
@@ -49,6 +51,7 @@ for (const [mode, name] of [['real', 'rulecard'], ['demo', 'demo']]) {
       transactions.deployContract(readFileSync(wasm('factory', mode))),
       transactions.functionCall('new', { code_hash: null, protocol: keys.protocolId }, TGAS(50), 0n),
       transactions.functionCall('store_code', new Uint8Array(readFileSync(wasm('coin', mode))), TGAS(250), 0n),
+      transactions.deleteKey(fkp.getPublicKey()), // no key left: nobody can sign for the factory
     ],
   });
 }
@@ -57,6 +60,5 @@ for (const b of BOTS) keys.accounts[b] = await make(b, 1000);
 
 mkdirSync(dirname(keyFile), { recursive: true });
 writeFileSync(keyFile, JSON.stringify(keys, null, 2));
-const fa = await near.account(keys.factories.demo);
-const params = await fa.viewFunction({ contractId: keys.factories.demo, methodName: 'get_params', args: {} });
+const params = await (await near.account(keys.factories.demo)).viewFunction({ contractId: keys.factories.demo, methodName: 'get_params', args: {} });
 console.log(`deployed real + demo factories. demo mode: ${params.mode}, admin: ${params.admin}. ${PLAYERS.length} players + ${BOTS.length} bots. Keys: sandbox/.keys/keys.json (local test keys, gitignored)`);

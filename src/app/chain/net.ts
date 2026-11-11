@@ -101,10 +101,10 @@ export async function openNet(): Promise<Net> {
   const env = (import.meta as any).env ?? {};
   const mode = env.VITE_NETWORK ?? (env.DEV ? 'sandbox' : 'testnet');
   if (mode === 'sandbox') return new SandboxNet(await Chain.open());
-  const factories: Partial<Record<Scale, string>> = { demo: env.VITE_FACTORY_DEMO, real: env.VITE_FACTORY_REAL ?? env.VITE_FACTORY_ID };
+  const factories: Partial<Record<Scale, string>> = { demo: env.VITE_FACTORY_DEMO, real: env.VITE_FACTORY_REAL };
   if (!factories.demo && !factories.real) throw new Error('Set VITE_FACTORY_DEMO and/or VITE_FACTORY_REAL to the testnet factory accounts.');
   const factoryId = (factories.demo ?? factories.real)!;
-  const nodeUrl = env.VITE_NODE_URL ?? 'https://rpc.testnet.near.org';
+  const nodeUrl = env.VITE_NODE_URL ?? 'https://test.rpc.fastnear.com';
   const [core, ui, mnw, meteor] = await Promise.all([
     import('@near-wallet-selector/core'), import('@near-wallet-selector/modal-ui'),
     import('@near-wallet-selector/my-near-wallet'), import('@near-wallet-selector/meteor-wallet'), import('@near-wallet-selector/modal-ui/styles.css'),

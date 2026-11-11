@@ -154,7 +154,7 @@ Every coin has **one goal per UTC day**, set at 00:00 from yesterday's numbers, 
 | Part | Rule |
 |---|---|
 | Goal | **gm count** + **NEAR newly locked in the Vault**. Gm target = 60% of yesterday's distinct gm wallets (min 10); lock target = 50% of yesterday's new locks (min 10 NEAR) |
-| Made it | the pot burns **5%** (counts toward the 75% daily cap), and every wallet that did a gm today gets its next pack **1h sooner** |
+| Made it | the pot burns **5%** (counts toward the 75% daily cap) (a pack bonus for that day's gm wallets is roadmap) |
 | Missed it | idle burn is **×2 for the next 6h** (still inside the one 8% daily cap) |
 | Streak | 3 days in a row: the next day's pot burn is 7% |
 

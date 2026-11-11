@@ -150,6 +150,9 @@ pub struct Holder {
     pub r_lock_round: u8,
     pub r_lock: u128,
     pub raid_pack: u32,
+    // Ritual lock counting (day + 1, tokens counted that day)
+    pub rl_day: u64,
+    pub rl_counted: u128,
 }
 
 /// 24 hourly buckets (rolling day).

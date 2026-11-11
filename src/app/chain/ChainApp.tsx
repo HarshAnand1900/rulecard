@@ -270,7 +270,7 @@ function CoinPage(p: Ctx & { id: string }) {
       {lockPrompt !== null && (
         <div className="panel lock-prompt">
           <strong>Lock {hrs(24)}?</strong> Locked tokens are safe from idle burn and earn half of what idle burn takes.
-          <div className="row gap"><button className="btn primary" onClick={() => { const a = lockPrompt; setLockPrompt(null); call('Lock', 'lock', { amount: a.toString(), hours: 24 }); }}>Lock {fmtTok(toTok(lockPrompt))} for {hrs(24)}</button><button className="btn" onClick={() => setLockPrompt(null)}>Not now</button></div>
+          <div className="row gap"><button className="btn primary" onClick={() => { const a = lockPrompt; setLockPrompt(null); call('Lock', 'lock', { amount: a.toString(), hours: 24 }, 1n); }}>Lock {fmtTok(toTok(lockPrompt))} for {hrs(24)}</button><button className="btn" onClick={() => setLockPrompt(null)}>Not now</button></div>
         </div>
       )}
       {tab === 'trade' && <TradeTab {...props} onBought={t => setLockPrompt(t)} />}
@@ -310,7 +310,7 @@ function TradeTab({ ch, me, id, d, now, busy, act, onBought }: TabProps & { onBo
         {c.rules.includes('PaperTax') && <div className="small muted">Paper Tax: 10% on selling tokens bought less than {hrs(1)} ago.</div>}
         <button className="btn primary" disabled={!!busy || amt <= 0 || !!locked || (side === 'buy' && c.graduated)} onClick={() => side === 'buy'
           ? act('Buy', async () => { const t: string = await ch.call(id, 'buy', {}, nearToYocto(amt)); onBought(BigInt(t)); }, 'Bought')
-          : act('Sell', () => ch.call(id, 'sell', { amount: tokToUnits(amt).toString() }), 'Sold')}>{side === 'buy' ? `Buy with ${amt} NEAR` : `Sell ${fmtTok(amt)}`}</button>
+          : act('Sell', () => ch.call(id, 'sell', { amount: tokToUnits(amt).toString() }, 1n), 'Sold')}>{side === 'buy' ? `Buy with ${amt} NEAR` : `Sell ${fmtTok(amt)}`}</button>
       </div>
       <div className="panel stack">
         <h2>You</h2>
@@ -340,7 +340,7 @@ function TodayTab({ d, now }: TabProps) {
         <div className="row between"><h2>Today's Ritual</h2><span className="mono small">ends in {dur(end - now)}</span></div>
         <Bar label="gm" value={r.gm_count} max={r.gm_target} text={`${r.gm_count} / ${r.gm_target} wallets`} />
         <Bar label="Locked" value={toNear(r.lock_near)} max={toNear(r.lock_target)} text={`${fmtNear(toNear(r.lock_near))} / ${fmtNear(toNear(r.lock_target))} NEAR`} />
-        <p className="small">Made it: the pot burns <strong>{r.streak >= 2 ? '7%' : '5%'}</strong> and everyone who did a gm gets their next pack sooner. Missed: idle burn ×2 for 6h.</p>
+        <p className="small">Made it: the pot burns <strong>{r.streak >= 2 ? '7%' : '5%'}</strong> Missed: idle burn ×2 for the next {hrs(6)}.</p>
         <p className="small muted">Streak: 🔥 {r.streak} day{r.streak === 1 ? '' : 's'}{r.last_made !== null && ` · yesterday ${r.last_made ? 'made ✓' : 'missed ✗'}`}</p>
         {r.double_from.some(s => now > s && now <= s + 6 * HOUR) && <div className="warn">Ritual missed: idle burn ×2 right now.</div>}
       </div>
@@ -434,7 +434,7 @@ function TableRow({ t, now, me, busy, call }: { t: Proposal; now: number; me: st
         <span>Yes {fmtTok(yesT)} · No {fmtTok(noT)} · {new Set(t.bets.map(b => b.account)).size} wallets (min 8)</span>
         {t.phase === 1 && <><select value={yes ? 'y' : 'n'} onChange={e => setYes(e.target.value === 'y')}><option value="y">Yes</option><option value="n">No</option></select>
           <input className="tiny" type="number" value={amt} onChange={e => setAmt(Number(e.target.value))} title="tokens (thousands)" />k tokens
-          <button className="btn small" disabled={!!busy} onClick={() => call('Bet', 'bet', { id: t.id, yes, amount: tokToUnits(amt * 1000).toString() }, 0n, 'Bet placed: no trading until it resolves')}>Bet</button></>}
+          <button className="btn small" disabled={!!busy} onClick={() => call('Bet', 'bet', { id: t.id, yes, amount: tokToUnits(amt * 1000).toString() }, 1n, 'Bet placed: no trading until it resolves')}>Bet</button></>}
       </div>}
     </div>
   );
@@ -452,7 +452,7 @@ function VaultTab({ d, now, busy, call }: TabProps) {
         <label>Tokens (you have {fmtTok(toTok(h.balance))}) <input type="number" value={amt} onChange={e => setAmt(Number(e.target.value))} /></label>
         <div className="seg" role="group">{[6, 24, 72].map(x => <button key={x} aria-pressed={hours === x} onClick={() => setHours(x)}>{hrs(x)} ×{x === 6 ? '1' : x === 24 ? '1.5' : '2'}</button>)}</div>
         <div className="row gap"><button className="btn ghost small" onClick={() => setAmt(Math.floor(toTok(h.balance)))}>All</button>
-          <button className="btn primary" disabled={!!busy || amt <= 0} onClick={() => call('Lock', 'lock', { amount: tokToUnits(amt).toString(), hours }, 0n, `Locked for ${hrs(hours)}`)}>Lock {fmtTok(amt)} for {hrs(hours)}</button></div>
+          <button className="btn primary" disabled={!!busy || amt <= 0} onClick={() => call('Lock', 'lock', { amount: tokToUnits(amt).toString(), hours }, 1n, `Locked for ${hrs(hours)}`)}>Lock {fmtTok(amt)} for {hrs(hours)}</button></div>
         <h3>Coin Vault</h3>
         <Row k="Locked" v={`${fmtTok(toTok(c.vault_locked))} (${pct(toTok(c.vault_locked), toTok(c.circulating)).toFixed(1)}% of circulating)`} />
       </div>
@@ -462,7 +462,7 @@ function VaultTab({ d, now, busy, call }: TabProps) {
         {h.locks.map((l, i) => <div key={i} className="row between lock-row">
           <span className="mono">{fmtTok(toTok(l.amount))} ×{l.mult / 10}</span>
           {now >= l.until ? <button className="btn small primary" disabled={!!busy} onClick={() => call('Unlock', 'unlock', { index: i })}>Unlock</button>
-            : <span className="row gap small"><span className="muted">{dur(l.until - now)}</span><button className="btn small danger" disabled={!!busy} onClick={() => call('Leave early', 'leave_early', { index: i }, 0n, 'Left early: 20% penalty')}>Leave early (−20%)</button></span>}
+            : <span className="row gap small"><span className="muted">{dur(l.until - now)}</span><button className="btn small danger" disabled={!!busy} onClick={() => call('Leave early', 'leave_early', { index: i }, 1n, 'Left early: 20% penalty')}>Leave early (−20%)</button></span>}
         </div>)}
         <Row k="Earned so far" v={fmtTok(toTok(h.vault_earned))} />
         <button className="btn" disabled={!!busy || toTok(h.vault_earned) <= 0} onClick={() => call('Claim', 'claim_vault')}>Claim earnings</button>

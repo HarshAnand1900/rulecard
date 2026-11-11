@@ -69,7 +69,7 @@ fn buy_and_sell_split_fees_and_stay_solvent() {
     assert_eq!(c.escrow, fee * 20 / 200);
     assert_eq!(c.pot, n(20) + fee - fee * 30 / 200 - fee * 20 / 200);
     check_supply(&mut c, &[1], T0 + 2000);
-    ctx(1, 0, T0 + 3000);
+    ctx(1, 1, T0 + 3000);
     let out = c.sell(U128(t), None).0;
     assert!(out < net, "a round trip can't profit");
     assert!(out > net * 95 / 100, "round trip costs about 4% in fees");
@@ -117,7 +117,7 @@ fn vault_tokens_are_safe_and_earn_half_of_idle_burn() {
     let mut c = launch(vec![]);
     let a = buy(&mut c, 1, n(10), T0);
     let b = buy(&mut c, 2, n(10), T0);
-    ctx(1, 0, T0 + 1000); c.lock(U128(a), 72);
+    ctx(1, 1, T0 + 1000); c.lock(U128(a), 72);
     // wallet 2 goes idle for 2 days, wallet 1 is fully locked
     let later = T0 + 2 * DAY;
     ctx(2, 0, later); let _ = c.claim_vault(); // settles wallet 2's idle burn
@@ -137,9 +137,9 @@ fn leaving_the_vault_early_costs_20_percent() {
     let mut c = launch(vec![]);
     let a = buy(&mut c, 1, n(10), T0);
     let b = buy(&mut c, 2, n(10), T0);
-    ctx(1, 0, T0 + 1000); c.lock(U128(a), 24);
-    ctx(2, 0, T0 + 1000); c.lock(U128(b), 24);
-    ctx(1, 0, T0 + HOUR); let back = c.leave_early(0).0;
+    ctx(1, 1, T0 + 1000); c.lock(U128(a), 24);
+    ctx(2, 1, T0 + 1000); c.lock(U128(b), 24);
+    ctx(1, 1, T0 + HOUR); let back = c.leave_early(0).0;
     assert_eq!(back, a - a / 5);
     let v = c.get_holder(acc(2)).unwrap();
     assert!(close(v.vault_earned.0, a / 10), "half the penalty goes to the stayers");
@@ -173,9 +173,9 @@ fn ritual_made_burns_from_the_pot() {
     let mut ids = vec![];
     for i in 1..=10 { buy(&mut c, i, n(5), day0 + i as u64 * 1000); ids.push(i); }
     for i in 1..=10 { ctx(i, 0, day0 + HOUR); c.gm(); }
-    ctx(1, 0, day0 + 2 * HOUR); let half = bal(&c, 1) / 2; c.lock(U128(half), 24);
-    ctx(2, 0, day0 + 2 * HOUR); let b2 = bal(&c, 2); c.lock(U128(b2), 24);
-    ctx(3, 0, day0 + 2 * HOUR); let b3 = bal(&c, 3); c.lock(U128(b3), 24);
+    ctx(1, 1, day0 + 2 * HOUR); let half = bal(&c, 1) / 2; c.lock(U128(half), 24);
+    ctx(2, 1, day0 + 2 * HOUR); let b2 = bal(&c, 2); c.lock(U128(b2), 24);
+    ctx(3, 1, day0 + 2 * HOUR); let b3 = bal(&c, 3); c.lock(U128(b3), 24);
     assert!(c.ritual.lock_near.0 >= RITUAL_LOCK_MIN, "locked {}", c.ritual.lock_near.0 / GN);
     let pot = c.pot; let burned = c.burned;
     ctx(5, 0, day0 + DAY + 1); c.poke();
@@ -218,7 +218,7 @@ fn paper_tax_charges_quick_flips_into_the_pot() {
     let mut c = launch(vec![Rule::PaperTax]);
     let t = buy(&mut c, 1, n(10), T0);
     let pot = c.pot;
-    ctx(1, 0, T0 + 10 * MIN); let out = c.sell(U128(t), None).0;
+    ctx(1, 1, T0 + 10 * MIN); let out = c.sell(U128(t), None).0;
     assert!(out < n(9) && out > n(8), "10% tax + fees: {}", out);
     assert!(c.pot > pot + n(9) / 100 * 9, "tax went to the pot");
 }
@@ -355,7 +355,7 @@ fn prophecy_pays_winners_caster_and_burns() {
     ctx(4, 0, t0 + BACK_WINDOW + 1); c.poke();
     assert_eq!(c.get_table()[0].phase, 1);
     let stake = bal(&c, 2) / 10;
-    for i in 2..=9 { ctx(i, 0, t0 + BACK_WINDOW + 10 + i as u64); c.bet(id, i <= 6, U128(stake)); } // 5 Yes, 3 No
+    for i in 2..=9 { ctx(i, 1, t0 + BACK_WINDOW + 10 + i as u64); c.bet(id, i <= 6, U128(stake)); } // 5 Yes, 3 No
     buy(&mut c, 10, n(5), t0 + BACK_WINDOW + BET_WINDOW + HOUR); // a non-bettor buys: net buying, Yes wins
     let before_caster = bal(&c, 1); let before_yes = bal(&c, 2); let before_no = bal(&c, 8);
     ctx(11, 0, t0 + BACK_WINDOW + BET_WINDOW + PROPHECY_LEN + 1); c.poke();
@@ -379,8 +379,8 @@ fn bettors_cant_sell_until_it_resolves() {
     ctx(2, 0, t0 + 1); c.back(id);
     ctx(3, 0, t0 + 2); c.back(id);
     ctx(3, 0, t0 + BACK_WINDOW + 1); c.poke();
-    let s = bal(&c, 3) / 10; c.bet(id, true, U128(s));
-    ctx(3, 0, t0 + BACK_WINDOW + 100); c.sell(U128(s), None);
+    ctx(3, 1, t0 + BACK_WINDOW + 2); let s = bal(&c, 3) / 10; c.bet(id, true, U128(s));
+    ctx(3, 1, t0 + BACK_WINDOW + 100); c.sell(U128(s), None);
 }
 
 #[test]
@@ -474,7 +474,7 @@ fn attacker_raid_from_signers_to_win_pack() {
     let v = c.get_raid().unwrap();
     assert!(v.buy[0] > 0 && v.crowd[0] == 4, "live score shows Buy and Crowd");
     // selling during a raid pays +3% to the pot
-    let pot = c.pot; ctx(6, 0, r1 + 200); let s = bal(&c, 6) / 10; c.sell(U128(s), None);
+    let pot = c.pot; ctx(6, 1, r1 + 200); let s = bal(&c, 6) / 10; c.sell(U128(s), None);
     assert!(c.pot > pot);
     // settle after the last round
     let end = start + RAID_LEN;
@@ -576,4 +576,43 @@ fn price_history_records_trades_and_burns() {
     assert_eq!(p.len(), 3, "launch + 2 minutes with trades");
     assert!(p[1].price.0 < p[2].price.0 && p[0].price.0 < p[1].price.0, "price rises with buys");
     assert_eq!(p.last().unwrap().price.0, c.pool().price());
+}
+
+#[test]
+#[should_panic(expected = "Requires attached deposit of exactly 1 yoctoNEAR")]
+fn selling_needs_one_yocto() {
+    let mut c = launch(vec![]);
+    let t = buy(&mut c, 1, n(10), T0);
+    ctx(1, 0, T0 + 1000); c.sell(U128(t), None);
+}
+
+#[test]
+fn relocking_the_same_tokens_counts_once_for_the_ritual() {
+    let mut c = launch(vec![]);
+    let t = buy(&mut c, 1, n(10), T0);
+    ctx(1, 1, T0 + 1000); c.lock(U128(t), 6);
+    let once = c.ritual.lock_near.0;
+    ctx(1, 1, T0 + 7 * HOUR); c.leave_early(0); // lock is over: no penalty
+    let b = bal(&c, 1);
+    ctx(1, 1, T0 + 7 * HOUR + 1000); c.lock(U128(b), 6);
+    if (T0 + 7 * HOUR) / DAY == T0 / DAY { assert_eq!(c.ritual.lock_near.0, once, "same tokens, same day: counted once"); }
+}
+
+#[test]
+fn a_losing_defender_pays_the_fixed_rate_whatever_the_caller_says() {
+    let (mut c, t) = raid_ready();
+    ctx_as(moth(), 0, t, vec![]); c.raid_accept(7, 2, t, false);
+    let pot = c.pot;
+    ctx_as(moth(), 0, t + RAID_LEN + 5, vec![]);
+    c.raid_finish(7, -1, 10_000, vec![U128(9_000); 3], vec![U128(10_000); 3]);
+    assert_eq!(c.pot, pot - bps(pot, SPOILS_BPS), "a caller can't ask for 100% of the pot");
+}
+
+#[test]
+fn failed_spoils_go_back_to_the_pot() {
+    let mut c = launch(vec![]);
+    let pot = c.pot;
+    ctx_as(me(), 0, T0 + 1, vec![near_sdk::PromiseResult::Failed]);
+    c.on_spoils_sent(U128(n(3)));
+    assert_eq!(c.pot, pot + n(3));
 }

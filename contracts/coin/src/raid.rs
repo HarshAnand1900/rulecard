@@ -218,7 +218,8 @@ impl Coin {
         let mut p = Promise::new(r.defender.clone());
         let args = json!({ "id": id, "outcome": -outcome, "rate": rate as u32, "mine": theirs.iter().map(|x| U128(*x)).collect::<Vec<_>>(), "theirs": mine.iter().map(|x| U128(*x)).collect::<Vec<_>>() }).to_string().into_bytes();
         if outcome < 0 { spoils = bps(self.pot, rate); self.pot -= spoils; }
-        p = p.function_call("raid_finish".to_string(), args, NearToken::from_yoctonear(spoils), GAS_BACK);
+        p = p.function_call("raid_finish".to_string(), args, NearToken::from_yoctonear(spoils), GAS_BACK)
+            .then(Promise::new(env::current_account_id()).function_call("on_spoils_sent".to_string(), json!({ "amount": U128(spoils) }).to_string().into_bytes(), NearToken::from_yoctonear(0), GAS_CALL));
         self.record_result(now, RaidResult { outcome, rounds, mine: mine.into_iter().map(U128).collect(), theirs: theirs.into_iter().map(U128).collect(), spoils: U128(spoils) });
         Some(p)
     }
@@ -227,17 +228,26 @@ impl Coin {
     /// if it won, the attached spoils are bought and burned here.
     #[payable]
     pub fn raid_finish(&mut self, id: u32, outcome: i8, rate: u32, mine: Vec<U128>, theirs: Vec<U128>) {
+        let _ = rate; // ignored: the defender works out the spoils rate itself (never trust a caller with it)
         let now = env::block_timestamp_ms();
         let r = self.raid.clone().unwrap_or_else(|| env::panic_str("no raid"));
         require!(!r.attacking && r.id == id && env::predecessor_account_id() == r.attacker && r.phase == 2, "not your raid");
         let got = env::attached_deposit().as_yoctonear();
         let mut spoils = 0;
         if outcome < 0 {
-            spoils = bps(self.pot, rate as u128); self.pot -= spoils;
-            let _ = Promise::new(r.attacker.clone()).function_call("raid_spoils".to_string(), json!({ "id": id }).to_string().into_bytes(), NearToken::from_yoctonear(spoils), GAS_CALL);
+            let rate = SPOILS_BPS + if r.war { WAR_COIN_BONUS_BPS } else { 0 };
+            spoils = bps(self.pot, rate); self.pot -= spoils;
+            let _ = Promise::new(r.attacker.clone()).function_call("raid_spoils".to_string(), json!({ "id": id }).to_string().into_bytes(), NearToken::from_yoctonear(spoils), GAS_CALL)
+                .then(Promise::new(env::current_account_id()).function_call("on_spoils_sent".to_string(), json!({ "amount": U128(spoils) }).to_string().into_bytes(), NearToken::from_yoctonear(0), GAS_CALL));
         } else if got > 0 { self.spoils_burn(now, got); }
         let rounds = mine.iter().zip(theirs.iter()).map(|(a, b)| if a.0 > b.0 { 1 } else if a.0 < b.0 { -1 } else { 0 }).collect();
         self.record_result(now, RaidResult { outcome, rounds, mine, theirs, spoils: U128(if outcome < 0 { spoils } else { got }) });
+    }
+
+    /// If sending spoils failed, the NEAR comes back to this contract: put it back in the pot so nothing is lost.
+    #[private]
+    pub fn on_spoils_sent(&mut self, amount: U128) {
+        if amount.0 > 0 && !matches!(env::promise_result(0), PromiseResult::Successful(_)) { self.pot += amount.0; }
     }
 
     /// Spoils sent by a defender that lost: bought and burned on this coin.

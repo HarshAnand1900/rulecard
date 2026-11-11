@@ -33,8 +33,8 @@ async function playCoin(coin, liveCoins) {
     const bal = BigInt(await view(coin, 'ft_balance_of', { account_id: me }));
     // join or trade
     if (bal === 0n || chance(0.45)) await act(bot, coin, 'buy', {}, G(1 + Math.random() * 7));
-    else if (chance(0.25)) await act(bot, coin, 'sell', { amount: (bal / 5n).toString() });
-    else if (chance(0.2)) await act(bot, coin, 'lock', { amount: (bal / 4n).toString(), hours: pick([6, 24, 72]) });
+    else if (chance(0.25)) await act(bot, coin, 'sell', { amount: (bal / 5n).toString() }, 1n);
+    else if (chance(0.2)) await act(bot, coin, 'lock', { amount: (bal / 4n).toString(), hours: pick([6, 24, 72]) }, 1n);
     await act(bot, coin, 'gm', {}, 0n, true) && log(`${bot} ${sym(coin)} gm`);
     if (!(await act(bot, coin, 'claim_pack', {}, 0n, true))) {
       const hand = await view(coin, 'get_hand', { account_id: me });
@@ -46,7 +46,7 @@ async function playCoin(coin, liveCoins) {
       if (t.phase === 0 && t.proposer !== me && !t.backers.includes(me)) await act(bot, coin, t.card === 'Inferno' ? 'sign' : 'back', { id: t.id });
       if (t.card === 'Ember' && t.phase === 0 && chance(0.3)) await act(bot, coin, 'stoke', { id: t.id }, G(1 + Math.random() * 3));
       if (t.card === 'Inferno' && t.phase === 1 && chance(0.6)) await act(bot, coin, 'fuel', { id: t.id }, G(2 + Math.random() * 8));
-      if (t.card === 'Prophecy' && t.phase === 1 && !t.bets.some(b => b.account === me) && bal > 0n) await act(bot, coin, 'bet', { id: t.id, yes: chance(0.55), amount: (bal / 20n).toString() });
+      if (t.card === 'Prophecy' && t.phase === 1 && !t.bets.some(b => b.account === me) && bal > 0n) await act(bot, coin, 'bet', { id: t.id, yes: chance(0.55), amount: (bal / 20n).toString() }, 1n);
     }
     // play a card now and then
     const hand = await view(coin, 'get_hand', { account_id: me });

@@ -1,10 +1,24 @@
 # Rulecard
 
-**Memecoins where the meme does something.** Every Rulecard coin is its own NEP-141 contract with daily rituals, a Vault that
-protects the faithful, an idle burn that eats sleeping bags, rule cards the crowd plays together, and raids against other coins.
-Every rule lives in the contract, every number is fixed at launch, and nobody (not even us) holds an admin key.
+**A memecoin that only survives if its holders show up.**
 
-Track: **Memecoins With Mechanics** (NEAR). Judges score the mechanic, so this README is mostly about the mechanic.
+```
+ every 6h: holders say gm ──► today's Ritual (X wallets gm + Y NEAR locked)
+                                   │
+              made ◄───────────────┴───────────────► missed
+   the pot buys & burns 5% of itself            idle burn ×2 for 6h
+   (supply drops, price floor rises)            (sleeping bags shrink faster)
+
+ don't show up for 12h ──► 1% of your unlocked bag burns every 6h (half burned, half paid to the Vault)
+ lock in the Vault     ──► safe from every burn, and you earn what the sleepers lose
+```
+
+That loop is the coin. Everything else (rule cards the crowd plays together, raids against other coins, levels) is how it
+gets wild. Every NEP-141 coin is its own contract, every number is fixed at launch, and nobody holds an admin key: the factory
+deletes its own key in its deploy transaction.
+
+Live demo: *(link added after the testnet deploy)* · Track: **Memecoins With Mechanics** (NEAR). Judges score the mechanic,
+so this README is mostly about the mechanic.
 
 ---
 
@@ -48,7 +62,7 @@ Real mode is the same game with the numbers we'd ship. Storage deposits are real
 | Requirement | Where |
 |---|---|
 | An NEP-141 token with the mechanic **in the contract** | every coin is its own contract `<symbol>.<factory>` ([contracts/coin](contracts/coin/src/lib.rs)): `ft_transfer`, `ft_transfer_call`, `ft_balance_of`, `ft_total_supply`, `ft_metadata`, storage registration. All game logic is in the same contract |
-| All parameters set at launch and readable; **no admin key** | constants in the code + creator choices frozen in `new`; read them all with `get_params` (it returns `admin: null`). No owner methods, no upgrade path. The factory has no owner methods either, and the coin code it deploys is fixed once at deploy |
+| All parameters set at launch and readable; **no admin key** | constants in the code + creator choices frozen in `new`; read them all with `get_params` (it returns `admin: null`). No owner methods, no upgrade path. The factory has no owner methods, the coin code it deploys is stored once, and **its only access key is deleted in the same deploy transaction** (check: the factory account has zero access keys on the explorer), so nobody can create an impostor coin account under it |
 | Sybil resistance, limits written plainly | [below](#sybil-resistance-what-this-does-and-doesnt-stop) |
 | A page with current state, today's progress and a log of every mint and burn | the coin page: stats strip, **Today** tab (Ritual + level checklist), **Log** tab (every mint and burn, from `get_log`), price chart with event markers. Every mint/burn is also a NEP-297 `nep141` event |
 | Simulate first, then pick parameters | [`research/`](research) and [below](#simulations) |
@@ -104,13 +118,16 @@ Values below are **Real mode**. Demo mode divides every game NEAR amount by 100 
 - **Whales carrying a raid or the Vault.** One wallet counts for at most 20 NEAR of Buy per round, 0.5% of supply of Lock per round and 0.5% of supply of Vault weight.
 - **One wallet firing coin-wide cards.** Ember needs 3 wallets with their own copies; Prophecy needs backers; Inferno needs qualified signers who can sign once per 30 min.
 - **Draining the reward pool.** Every payout is capped (Inferno bonus 0.1% of supply per play; Vault earnings come only from tokens taken from others).
+- **Counting the same tokens twice for the Ritual.** A wallet's locks count only above what it already had counted that day, so unlock-relock loops add nothing.
 - **Sandwiching pot burns.** Fuel is capped at 10% of the curve's NEAR and buys during a pot card are tagged; with both, the simulated sandwich loses money.
 - **Hedging a Prophecy with two wallets.** 20% of the losing side always leaves (10% burned, 10% to the caster), so betting both sides loses.
 
 **What it doesn't stop (honest limits)**
+- **Contracts can't gm.** Tokens held by another contract (an escrow, a future DEX pool, NEAR Intents) are a normal holder here and would idle-burn. The coin's own reserves (curve stock, reward pool, DEX reserve, Vault, bets) are never burned. Exempting pool accounts is part of the Ref Finance graduation work.
 - A whale can split a bag across many wallets. Per-wallet caps then apply per wallet; it costs gas and storage, not much more.
 - A bot can gm every 6h forever and never be idle. That is allowed: being there is the ritual. The Vault exists so humans can be safe without being online.
 - Raid plans are hidden from the app, but contract state is public: a determined player can read the other side's plan. Commit-reveal is on the roadmap.
+- **Raids trust sibling coins**, i.e. accounts directly under the factory. That's safe only because the factory has no key and deploys one fixed code; the defender also works out the spoils rate itself and never takes it from the caller.
 - Randomness (card rolls, fire times) uses NEAR's block random seed. Good enough for a demo, not for large stakes.
 - "Eligible holders" for deck limits are counted as wallets that checked in within 24h while eligible (to avoid loops), so they can lag reality by up to a day.
 

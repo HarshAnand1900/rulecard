@@ -21,7 +21,7 @@ const ACCOUNT = arg('account', process.env.RULECARD_TESTNET_ACCOUNT);
 const COINS = Number(arg('coins', '2'));
 const BOTS = Number(arg('bots', '8'));
 const BOT_NEAR = Number(arg('bot-near', '1.2'));
-const nodeUrl = process.env.RULECARD_TESTNET_RPC ?? 'https://rpc.testnet.near.org';
+const nodeUrl = process.env.RULECARD_TESTNET_RPC ?? 'https://test.rpc.fastnear.com';
 const out = join(here, '..', 'contracts', 'out');
 const keyFile = join(here, '.keys', 'testnet.json');
 const N = n => BigInt(utils.format.parseNearAmount(String(n)));
@@ -49,7 +49,7 @@ const total = FACTORY_NEAR + COINS * coinDeposit + BOTS * BOT_NEAR + 0.3;
 console.log(`\nRulecard testnet deploy (demo scale) ${YES ? '' : '— DRY RUN, nothing is sent'}
   your account      ${ACCOUNT}: ${fmt(acct.amount)} NEAR available
   credentials       ${existsSync(credPath) ? 'found at ' + credPath : 'NOT FOUND at ' + credPath}
-  1. create         ${factoryId} with ${FACTORY_NEAR} NEAR, deploy the demo factory and store the demo coin code (one transaction)
+  1. create         ${factoryId} with ${FACTORY_NEAR} NEAR, deploy the demo factory, store the demo coin code and delete its key (one transaction)
   2. create         ${BOTS} bots bot1..bot${BOTS}.${ACCOUNT} with ${BOT_NEAR} NEAR each (= ${(BOTS * BOT_NEAR).toFixed(1)} NEAR)
   3. launch         ${COINS_META.map(c => '$' + c[1]).join(', ')} from ${ACCOUNT}: ${coinDeposit} NEAR each (5 storage + ${COIN_SEED} seed)
   4. write          sandbox/.keys/testnet.json (keys of the new accounts only; gitignored) and print your .env.testnet
@@ -76,13 +76,20 @@ async function make(id, amount) {
 }
 
 console.log(`1. ${factoryId}`);
-keys.accounts.factory_demo = await make(factoryId, FACTORY_NEAR); save();
+const fkp = KeyPair.fromRandom('ed25519');
+await me.createAccount(factoryId, fkp.getPublicKey(), N(FACTORY_NEAR));
+await ks.setKey('testnet', factoryId, fkp);
 const factory = await near.account(factoryId);
+// One transaction: deploy, init, store the coin code, then DELETE the factory's only key. After this nobody can sign
+// for the factory, so nobody can create an impostor <name>.<factory> account or change the code new coins run.
 await factory.signAndSendTransaction({ receiverId: factoryId, actions: [
   transactions.deployContract(factoryWasm),
   transactions.functionCall('new', { code_hash: null, protocol: ACCOUNT }, TGAS(50), 0n),
   transactions.functionCall('store_code', new Uint8Array(coinWasm), TGAS(250), 0n),
+  transactions.deleteKey(fkp.getPublicKey()),
 ] });
+const left = await rpc('query', { request_type: 'view_access_key_list', finality: 'final', account_id: factoryId });
+console.log(`   access keys left on ${factoryId}: ${left.keys.length} (explorer: https://testnet.nearblocks.io/address/${factoryId})`);
 const params = await factory.viewFunction({ contractId: factoryId, methodName: 'get_params', args: {} });
 console.log(`   mode ${params.mode}, code stored ${params.code_stored}, admin ${params.admin}, coin storage ${fmt(params.deploy_deposit)} NEAR`);
 

@@ -28,7 +28,7 @@ const FROG = coinId('FROG', MODE), MOTH = coinId('MOTH', MODE), ZAP = coinId('ZA
 say('buying in...');
 for (const w of all) { await call(w, FROG, 'buy', {}, G(w === 'you' ? 80 : 55)); await call(w, MOTH, 'buy', {}, G(55)); }
 for (const w of bots.slice(0, 6)) await call(w, ZAP, 'buy', {}, G(20));
-for (const w of bots.slice(0, 4)) { const b = await view(FROG, 'ft_balance_of', { account_id: idOf(w) }); await call(w, FROG, 'buy', {}, G(40)); await tryCall(w, FROG, 'sell', { amount: (BigInt(b) / 4n).toString() }); }
+for (const w of bots.slice(0, 4)) { const b = await view(FROG, 'ft_balance_of', { account_id: idOf(w) }); await call(w, FROG, 'buy', {}, G(40)); await tryCall(w, FROG, 'sell', { amount: (BigInt(b) / 4n).toString() }, 1n); }
 for (const w of bots.slice(0, 4)) { await call(w, MOTH, 'buy', {}, G(40)); }
 
 say('aging holders 65 min, then everyone checks in...');
@@ -37,7 +37,7 @@ for (const c of [FROG, MOTH, ZAP]) for (const w of all) await tryCall(w, c, 'gm'
 await fwd(16);
 for (const c of [FROG, MOTH, ZAP]) await call('bot1', c, 'poke');
 for (const c of [FROG, MOTH]) for (const w of all) await tryCall(w, c, 'claim_pack');
-for (const w of ['alice', 'bot5', 'bot6']) { const b = await view(FROG, 'ft_balance_of', { account_id: idOf(w) }); await call(w, FROG, 'lock', { amount: (BigInt(b) / 3n).toString(), hours: 24 }); }
+for (const w of ['alice', 'bot5', 'bot6']) { const b = await view(FROG, 'ft_balance_of', { account_id: idOf(w) }); await call(w, FROG, 'lock', { amount: (BigInt(b) / 3n).toString(), hours: 24 }, 1n); }
 
 say('some trading over the next hours so the charts have history...');
 let r = 7;
@@ -47,7 +47,7 @@ for (let step = 0; step < 10; step++) {
   for (const c of [FROG, MOTH, ZAP]) {
     const w = bots[Math.floor(rnd() * 6)];
     if (rnd() < 0.62) await tryCall(w, c, 'buy', {}, G(3 + Math.floor(rnd() * 15)));
-    else { const b = await view(c, 'ft_balance_of', { account_id: idOf(w) }); if (BigInt(b) > 0n) await tryCall(w, c, 'sell', { amount: (BigInt(b) / 5n).toString() }); }
+    else { const b = await view(c, 'ft_balance_of', { account_id: idOf(w) }); if (BigInt(b) > 0n) await tryCall(w, c, 'sell', { amount: (BigInt(b) / 5n).toString() }, 1n); }
   }
 }
 

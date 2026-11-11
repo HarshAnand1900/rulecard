@@ -131,7 +131,7 @@ Directly under the header and stats strip, visible on every tab.
 Today's Ritual                          ends in 6:12:04
 gm      ███████████░░░░   31 / 40 wallets
 Locked  ████████░░░░░░░   28 / 50 NEAR
-Reward if made: pot burns 5% (≈ 2.4 NEAR) · your next pack 1h sooner
+Reward if made: pot burns 5% (≈ 2.4 NEAR)
 If missed: idle burn ×2 for 6h
 Streak: 🔥 2 days (3rd day burns 7%)
 ```

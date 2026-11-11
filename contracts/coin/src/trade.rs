@@ -71,7 +71,10 @@ impl Coin {
         U128(t)
     }
 
+    /// Attach 1 yoctoNEAR (like ft_transfer) so only a full-access key can sell your tokens.
+    #[payable]
     pub fn sell(&mut self, amount: U128, min_near: Option<U128>) -> U128 {
+        near_sdk::assert_one_yocto();
         let now = env::block_timestamp_ms();
         let a = env::predecessor_account_id();
         let t = amount.0; require!(t > 0, "amount must be positive");
