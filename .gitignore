@@ -1,7 +1,6 @@
 node_modules/
 dist/
 target/
-contract/target/
 *.wasm
 .env
 .env.*
@@ -11,5 +10,5 @@ neardev/
 .DS_Store
 # submission payload is never committed
 submission*.json
-contract/out/
+contracts/out/
 sandbox/.keys/

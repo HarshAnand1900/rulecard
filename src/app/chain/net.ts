@@ -1,0 +1,98 @@
+// One interface for both networks the app runs on:
+// - sandbox: the local NEAR sandbox, signing with local test keys (dev only), with a player switcher and a clock you can move;
+// - testnet: real wallets through NEAR Wallet Selector (MyNearWallet, Meteor); views go straight to the RPC.
+import { Chain, toNear } from './near';
+import type { WalletSelector } from '@near-wallet-selector/core';
+import type { WalletSelectorModal } from '@near-wallet-selector/modal-ui';
+// wallet code is loaded only on testnet (see openNet)
+let functionCall: (m: string, a: object, g: bigint, d: bigint) => any;
+
+const GAS = 300_000_000_000_000n;
+
+export interface Net {
+  mode: 'sandbox' | 'testnet';
+  factoryId: string;
+  me(): string | null;
+  view<T = any>(contractId: string, method: string, args?: object): Promise<T>;
+  call<T = any>(contractId: string, method: string, args?: object, deposit?: bigint): Promise<T>;
+  coinId(symbol: string): string;
+  balance(): Promise<number>;
+  // sandbox only
+  players?(): string[];
+  player?: string;
+  setPlayer?(name: string): void;
+  fastForward?(minutes: number, coins: string[]): Promise<void>;
+  // testnet only
+  signIn?(): void;
+  signOut?(): Promise<void>;
+  onChange?(fn: () => void): void;
+}
+
+const panicText = (e: any) => { const m = String(e?.message ?? e); const k = m.match(/Smart contract panicked: ([^"\\]*)/); return k ? k[1] : m.slice(0, 160); };
+
+class SandboxNet implements Net {
+  mode = 'sandbox' as const;
+  player = 'you';
+  constructor(private ch: Chain) {}
+  get factoryId() { return this.ch.keys.factoryId; }
+  me() { return this.ch.id(this.player); }
+  view<T>(c: string, m: string, a: object = {}) { return this.ch.view<T>(c, m, a); }
+  call<T>(c: string, m: string, a: object = {}, d = 0n) { return this.ch.call<T>(this.player, c, m, a, d); }
+  coinId(s: string) { return this.ch.coinId(s); }
+  balance() { return this.ch.balance(this.player); }
+  players() { return this.ch.players(); }
+  setPlayer(n: string) { this.player = n; }
+  fastForward(min: number, coins: string[]) { return this.ch.fastForward(min, coins); }
+}
+
+class WalletNet implements Net {
+  mode = 'testnet' as const;
+  private account: string | null = null;
+  private listeners: (() => void)[] = [];
+  constructor(public factoryId: string, private nodeUrl: string, private selector: WalletSelector, private modal: WalletSelectorModal) {
+    const sync = () => { this.account = selector.store.getState().accounts.find(a => a.active)?.accountId ?? null; this.listeners.forEach(f => f()); };
+    sync(); selector.store.observable.subscribe(sync);
+  }
+  me() { return this.account; }
+  onChange(fn: () => void) { this.listeners.push(fn); }
+  private async rpc(method: string, params: any) {
+    const r = await (await fetch(this.nodeUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 'rc', method, params }) })).json();
+    if (r.error) throw new Error(r.error?.data ?? r.error?.message ?? 'RPC error');
+    if (r.result?.error) throw new Error(panicText(r.result.error));
+    return r.result;
+  }
+  async view<T>(contractId: string, method: string, args: object = {}): Promise<T> {
+    const r = await this.rpc('query', { request_type: 'call_function', finality: 'optimistic', account_id: contractId, method_name: method, args_base64: btoa(JSON.stringify(args)) });
+    return JSON.parse(new TextDecoder().decode(new Uint8Array(r.result)));
+  }
+  async call<T>(contractId: string, method: string, args: object = {}, deposit = 0n): Promise<T> {
+    if (!this.account) { this.signIn(); throw new Error('sign in first'); }
+    const wallet = await this.selector.wallet();
+    try {
+      const out: any = await wallet.signAndSendTransaction({ receiverId: contractId, actions: [functionCall(method, args, GAS, deposit)] });
+      const v = out?.status?.SuccessValue; return v ? JSON.parse(atob(v)) : (null as T);
+    } catch (e) { throw new Error(panicText(e)); }
+  }
+  coinId(s: string) { return `${s.toLowerCase()}.${this.factoryId}`; }
+  async balance() { if (!this.account) return 0; const r = await this.rpc('query', { request_type: 'view_account', finality: 'optimistic', account_id: this.account }); return toNear(r.amount); }
+  signIn() { this.modal.show(); }
+  async signOut() { const w = await this.selector.wallet(); await w.signOut(); }
+}
+
+/** Sandbox in dev unless VITE_NETWORK=testnet; testnet needs VITE_FACTORY_ID. */
+export async function openNet(): Promise<Net> {
+  const env = (import.meta as any).env ?? {};
+  const mode = env.VITE_NETWORK ?? (env.DEV ? 'sandbox' : 'testnet');
+  if (mode === 'sandbox') return new SandboxNet(await Chain.open());
+  const factoryId = env.VITE_FACTORY_ID;
+  if (!factoryId) throw new Error('Set VITE_FACTORY_ID to the testnet factory account (for example rulecard.testnet).');
+  const nodeUrl = env.VITE_NODE_URL ?? 'https://rpc.testnet.near.org';
+  const [core, ui, mnw, meteor] = await Promise.all([
+    import('@near-wallet-selector/core'), import('@near-wallet-selector/modal-ui'),
+    import('@near-wallet-selector/my-near-wallet'), import('@near-wallet-selector/meteor-wallet'), import('@near-wallet-selector/modal-ui/styles.css'),
+  ]);
+  functionCall = core.actionCreators.functionCall as any;
+  const selector = await core.setupWalletSelector({ network: 'testnet', modules: [mnw.setupMyNearWallet(), meteor.setupMeteorWallet()] });
+  const modal = ui.setupModal(selector, { contractId: factoryId });
+  return new WalletNet(factoryId, nodeUrl, selector, modal);
+}

@@ -1,6 +1,7 @@
 // Rulecard app: Discover, Launch and the coin page. Every action is a real transaction (local sandbox in dev).
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Chain, toNear, toTok, nearToYocto, tokToUnits, fmtTok, fmtNear } from './near';
+import { toNear, toTok, nearToYocto, tokToUnits, fmtTok, fmtNear } from './near';
+import { openNet, type Net } from './net';
 import type {
   CoinEntry, CoinView, HolderView, Ritual, LevelView, LogEntry, HandView, Proposal, RaidView, Card, Question, Rule, BuyQuote,
 } from './types';
@@ -18,7 +19,7 @@ type Page = { kind: 'discover' } | { kind: 'launch' } | { kind: 'coin'; id: stri
 type Tab = 'trade' | 'today' | 'cards' | 'vault' | 'raid' | 'log';
 
 export default function ChainApp() {
-  const [ch, setCh] = useState<Chain | null>(null);
+  const [ch, setCh] = useState<Net | null>(null);
   const [err, setErr] = useState('');
   const [me, setMe] = useState('you');
   const [page, setPage] = useState<Page>({ kind: 'discover' });
@@ -27,10 +28,11 @@ export default function ChainApp() {
   const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
   const [tick, setTick] = useState(0);
   const [bal, setBal] = useState(0);
+  const [listErr, setListErr] = useState('');
 
-  useEffect(() => { Chain.open().then(setCh).catch(e => setErr(e.message)); }, []);
+  useEffect(() => { openNet().then(n => { n.onChange?.(() => setMe(n.me() ?? '')); setMe(n.me() ?? ''); setCh(n); }).catch(e => setErr(e.message)); }, []);
   const refresh = useCallback(() => setTick(t => t + 1), []);
-  useEffect(() => { if (!ch) return; ch.view<CoinEntry[]>(ch.keys.factoryId, 'list_coins', {}).then(setCoins).catch(e => setErr(e.message)); ch.balance(me).then(setBal); }, [ch, tick, me]);
+  useEffect(() => { if (!ch) return; ch.view<CoinEntry[]>(ch.factoryId, 'list_coins', {}).then(c => { setCoins(c); setListErr(''); }).catch(e => setListErr(`Can't read the factory ${ch.factoryId}: ${e.message}`)); ch.balance().then(setBal); }, [ch, tick, me]);
   useEffect(() => { const i = setInterval(refresh, 5000); return () => clearInterval(i); }, [refresh]);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 5000); return () => clearTimeout(t); }, [toast]);
 
@@ -50,27 +52,29 @@ export default function ChainApp() {
       <header className="top">
         <div className="brand">
           <button className="logo linkish" onClick={() => setPage({ kind: 'discover' })}>RULECARD</button>
-          <span className="tag">memecoins with mechanics · sandbox</span>
+          <span className="tag">memecoins with mechanics · {ch.mode}</span>
         </div>
         <nav className="seg" aria-label="Pages">
           <button aria-pressed={page.kind === 'discover'} onClick={() => setPage({ kind: 'discover' })}>Discover</button>
           <button aria-pressed={page.kind === 'launch'} onClick={() => setPage({ kind: 'launch' })}>Launch a coin</button>
         </nav>
         <div className="who">
-          <label className="small muted">Playing as{' '}
-            <select value={me} onChange={e => setMe(e.target.value)}>{ch.players().map(p => <option key={p} value={p}>{p}</option>)}</select>
-          </label>
-          <span className="mono small">{fmtNear(bal)} NEAR</span>
-          <span className="seg small" role="group" aria-label="Move sandbox time">
+          {ch.players ? <label className="small muted">Playing as{' '}
+            <select value={ch.player} onChange={e => { ch.setPlayer!(e.target.value); setMe(ch.me() ?? ''); }}>{ch.players().map(p => <option key={p} value={p}>{p}</option>)}</select>
+          </label> : me ? <span className="small">{me} <button className="btn small ghost" onClick={() => ch.signOut!().then(refresh)}>Sign out</button></span>
+            : <button className="btn primary" onClick={() => ch.signIn!()}>Connect wallet</button>}
+          {me && <span className="mono small">{fmtNear(bal)} NEAR</span>}
+          {ch.fastForward && <span className="seg small" role="group" aria-label="Move sandbox time">
             {[[15, '+15m'], [60, '+1h'], [360, '+6h'], [1440, '+1d']].map(([m, l]) => (
-              <button key={l} disabled={!!busy} onClick={() => act(`Time ${l}`, () => ch.fastForward(m as number, coins.map(c => c.account_id)), `Moved the chain clock ${l}`)}>{l}</button>
+              <button key={l} disabled={!!busy} onClick={() => act(`Time ${l}`, () => ch.fastForward!(m as number, coins.map(c => c.account_id)), `Moved the chain clock ${l}`)}>{l}</button>
             ))}
-          </span>
+          </span>}
         </div>
       </header>
       {busy && <div className="busy" role="status">⏳ {busy}…</div>}
       {toast && <div className={`toast ${toast.ok ? 'ok' : 'bad'}`} role="status">{toast.text}</div>}
       <main className="page">
+        {listErr && <div className="warn">{listErr}</div>}
         {page.kind === 'discover' && <Discover {...ctx} />}
         {page.kind === 'launch' && <Launch {...ctx} />}
         {page.kind === 'coin' && <CoinPage {...ctx} id={page.id} />}
@@ -79,7 +83,7 @@ export default function ChainApp() {
   );
 }
 
-type Ctx = { ch: Chain; me: string; act: (l: string, f: () => Promise<unknown>, d?: string) => Promise<void>; busy: string; tick: number; coins: CoinEntry[]; go: (p: Page) => void };
+type Ctx = { ch: Net; me: string; act: (l: string, f: () => Promise<unknown>, d?: string) => Promise<void>; busy: string; tick: number; coins: CoinEntry[]; go: (p: Page) => void };
 
 // ------------------------------------------------------------------ Discover
 function Discover({ ch, coins, tick, go }: Ctx) {
@@ -128,7 +132,7 @@ const RULES: Rule[] = ['LaunchGuard', 'PaperTax', 'SoftTax', 'WhaleCap', 'Creato
 function Launch({ ch, me, act, busy, go }: Ctx) {
   const [name, setName] = useState(''); const [sym, setSym] = useState(''); const [seed, setSeed] = useState(20); const [rules, setRules] = useState<Rule[]>([]);
   const [deposit, setDeposit] = useState(5);
-  useEffect(() => { ch.view(ch.keys.factoryId, 'get_params').then((p: any) => setDeposit(toNear(p.deploy_deposit))); }, [ch]);
+  useEffect(() => { ch.view(ch.factoryId, 'get_params').then((p: any) => setDeposit(toNear(p.deploy_deposit))); }, [ch]);
   const toggle = (r: Rule) => setRules(rs => rs.includes(r) ? rs.filter(x => x !== r) : rs.length < 3 ? [...rs, r] : rs);
   const ok = name.length > 0 && /^[a-zA-Z0-9]{2,10}$/.test(sym) && seed >= 5 && seed <= 100 && !(rules.includes('PaperTax') && rules.includes('SoftTax'));
   return (
@@ -145,7 +149,7 @@ function Launch({ ch, me, act, busy, go }: Ctx) {
         <p className="small muted">The pot is your coin's fuel for burn cards. You can't take it back. Plus {fmtNear(deposit)} NEAR for the coin contract's storage.</p>
         <p className="small">Fees: 2% per trade = 0.3% protocol · 0.2% creator escrow (paid at graduation) · 1.5% pot. <strong>No admin key: nobody can change these numbers, not even you.</strong></p>
         <button className="btn primary" disabled={!ok || !!busy} onClick={() => act('Launch', async () => {
-          await ch.call(me, ch.keys.factoryId, 'create_coin', { name, symbol: sym, icon: null, rules }, nearToYocto(seed + deposit));
+          await ch.call(ch.factoryId, 'create_coin', { name, symbol: sym, icon: null, rules }, nearToYocto(seed + deposit));
           go({ kind: 'coin', id: ch.coinId(sym) });
         }, `$${sym} launched`)}>Launch ${sym || 'COIN'} for {fmtNear(seed + deposit)} NEAR</button>
       </div>
@@ -163,11 +167,12 @@ function CoinPage(p: Ctx & { id: string }) {
   const [lockPrompt, setLockPrompt] = useState<bigint | null>(null);
   useEffect(() => {
     (async () => {
-      const acc = ch.id(me); const v = <T,>(m: string, a: object = {}) => ch.view<T>(id, m, a);
+      const acc = ch.me(); const v = <T,>(m: string, a: object = {}) => ch.view<T>(id, m, a);
+      const mine = <T,>(m: string): Promise<T | null> => (acc ? v<T>(m, { account_id: acc }) : Promise.resolve(null));
       const [c, h, r, lv, hand, table, hist, raid, raids, log, plan, prices] = await Promise.all([
-        v<CoinView>('get_coin'), v<HolderView | null>('get_holder', { account_id: acc }), v<Ritual>('get_ritual'), v<LevelView>('get_level_progress'),
-        v<HandView | null>('get_hand', { account_id: acc }), v<Proposal[]>('get_table'), v<Proposal[]>('get_history'), v<RaidView | null>('get_raid'), v<RaidView[]>('get_raids'),
-        v<LogEntry[]>('get_log', { limit: 100 }), v<number[]>('get_my_plan', { account_id: acc }), v<PricePoint[]>('get_prices'),
+        v<CoinView>('get_coin'), mine<HolderView>('get_holder'), v<Ritual>('get_ritual'), v<LevelView>('get_level_progress'),
+        mine<HandView>('get_hand'), v<Proposal[]>('get_table'), v<Proposal[]>('get_history'), v<RaidView | null>('get_raid'), v<RaidView[]>('get_raids'),
+        v<LogEntry[]>('get_log', { limit: 100 }), mine<number[]>('get_my_plan').then(x => x ?? []), v<PricePoint[]>('get_prices'),
       ]);
       setD({ c, h, r, lv, hand, table, hist, raid, raids, log, plan, prices });
     })().catch(() => {});
@@ -175,7 +180,7 @@ function CoinPage(p: Ctx & { id: string }) {
   if (!d) return <div className="panel">Loading…</div>;
   const { c, h } = d;
   const now = c.now;
-  const call = (label: string, m: string, a: object = {}, dep = 0n, done?: string) => act(label, () => ch.call(me, id, m, a, dep), done);
+  const call = (label: string, m: string, a: object = {}, dep = 0n, done?: string) => act(label, () => ch.call(id, m, a, dep), done);
   const gmReady = !h || h.last_gm === 0 || now >= h.next_gm;
   const idleBurning = h && h.last_gm > 0 && now >= h.idle_burn_starts;
   const ritualPct = (pct(d.r.gm_count, d.r.gm_target) + pct(toNear(d.r.lock_near), toNear(d.r.lock_target))) / 2;
@@ -241,8 +246,8 @@ function TradeTab({ ch, me, id, d, now, busy, act, onBought }: TabProps & { onBo
   const [sq, setSq] = useState<any>(null);
   const { c, h, hand } = d;
   useEffect(() => {
-    if (side === 'buy' && amt > 0) ch.view<BuyQuote>(id, 'quote_buy', { near: nearToYocto(amt).toString(), account_id: ch.id(me) }).then(setQ).catch(() => setQ(null));
-    if (side === 'sell' && amt > 0) ch.view(id, 'quote_sell', { amount: tokToUnits(amt).toString(), account_id: ch.id(me) }).then(setSq).catch(() => setSq(null));
+    if (side === 'buy' && amt > 0) ch.view<BuyQuote>(id, 'quote_buy', { near: nearToYocto(amt).toString(), account_id: ch.me() }).then(setQ).catch(() => setQ(null));
+    if (side === 'sell' && amt > 0) ch.view(id, 'quote_sell', { amount: tokToUnits(amt).toString(), account_id: ch.me() }).then(setSq).catch(() => setSq(null));
   }, [ch, id, me, side, amt, d]);
   const myTok = h ? toTok(h.balance) : 0;
   const locked = hand && now < hand.no_trade_until;
@@ -258,8 +263,8 @@ function TradeTab({ ch, me, id, d, now, busy, act, onBought }: TabProps & { onBo
         {d.raid?.phase === 2 && <div className="warn">A raid is on: selling pays +3% and lowers your side's Buy score.</div>}
         {c.rules.includes('PaperTax') && <div className="small muted">Paper Tax: 10% on selling tokens bought less than 1h ago.</div>}
         <button className="btn primary" disabled={!!busy || amt <= 0 || !!locked || (side === 'buy' && c.graduated)} onClick={() => side === 'buy'
-          ? act('Buy', async () => { const t: string = await ch.call(me, id, 'buy', {}, nearToYocto(amt)); onBought(BigInt(t)); }, 'Bought')
-          : act('Sell', () => ch.call(me, id, 'sell', { amount: tokToUnits(amt).toString() }), 'Sold')}>{side === 'buy' ? `Buy with ${amt} NEAR` : `Sell ${fmtTok(amt)}`}</button>
+          ? act('Buy', async () => { const t: string = await ch.call(id, 'buy', {}, nearToYocto(amt)); onBought(BigInt(t)); }, 'Bought')
+          : act('Sell', () => ch.call(id, 'sell', { amount: tokToUnits(amt).toString() }), 'Sold')}>{side === 'buy' ? `Buy with ${amt} NEAR` : `Sell ${fmtTok(amt)}`}</button>
       </div>
       <div className="panel stack">
         <h2>You</h2>
@@ -355,7 +360,7 @@ function CardsTab({ ch, me, id, d, now, busy, call }: TabProps) {
       <div className="panel">
         <h2>Table</h2>
         {!d.table.length && <p className="muted small">Nothing on the table. Cards that need backers or signers show here.</p>}
-        {d.table.map(t => <TableRow key={t.id} t={t} now={now} me={ch.id(me)} busy={busy} call={call} />)}
+        {d.table.map(t => <TableRow key={t.id} t={t} now={now} me={(ch.me() ?? '')} busy={busy} call={call} />)}
         {!!d.hist.length && <><h3>Recent</h3>{d.hist.slice().reverse().map(t => <div key={t.id} className="small row between"><span>{CARD_TEXT[t.card].name} by {short(t.proposer)}</span><span className="muted">{t.result}</span></div>)}</>}
       </div>
     </div>
@@ -464,7 +469,7 @@ function RaidTab({ ch, id, d, now, busy, call, coins, act, me }: TabProps) {
             <span className="small muted">In hand: {tactics.map(([k, n]) => `${k} ×${n}`).join(', ') || 'none'}</span></div>
           <div className="row gap"><button className="btn primary" disabled={!!busy || raid.round === null} onClick={() => call('Battle cry', 'battle_cry', {}, 0n, 'Battle cry! +Crowd')}>📯 Battle cry</button>
             {now >= raid.end && raid.attacking && <button className="btn" disabled={!!busy} onClick={() => call('Settle', 'settle_raid', {}, 0n, 'Raid settled')}>Settle raid</button>}
-            {now >= raid.end && !raid.attacking && <button className="btn" disabled={!!busy} onClick={() => act('Settle', () => ch.call(me, other, 'settle_raid'), 'Raid settled')}>Settle raid</button>}</div>
+            {now >= raid.end && !raid.attacking && <button className="btn" disabled={!!busy} onClick={() => act('Settle', () => ch.call(other, 'settle_raid'), 'Raid settled')}>Settle raid</button>}</div>
         </>}
       </div>}
       {!!d.raids.length && <div className="panel"><h2>Past raids</h2>{d.raids.slice().reverse().map(r => <div key={r.seq} className="row between small past-raid">

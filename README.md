@@ -1,83 +1,150 @@
 # Rulecard
 
-A memecoin launchpad where every coin plays **rule cards**. Built at NEAR HACKATHON.
+**Memecoins where the meme does something.** Every Rulecard coin is its own NEP-141 contract with daily rituals, a Vault that
+protects the faithful, an idle burn that eats sleeping bags, rule cards the crowd plays together, and raids against other coins.
+Every rule lives in the contract, every number is fixed at launch, and nobody (not even us) holds an admin key.
 
-Coins trade on a bonding curve. Cards that holders earn and play can move the price, but only with NEAR that is really there:
-burns trigger a *floor lift*, which raises the price so that selling every token still pays out exactly the NEAR in the curve.
-No minting, no NEAR taken out of the curve, selling is never blocked, and every big card is announced before it fires.
+Track: **Memecoins With Mechanics** (NEAR). Judges score the mechanic, so this README is mostly about the mechanic.
+
+---
+
+## The mechanic in one minute
+
+| Ritual | What you do | What the coin does |
+|---|---|---|
+| **gm** | tap once every 6h | +1 Energy for the coin, your idle clock resets, counts toward today's Ritual |
+| **Daily Ritual** | the coin needs X wallets to gm and Y NEAR to be locked today | made: the pot buys and burns 5% (7% on a 3-day streak). Missed: idle burn ×2 for 6h |
+| **Vault** | lock tokens for 6h / 24h / 72h | locked tokens are safe from every burn and earn half of what idle burn and early exits take |
+| **Idle burn** | nothing (that's the point) | after 12h without a gm, 1% of your *unlocked* tokens every 6h: half burned, half to the Vault |
+| **Cards** | claim 2 cards every 6h; play them with other holders | Ember and Inferno burn from the pot; Prophecy is a 2h crowd bet; raid tactics fight other coins |
+| **Raids** | sign, plan 3 hidden tactics, buy, lock and Battle cry in 3 rounds | the loser's pot pays 15% to the winner, which buys and burns its own tokens |
+
+**Supply reacts to the community:** active wallets and lockers keep their tokens; idle wallets shrink; the Ritual and pot cards
+burn supply when the crowd shows up. Every mint and burn is logged on-chain and shown on the coin page.
+
+## How the track requirements are met
+
+| Requirement | Where |
+|---|---|
+| An NEP-141 token with the mechanic **in the contract** | every coin is its own contract `<symbol>.<factory>` ([contracts/coin](contracts/coin/src/lib.rs)): `ft_transfer`, `ft_transfer_call`, `ft_balance_of`, `ft_total_supply`, `ft_metadata`, storage registration. All game logic is in the same contract |
+| All parameters set at launch and readable; **no admin key** | constants in the code + creator choices frozen in `new`; read them all with `get_params` (it returns `admin: null`). No owner methods, no upgrade path. The factory has no owner methods either, and the coin code it deploys is fixed once at deploy |
+| Sybil resistance, limits written plainly | [below](#sybil-resistance-what-this-does-and-doesnt-stop) |
+| A page with current state, today's progress and a log of every mint and burn | the coin page: stats strip, **Today** tab (Ritual + level checklist), **Log** tab (every mint and burn, from `get_log`), price chart with event markers. Every mint/burn is also a NEP-297 `nep141` event |
+| Simulate first, then pick parameters | [`research/`](research) and [below](#simulations) |
+
+## Architecture
+
+```
+factory (rulecard.<network>)          one per deployment, no admin
+  └── create_coin(name, symbol, rules) + seed  ──►  <symbol>.rulecard.<network>   one contract per coin
+                                                     ├─ NEP-141 token (1,000M minted once at launch)
+                                                     ├─ bonding curve + pot + creator escrow
+                                                     ├─ gm, Energy, Daily Ritual, levels
+                                                     ├─ Vault, idle burn (one 8% daily loss cap)
+                                                     ├─ deck, packs, card table (Ember, Prophecy, Inferno…)
+                                                     └─ raids ◄── cross-contract with sibling coins ──►
+```
+
+- **No loops over holders.** Idle burn, Vault earnings and raid cards are applied to a wallet *when that wallet is next used*;
+  `ft_balance_of` already shows what's due. Anything time-based moves forward on the next call, and anyone can call `poke()`.
+- **Raids between contracts.** Coins trust only siblings created by the same factory (they run the same fixed code). Each coin
+  scores its own rounds; at the end one cross-contract exchange settles the raid and moves the spoils.
+- **The curve always pays out.** Burns raise the price so that selling every circulating token pays out exactly the real NEAR
+  in the curve ("floor lift"); reward-pool releases lower it the same way. Tested on every path.
+
+## Parameters (all fixed, all readable with `get_params`)
+
+| Group | Values |
+|---|---|
+| Supply | 1,000,000,000 tokens, 18 decimals: 793.2M sold by the curve, 50M reward pool (locked), 156.8M kept for the DEX pool at graduation |
+| Curve | virtual reserves 1,392 NEAR / 1,073M tokens. Graduates when the curve sells out: ~3,946 NEAR in the curve, ~19,074 NEAR market cap |
+| Fees | 2% per trade: 0.3% protocol · 0.2% creator escrow (paid only at graduation) · 1.5% pot. Creator seed 5–100 NEAR, all into the pot |
+| Levels (L2 / L3 / L4) | market cap 2,725 / 5,450 / 9,537 NEAR · real NEAR 625 / 1,461 / 2,382 · volume 24h 900 / 3,600 / 9,500 · check-ins 24h 15 / 40 / 100 · net buying 1h ≥ 0 · age 30m / 3h / 12h · held 15 / 30 / 60 min |
+| gm | once per 6h, wallet worth ≥ 1 NEAR. Qualified holder = ≥ 2 NEAR held for 1h |
+| Idle burn | after 12h without gm: 1% per 6h (2% with the Ruthless rule), half burned, half to the Vault |
+| Daily loss cap | one cap: at most 8% of a wallet's unlocked tokens per UTC day, for everything the coin takes |
+| Vault | 6h / 24h / 72h at weight ×1 / ×1.5 / ×2; a wallet counts for at most 0.5% of supply; leaving early costs 20% (half to lockers, half burned) |
+| Energy | +1 per gm, +1 per 10 NEAR of net buying (a trade counts for at most 20 NEAR); max 100. Cards cost 5 / 20 / 50 |
+| Pot | spends at most 75% of itself per day |
+| Ritual | gm target = 60% of yesterday's gm wallets (min 10); lock target = 50% of yesterday's new locks (min 10 NEAR); burn 5% (7% on a 3-day streak) |
+| Packs | 2 cards per 6h after a gm; starter set Rally, Curse, Ward; level drops 3 cards. Odds by level: L1 C90 R8 E2 · L2 C85 R10 E5 · L3 C50 R20 E20 M10 · L4 C40 R25 E25 M10 |
+| Deck limits | Rares 1 per 2 eligible holders (min 8), Epics 1 per 5 (min 4), Mythics 1 per 12 (min 2). Unplayed Rare+ cards fade back to the deck after 24h. Hand: 12 Commons, 3 Rares, 3 Epics, 1 Mythic |
+| Cards | Ember: 3 / 6 / 10 copies → pot burns 1 / 2 / 3%, stoke ≤ 5 NEAR. Prophecy: 2–3 backers, 20-min bets, 2h answer, losers lose half (30% winners, 10% caster, 10% burned), min 8 wallets. Inferno: 3 / 3 / 5 / 8 signers, fuel ≤ 20 NEAR each and ≤ 10% of curve NEAR in total, locked 24h at ×2 with +5%, pot burns 10% + half the fuel (max 50%, 75% at L4) |
+| Anti front-running | tokens bought while Ember or Inferno is on the table are tagged; selling them before 1h after it fires pays 10% to the pot (the tag follows transfers). Prophecy bettors can't trade until it resolves |
+| Raids | from L2; signers 3 / 5 / 8; Muster 30 min, 3 rounds × 20 min; score = 100 + Buy (±12) + Crowd (0–6) + Lock (0–6), × the side's tactic (Rally ×1.05–1.10, Curse ×0.95–0.90, Ward reflects Curse); spoils 15% of the loser's pot (20% with War Coin); +3% on sells during a raid; one raid per 8h, 12h shield, one attack per 12h, none at ≥ 90% sold |
+| Creator rules (up to 3) | Launch Guard, Paper Tax, Soft Tax, Whale Cap, Creator Lock, Ruthless, War Coin, Peace Coin (+ Fair Launch, Hold the Line, Wild Coin on the roadmap) |
+
+## Sybil resistance: what this does and doesn't stop
+
+**What it stops**
+- **Free farming of check-ins.** gm needs a wallet worth ≥ 1 NEAR; level and Ritual counts need ≥ 2 NEAR held for 1h. A fake crowd costs real NEAR that sits in the curve.
+- **Whales carrying a raid or the Vault.** One wallet counts for at most 20 NEAR of Buy per round, 0.5% of supply of Lock per round and 0.5% of supply of Vault weight.
+- **One wallet firing coin-wide cards.** Ember needs 3 wallets with their own copies; Prophecy needs backers; Inferno needs qualified signers who can sign once per 30 min.
+- **Draining the reward pool.** Every payout is capped (Inferno bonus 0.1% of supply per play; Vault earnings come only from tokens taken from others).
+- **Sandwiching pot burns.** Fuel is capped at 10% of the curve's NEAR and buys during a pot card are tagged; with both, the simulated sandwich loses money.
+- **Hedging a Prophecy with two wallets.** 20% of the losing side always leaves (10% burned, 10% to the caster), so betting both sides loses.
+
+**What it doesn't stop (honest limits)**
+- A whale can split a bag across many wallets. Per-wallet caps then apply per wallet; it costs gas and storage, not much more.
+- A bot can gm every 6h forever and never be idle. That is allowed: being there is the ritual. The Vault exists so humans can be safe without being online.
+- Raid plans are hidden from the app, but contract state is public: a determined player can read the other side's plan. Commit-reveal is on the roadmap.
+- Randomness (card rolls, fire times) uses NEAR's block random seed. Good enough for a demo, not for large stakes.
+- "Eligible holders" for deck limits are counted as wallets that checked in within 24h while eligible (to avoid loops), so they can lag reality by up to a day.
+
+## Simulations
+
+Every parameter above came out of a simulator in [`research/`](research) (Node, no dependencies: `node research/<file>`).
+
+| Simulator | Question | What it decided |
+|---|---|---|
+| `card-supply-sim.cjs` | Do players have the raid cards their side wants? | 2 cards per 6h + 3-card raid-win pack: 83–97% full raid plans, but 1 slot in 3 still missing the wanted card (pacing matters) |
+| `pyramid-sim.cjs`, `odds-v7-sim.cjs` | How many Rare / Epic / Mythic cards should exist? | limits that grow with eligible holders keep ~1 in 3 eligible holders with a Rare, 1 in 6 with an Epic at every coin size; at L3–L4 89–99% of Rare+ rolls hit the limit, so the limit (not the odds) decides supply |
+| `signers-sim.cjs` | How many signers can a coin really gather in 15 min? | 3 / 5 / 8 are reached 66–100% of hours on small coins; the first guess (10 / 20 / 30) blocked 80–100% of plays |
+| `redteam-sim.cjs` | What breaks? | uncapped fuel let a bot earn +20–25% by sandwiching → fuel cap + tag; casual players lost 8.6%/day with separate caps → one 8% cap; last-block contest sniping won 92% → bonus only for early chips |
+| `drop-tables-sim.cjs`, `mix-sim.cjs`, `fund-sim.cjs`, `sim-v3.cjs` | earlier versions (pot sizing, push sizes, fee split) | sizing A ($70k graduation), the 2% fee split, the 75% daily pot cap |
+
+## What's in this build vs the roadmap
+
+**Built and tested** (`npm test`: 42 coin tests, 7 factory tests): factory, NEP-141 coins, curve and fees, gm, Energy, Daily Ritual,
+levels and level drops, Vault, idle burn, the daily cap, packs, deck limits, Fade, make-room-first, Ember, Roll Call, Hype Siren,
+Prophecy (Bold bets), Inferno, tags and bet locks, raids with plans, Battle cry, scoring, spoils and win packs, price history, the log.
+
+**Roadmap (designed in [`docs/v6-redesign.md`](docs/v6-redesign.md))**: Fire-vs-Stop contests and the contested cards (Storm,
+Black Hole, Whale Tax, Heist, Supernova), Plunder, Omens, Prophecy Safe bets and pack Duels, more Rares and Epics, Mythics, Card
+NFTs and a market, Hold the Line, commit-reveal raid plans, graduation into a DEX pool.
 
 ## Run it locally
 
+Needs Node 20+ and Docker (contracts build and the local NEAR sandbox run in containers).
+
 ```bash
 npm install
-npm run dev      # http://127.0.0.1:5173
-npm test         # engine tests, including a random fuzz of the money rules
+docker build -t rulecard-builder -f contracts/Dockerfile.build contracts   # once
+npm test                       # contract tests (coin + factory)
+npm run contracts:build        # wasm → contracts/out/
+./sandbox/start.sh             # local NEAR sandbox on 127.0.0.1:3030
+node sandbox/deploy.mjs        # factory + test accounts (local test keys, gitignored)
+node sandbox/seed.mjs          # 3 demo coins, trading history, packs
+npm run dev                    # http://127.0.0.1:5173
 ```
 
-The local app runs the game engine in your browser with test NEAR and a crowd of bot players. Use the clock controls
-(1×, 60×, 10m/s, 1h/s, +1h) to fast-forward. **Reset** rebuilds the world.
+In sandbox mode the header has a player switcher and buttons that move the chain clock (+15m … +1d) so timers can be shown live.
+`./sandbox/reset.sh` wipes the local chain.
 
-## How the game works
-
-- **Levels** unlock cards as a coin grows (real NEAR in the curve): L2 at 5 NEAR unlocks Rare, L3 at 20 unlocks Epic, L4 at 60 unlocks Mythic, L5 at 120 graduates.
-  A coin must stay above a level for 15 minutes to reach it. Level-ups drop cards to wallets that held for 1h *before* the level was crossed.
-- **Rulebook**: the creator picks up to 3 rules at launch, locked forever: Launch Guard, Paper Tax, Hold the Line, Vault Seal.
-- **Cards** are per-coin NFTs. Commons can't be transferred; Rare and above can be traded. Playing a card burns it and mints a Relic you can't transfer.
-- **Pacing**: Commons and raid tactics use the Spark meter, Rares one slot per 15 min, Epics a full Ult meter, Mythics an Eclipse window twice a day.
-  Each wallet can play once per 30 min and play one Epic or Mythic per 24h.
-- **Caps**: card burns are limited to 5% of supply per 24h, pot spending to 50% per 24h, and the total sell fee to 3%.
-- **Raids**: coin vs coin, 2h in 4 rounds. Score = net NEAR inflow relative to coin size × the round's tactic (Rally / Curse / Ward / Mirror).
-
-## NEAR contract
-
-`contract/` is the on-chain version of the same rules (Rust, near-sdk 5.30): exact integer math (yoctoNEAR, 18-decimal tokens,
-256-bit intermediates, rounding in the pool's favour). Work that would loop over every holder is claim-based:
-
-- **Hold the Line**: holders call `htl_register` during the event and `htl_claim` after it.
-- **Level-up drops**: `claim_level_drop`, with the tier set by Conviction share.
-- **Raids**: stakers call `raid_claim` after the raid; burns and spoils use per-side totals.
-
-Anyone can call `crank` to advance a coin's drips and timers.
-
-Live on-chain now: buy/sell with min-out, fee pot, floor lift, burn and pot caps, the 4 rules, levels, Spark/Ult/Rare/Eclipse pacing,
-per-wallet limits, card NFTs (Card of the Day, level drops, sacrifice, craft, transfer of Rare+), and Tax Holiday, Roll Call, Hype Siren,
-Rebrand, Slow Burn, Happy Hour, Diamond Pool, Inferno, Black Hole, Supernova, and **raids** (Friendly / Hard, Rally / Curse / Ward / Mirror
-tactics, hard-raid spoils dripped over 1h, claim-based payouts via `raid_claim`). Summoning Circle and Prophecy still run only in the local engine.
-
-The contract builds and tests inside Docker (on this Windows machine, Smart App Control blocks Cargo's build scripts on the host):
+## Run against testnet
 
 ```bash
-cd contract
-docker build -t rulecard-builder -f Dockerfile.build .
-./dcargo.sh test                                   # 16 tests incl. a random fuzz of the money rules
-./dcargo.sh 'near build non-reproducible-wasm && mkdir -p /work/out && cp /target/near/rulecard.wasm /work/out/'
+cp .env.example .env.testnet   # set VITE_FACTORY_ID to the deployed factory
+npx vite --mode testnet         # Connect wallet: MyNearWallet or Meteor
 ```
 
-## Play it on a local NEAR chain
+## Repo map
 
-A local NEAR sandbox node runs in Docker. The app's **Sandbox chain** mode (bottom-right switch) sends real transactions to it.
-
-```bash
-npm run sandbox:start     # NEAR sandbox node on http://127.0.0.1:3030 (Docker)
-npm run sandbox:deploy    # deploys contract/out/rulecard.wasm, creates you/alice/bob + 8 bot accounts
-npm run sandbox:seed      # optional: demo world, $MOTH and $ZAP at level 2, a Friendly Raid card for you
-npm run sandbox:bots      # optional: bots trade, check in and play cards on-chain
-npm run dev               # open http://127.0.0.1:5173 and pick "Sandbox chain"
-npm run sandbox:reset     # wipe the chain and its keys
-```
-
-Use **+15m** and **+1h** in the app to fast-forward blocks, so timers, level-ups and drips can be seen without waiting.
-Test keys are generated locally into `sandbox/.keys/` (gitignored) and served only by the dev server.
-
-## Layout
-
-```
-src/engine/   TypeScript game engine + tests (source of truth for the rules)
-src/app/      local React app and bot crowd
-contract/     NEAR contract (Rust) + tests
-sandbox/      local NEAR node, deploy and bot scripts
-src/app/chain on-chain mode of the app
-research/     design lab and the simulations that set the numbers
-```
-
-Status: local prototype. Nothing is deployed.
+| Path | What |
+|---|---|
+| `contracts/coin` | the coin contract (Rust, near-sdk 5) |
+| `contracts/factory` | the factory |
+| `src/app/chain` | the web app (React + Vite): Discover, Launch, coin page, price chart, wallet sign-in |
+| `sandbox/` | local chain scripts |
+| `research/` | simulators |
+| `docs/` | design (`v6-redesign.md`), build plan, UI spec (`ui-updates.md`), card designs |

@@ -8,16 +8,19 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "bash contracts/dcargo.sh coin test && bash contracts/dcargo.sh factory test",
     "typecheck": "tsc --noEmit",
     "sandbox:start": "bash sandbox/start.sh",
     "sandbox:deploy": "node sandbox/deploy.mjs",
-    "sandbox:bots": "node sandbox/bots.mjs",
     "sandbox:reset": "bash sandbox/reset.sh",
-    "sandbox:seed": "node sandbox/seed.mjs"
+    "sandbox:seed": "node sandbox/seed.mjs",
+    "contracts:build": "bash contracts/dcargo.sh coin near build non-reproducible-wasm --no-abi && bash contracts/dcargo.sh factory near build non-reproducible-wasm --no-abi"
   },
   "dependencies": {
+    "@near-wallet-selector/core": "10.1.4",
+    "@near-wallet-selector/meteor-wallet": "10.1.4",
+    "@near-wallet-selector/modal-ui": "10.1.4",
+    "@near-wallet-selector/my-near-wallet": "10.1.4",
     "buffer": "6.0.3",
     "near-api-js": "5.1.1",
     "react": "18.3.1",

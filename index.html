@@ -9,7 +9,7 @@
   </head>
   <body>
     <div id="root"></div>
-    <script>window.global = window; /* near-api-js deps expect Node globals */</script>
+    <script>window.global = window; window.process = window.process || { env: {}, browser: true }; /* near-api-js and wallet deps expect Node globals */</script>
     <script type="module" src="/src/app/main.tsx"></script>
   </body>
 </html>
