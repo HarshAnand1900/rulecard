@@ -35,7 +35,7 @@ pub enum Question {
     Line { price: U128 },
     /// Will the coin be a net buyer over the 2h? (Bettors can't trade.)
     Tide,
-    /// Will at least `n` new wallets join (3-30)?
+    /// Will at least `n` new wallets buy in, each at least 1 NEAR worth in total (3-30)? Registering alone doesn't count.
     Crowd { n: u32 },
     /// Will the Vault's share of circulating supply rise by `bps` (100-1000 = 1-10 points)?
     Vault { bps: u32 },
@@ -222,7 +222,7 @@ impl Coin {
         match q {
             Question::Line { .. } => 0,
             Question::Tide => (self.total_bought as i128 - self.total_sold as i128 + i128::MAX / 2) as u128,
-            Question::Crowd { .. } => self.holder_count as u128,
+            Question::Crowd { .. } => self.buyers as u128,
             Question::Vault { .. } => self.vault_share_bps(),
         }
     }
@@ -231,7 +231,7 @@ impl Coin {
         match q {
             Question::Line { price } => self.pool().price() >= price.0,
             Question::Tide => (self.total_bought as i128 - self.total_sold as i128 + i128::MAX / 2) as u128 > snap,
-            Question::Crowd { n } => self.holder_count as u128 >= snap + *n as u128,
+            Question::Crowd { n } => self.buyers as u128 >= snap + *n as u128,
             Question::Vault { bps } => self.vault_share_bps() >= snap + *bps as u128,
         }
     }
@@ -323,6 +323,9 @@ impl Coin {
         // crowd buy
         let total = p.chip_total.0;
         let mut bought = 0u128;
+        if total > 0 && self.graduated {
+            for c in &p.chips { let _ = Promise::new(c.account.clone()).transfer(NearToken::from_yoctonear(c.near.0)); }
+        }
         if total > 0 && !self.graduated {
             let fee = bps(total, FEE_BPS); let net = total - fee;
             let (t, used) = self.with_pool(|q| q.buy(net));
@@ -374,7 +377,7 @@ impl Coin {
         let me = env::current_account_id();
         self.free_stock(p.card, p.card_exp);
         if wallets.len() < PROPHECY_MIN_WALLETS || yes_total == 0 || no_total == 0 {
-            for b in &p.bets { let mut h = self.holder(&b.account); h.bal += b.amount.0; self.save(&b.account, h); events::ft_transfer(&me, &b.account, b.amount.0, Some("prophecy refund")); }
+            for b in &p.bets { let mut h = self.settle(&b.account, now); h.bal += b.amount.0; self.save(&b.account, h); events::ft_transfer(&me, &b.account, b.amount.0, Some("prophecy refund")); }
             self.bets_held -= yes_total + no_total;
             let t = &mut self.table[i]; t.phase = 3; t.result = "refunded: fewer than 8 wallets or one side empty".into();
             return;
@@ -386,10 +389,10 @@ impl Coin {
         for b in &p.bets {
             let back = if b.yes == yes { b.amount.0 + mul_div(to_winners, b.amount.0, win_total) } else { b.amount.0 - b.amount.0 / 2 };
             paid += back;
-            let mut h = self.holder(&b.account); h.bal += back; self.save(&b.account, h);
+            let mut h = self.settle(&b.account, now); h.bal += back; self.save(&b.account, h);
             events::ft_transfer(&me, &b.account, back, Some("prophecy payout"));
         }
-        let mut c = self.holder(&p.proposer); c.bal += to_caster; self.save(&p.proposer, c);
+        let mut c = self.settle(&p.proposer, now); c.bal += to_caster; self.save(&p.proposer, c);
         events::ft_transfer(&me, &p.proposer, to_caster, Some("prophecy caster share"));
         let held = yes_total + no_total;
         self.bets_held -= held;

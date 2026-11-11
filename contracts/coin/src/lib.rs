@@ -153,6 +153,7 @@ pub struct Holder {
     // Ritual lock counting (day + 1, tokens counted that day)
     pub rl_day: u64,
     pub rl_counted: u128,
+    pub bought_near: u128,
 }
 
 /// 24 hourly buckets (rolling day).
@@ -216,6 +217,8 @@ pub struct Coin {
     pub(crate) reward_pool: u128,
     pub(crate) holders: LookupMap<AccountId, Holder>,
     pub(crate) holder_count: u32,
+    /// wallets whose buys added up to at least 1 game NEAR (used by the Crowd question; registering alone doesn't count)
+    pub(crate) buyers: u32,
     pub(crate) vault_locked: u128,
     pub(crate) vault_w: u128,
     pub(crate) vault_acc: u128,
@@ -317,7 +320,7 @@ impl Coin {
             p: Params { name, symbol, icon, creator, protocol, rules, seed: U128(seed), created_ms: now },
             x: pool.x, y: pool.y, k: pool.k.0, real: 0, circ: 0, burned: 0,
             pot: seed, pot_day: now / DAY, pot_spent_today: 0, protocol_owed: 0, escrow: 0, reward_pool: REWARD_POOL,
-            holders: LookupMap::new(b"h"), holder_count: 0,
+            holders: LookupMap::new(b"h"), holder_count: 0, buyers: 0,
             vault_locked: 0, vault_w: 0, vault_acc: 0, vault_rewards: 0,
             energy: 0, energy_acc: 0, buys: Ring::default(), sells: Ring::default(), checkins: Ring::default(),
             level: 1, level_ok_since: None, level_at: vec![now],

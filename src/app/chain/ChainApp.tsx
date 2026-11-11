@@ -396,7 +396,7 @@ function CardsTab({ ch, me, id, d, now, busy, call }: TabProps) {
             <button className="btn small ghost" disabled={!!busy} onClick={() => call('Drop', 'drop_card', { card })}>Drop</button></> : <button className="btn small ghost" disabled={!!busy} onClick={() => call('Drop', 'drop_card', { card })}>Drop</button>} />)}
           {hand?.cards.map((x, i) => <CardTile key={i} card={x.card} exp={x.exp} now={now} actions={<>
             {x.card === 'Prophecy' && <div className="stack small">
-              <select value={q} onChange={e => setQ(e.target.value as any)}><option value="Tide">Tide: net buying in 2h?</option><option value="Line">Line: price above +X% in 2h?</option><option value="Crowd">Crowd: N new wallets?</option><option value="Vault">Vault: locked share +X points?</option></select>
+              <select value={q} onChange={e => setQ(e.target.value as any)}><option value="Tide">Tide: net buying in 2h?</option><option value="Line">Line: price above +X% in 2h?</option><option value="Crowd">Crowd: N new buyers (≥ 1 NEAR)?</option><option value="Vault">Vault: locked share +X points?</option></select>
               {q !== 'Tide' && <input className="tiny" type="number" value={qv} onChange={e => setQv(Number(e.target.value))} title={q === 'Line' ? '5–10 (%) above, or -10 to -5 below' : q === 'Crowd' ? '3–30 wallets' : '1–10 points'} />}
             </div>}
             <button className="btn small" disabled={!!busy} onClick={() => play(x.card)}>Play</button>
@@ -425,7 +425,7 @@ function TableRow({ t, now, me, busy, call }: { t: Proposal; now: number; me: st
         <strong>{CARD_TEXT[t.card].name}</strong>
         <span className="small muted">by {short(t.proposer)} · {phaseName} · {dur(t.phase_end - now)}</span>
       </div>
-      {t.question && <div className="small">Q: {typeof t.question === 'string' ? 'Will the coin be a net buyer over 2h?' : 'Line' in t.question ? `Price above ${(toNear(t.question.Line.price) * 1e6).toFixed(3)} µN?` : 'Crowd' in t.question ? `${t.question.Crowd.n}+ new wallets?` : `Vault share +${t.question.Vault.bps / 100} points?`}</div>}
+      {t.question && <div className="small">Q: {typeof t.question === 'string' ? 'Will the coin be a net buyer over 2h?' : 'Line' in t.question ? `Price above ${(toNear(t.question.Line.price) * 1e6).toFixed(3)} µN?` : 'Crowd' in t.question ? `${t.question.Crowd.n}+ new buyers (≥ 1 NEAR each)?` : `Vault share +${t.question.Vault.bps / 100} points?`}</div>}
       {t.phase === 0 && <div className="row gap small"><Bar label={t.card === 'Inferno' ? 'signers' : t.card === 'Ember' ? 'copies' : 'backers'} value={t.backers.length} max={t.needed} text={`${t.backers.length}/${t.needed}`} />
         {!mine && <button className="btn small" disabled={!!busy} onClick={() => call(t.card === 'Inferno' ? 'Sign' : 'Back', t.card === 'Inferno' ? 'sign' : 'back', { id: t.id }, 0n, 'Thanks: your next pack comes 10 min sooner')}>{t.card === 'Inferno' ? 'Sign' : t.card === 'Ember' ? 'Add my Ember' : 'Back'}</button>}</div>}
       {t.card === 'Ember' && t.phase === 0 && <div className="row gap small">Stoke: <input className="tiny" type="number" value={amt} onChange={e => setAmt(Number(e.target.value))} /> NEAR (max {nearAmt(5)}) <button className="btn small" disabled={!!busy} onClick={() => call('Stoke', 'stoke', { id: t.id }, nearToYocto(amt))}>Stoke</button> <span className="muted">stoked {fmtNear(toNear(t.chip_total))}</span></div>}

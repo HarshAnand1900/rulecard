@@ -48,6 +48,7 @@ impl Coin {
         let refund = (net - used) + (fee - fee_used);
         if h.bal == 0 && h.w == 0 { h.since = now; if h.last_gm == 0 { h.idle_from = now; h.idle_applied = now; } }
         h.bal += t;
+        if h.bought_near < GN { h.bought_near += used + fee_used; if h.bought_near >= GN { self.buyers += 1; } }
         // tokens bought in the last hour (for Paper / Soft Tax)
         if now >= h.recent_buy_at + HOUR { h.recent_buy = 0; }
         h.recent_buy += t; h.recent_buy_at = now;

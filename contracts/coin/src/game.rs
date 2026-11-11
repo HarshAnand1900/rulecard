@@ -56,8 +56,8 @@ impl Coin {
         // Ritual: count only locked tokens above the most this wallet already had counted today, so unlocking and
         // relocking the same tokens doesn't count twice.
         let today = now / DAY;
-        if h.rl_day != today + 1 { h.rl_day = today + 1; h.rl_counted = 0; }
         let locked_now = self.locked_of(&h);
+        if h.rl_day != today + 1 { h.rl_day = today + 1; h.rl_counted = locked_now - amount.0; } // older locks don't count again
         let new_tokens = locked_now.saturating_sub(h.rl_counted);
         h.rl_counted = h.rl_counted.max(locked_now);
         self.ritual.lock_near = U128(self.ritual.lock_near.0 + self.pool().value(new_tokens));

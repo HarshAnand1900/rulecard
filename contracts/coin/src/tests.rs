@@ -616,3 +616,41 @@ fn failed_spoils_go_back_to_the_pot() {
     c.on_spoils_sent(U128(n(3)));
     assert_eq!(c.pot, pot + n(3));
 }
+
+#[test]
+fn crowd_counts_buyers_not_registrations() {
+    let mut c = launch(vec![]);
+    for i in 1..=3 { ctx(i, STORAGE_COST, T0 + i as u64); c.storage_deposit(None, None); }
+    assert_eq!(c.buyers, 0, "registering alone doesn't count");
+    buy(&mut c, 4, n(1) / 2, T0 + 10);
+    assert_eq!(c.buyers, 0, "half a NEAR isn't enough yet");
+    buy(&mut c, 4, n(1), T0 + 20);
+    buy(&mut c, 5, n(2), T0 + 30);
+    assert_eq!(c.buyers, 2);
+}
+
+#[test]
+fn old_locks_dont_count_again_the_next_day() {
+    let mut c = launch(vec![]);
+    let day0 = T0 / DAY * DAY + DAY;
+    let t = buy(&mut c, 1, n(10), day0 + 1);
+    ctx(1, 1, day0 + 2); c.lock(U128(t - t / 100), 72);
+    ctx(9, 0, day0 + DAY + 1); c.poke(); // next day
+    let before = c.ritual.lock_near.0;
+    ctx(1, 1, day0 + DAY + 2); let top = bal(&c, 1) / 2; c.lock(U128(top), 24); // small top-up
+    let added = c.ritual.lock_near.0 - before;
+    assert!(added <= c.pool().value(top) + 1, "only the top-up counts, not the 72h lock again: {added}");
+}
+
+#[test]
+fn prophecy_caster_share_settles_idle_burn_first() {
+    // the caster share arrives on a wallet that has idle burn due: the burn applies to the old balance only
+    let mut c = launch(vec![]);
+    let t = buy(&mut c, 1, n(10), T0);
+    let later = T0 + 2 * DAY;
+    let mut h = c.settle(&acc(1), later); // what idle burn leaves
+    let left = h.bal; h.bal += 1_000; c.save(&acc(1), h);
+    assert!(left < t);
+    ctx(1, 0, later); assert_eq!(bal(&c, 1), left + 1_000, "nothing more burns on the new tokens for the past");
+}
+
