@@ -23,7 +23,7 @@ pub const ATTACK_GAP: u64 = 12 * HOUR;
 pub const SPOILS_BPS: u128 = 1_500;
 pub const WAR_COIN_BONUS_BPS: u128 = 500;
 pub const DESERT_BPS: u128 = 300;
-pub const RAID_WALLET_NEAR: i128 = 20 * ONE_NEAR as i128;
+pub const RAID_WALLET_NEAR: i128 = 20 * GN as i128;
 pub const SOLD_LIMIT_BPS: u128 = 9_000;
 pub const RALLY: [u128; 3] = [10_500, 10_800, 11_000];
 pub const CURSE: [u128; 3] = [9_500, 9_200, 9_000];
@@ -295,7 +295,7 @@ pub fn tactic_code(v: &[u32]) -> u8 {
 
 /// Base score in hundredths: 100 + Buy (-12..+12) + Crowd (0..+6) + Lock (0..+6).
 pub fn base_score(r: &Raid, i: usize) -> i64 {
-    let real = r.real_start.0.max(ONE_NEAR) as i128;
+    let real = r.real_start.0.max(GN) as i128;
     let net = r.net_pos[i].0 as i128 - r.net_neg[i].0 as i128;
     let buy = (net * 10_000 * 2 / real).clamp(-1_200, 1_200) as i64; // 0.5% of the curve's NEAR = 1 point
     let crowd = (r.taps[i] as i64 * 600 / r.qualified.max(r.taps[i]).max(1) as i64).min(600);
@@ -460,7 +460,7 @@ impl Coin {
             backers: r.backers.len() as u32, needed: r.needed, start: r.start, muster_end: r.start + MUSTER, end: r.start + RAID_LEN,
             round: current_round(r, now).map(|x| x as u8),
             live_base: (0..3).map(|i| U128(base_score(r, i) as u128)).collect(),
-            buy: (0..3).map(|i| { let real = r.real_start.0.max(ONE_NEAR) as i128; ((r.net_pos[i].0 as i128 - r.net_neg[i].0 as i128) * 20_000 / real).clamp(-1_200, 1_200) as i64 }).collect(),
+            buy: (0..3).map(|i| { let real = r.real_start.0.max(GN) as i128; ((r.net_pos[i].0 as i128 - r.net_neg[i].0 as i128) * 20_000 / real).clamp(-1_200, 1_200) as i64 }).collect(),
             crowd: r.taps.clone(), lock: (0..3).map(|i| ((r.lock[i].0 * 20_000 / r.circ_start.0.max(1)) as u32).min(600)).collect(),
             tactic: (0..3).map(|i| if r.phase >= 4 || now >= round_start(r, i) + ROUND { tactic_code(&r.votes[i]) } else { 0 }).collect(),
             planners: r.planners, result: r.result.clone(), note: r.note.clone(),

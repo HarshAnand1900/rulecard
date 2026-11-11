@@ -14,8 +14,13 @@ pub const ONE_NEAR: u128 = 1_000_000_000_000_000_000_000_000;
 pub const DEPLOY_DEPOSIT: u128 = ONE_NEAR;
 /// Without a global contract each coin carries its own copy of the code (~390 KB of storage).
 pub const DEPLOY_DEPOSIT_FULL: u128 = 5 * ONE_NEAR;
-pub const SEED_MIN: u128 = 5 * ONE_NEAR;
-pub const SEED_MAX: u128 = 100 * ONE_NEAR;
+/// Demo factories launch demo-scale coins: seeds (like every game NEAR amount) are 1/100. Storage is real NEAR either way.
+#[cfg(feature = "demo")]
+pub const NEAR_SCALE: u128 = 100;
+#[cfg(not(feature = "demo"))]
+pub const NEAR_SCALE: u128 = 1;
+pub const SEED_MIN: u128 = 5 * ONE_NEAR / NEAR_SCALE;
+pub const SEED_MAX: u128 = 100 * ONE_NEAR / NEAR_SCALE;
 const GAS_INIT: Gas = Gas::from_tgas(60);
 const GAS_CALLBACK: Gas = Gas::from_tgas(15);
 
@@ -34,7 +39,7 @@ pub struct Factory {
 }
 
 #[near(serializers = [json])]
-pub struct FactoryParams { pub code_hash: Option<Base58CryptoHash>, pub code_stored: bool, pub protocol: AccountId, pub deploy_deposit: U128, pub seed_min: U128, pub seed_max: U128, pub admin: Option<AccountId> }
+pub struct FactoryParams { pub code_hash: Option<Base58CryptoHash>, pub code_stored: bool, pub protocol: AccountId, pub deploy_deposit: U128, pub seed_min: U128, pub seed_max: U128, pub admin: Option<AccountId>, pub mode: String }
 
 #[near]
 impl Factory {
@@ -61,7 +66,7 @@ impl Factory {
     pub fn create_coin(&mut self, name: String, symbol: String, icon: Option<String>, rules: Vec<String>) -> Promise {
         let dep = env::attached_deposit().as_yoctonear();
         let storage = self.deposit_needed();
-        require!(dep >= SEED_MIN + storage && dep <= SEED_MAX + storage, "attach a 5-100 NEAR seed plus the storage deposit (get_params)");
+        require!(dep >= SEED_MIN + storage && dep <= SEED_MAX + storage, "attach a seed (5-100 NEAR; demo 0.05-1) plus the storage deposit (get_params)");
         require!(self.code_hash.is_some() || self.code.get().is_some(), "the coin code isn't stored yet");
         let sub = symbol.to_lowercase();
         require!((2..=10).contains(&sub.len()) && sub.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()), "symbol: 2-10 letters or digits");
@@ -104,7 +109,7 @@ impl Factory {
     pub fn is_symbol_taken(&self, symbol: String) -> bool { self.taken.contains(&symbol.to_lowercase()) }
 
     pub fn get_params(&self) -> FactoryParams {
-        FactoryParams { code_hash: self.code_hash.map(Into::into), code_stored: self.code.get().is_some(), protocol: self.protocol.clone(), deploy_deposit: U128(self.deposit_needed()), seed_min: U128(SEED_MIN), seed_max: U128(SEED_MAX), admin: None }
+        FactoryParams { code_hash: self.code_hash.map(Into::into), code_stored: self.code.get().is_some(), protocol: self.protocol.clone(), deploy_deposit: U128(self.deposit_needed()), seed_min: U128(SEED_MIN), seed_max: U128(SEED_MAX), admin: None, mode: if NEAR_SCALE > 1 { "demo".into() } else { "real".into() } }
     }
 }
 
@@ -119,29 +124,30 @@ mod tests {
         b.current_account_id("rulecard.testnet".parse().unwrap()).predecessor_account_id(who).attached_deposit(NearToken::from_yoctonear(deposit)).prepaid_gas(Gas::from_tgas(300));
         testing_env!(b.build(), near_sdk::test_vm_config(), near_sdk::RuntimeFeesConfig::test(), Default::default(), results);
     }
+    fn dep(seed: u128) -> u128 { seed * ONE_NEAR / NEAR_SCALE + DEPLOY_DEPOSIT }
     fn factory() -> Factory { ctx(accounts(0), 0, vec![]); Factory::new(Some(Base58CryptoHash::from([7u8; 32])), "protocol.testnet".parse().unwrap()) }
 
     #[test]
     fn launch_reserves_the_symbol_and_records_the_coin() {
         let mut f = factory();
-        ctx(accounts(1), 21 * ONE_NEAR, vec![]);
+        ctx(accounts(1), dep(20), vec![]);
         let _ = f.create_coin("Frog".into(), "frog".into(), None, vec!["PaperTax".into()]);
         assert!(f.is_symbol_taken("FROG".into()));
         ctx("rulecard.testnet".parse().unwrap(), 0, vec![PromiseResult::Successful(vec![])]);
-        let a = f.on_coin_created("frog".into(), "Frog".into(), accounts(1), U128(21 * ONE_NEAR), U128(20 * ONE_NEAR));
+        let a = f.on_coin_created("frog".into(), "Frog".into(), accounts(1), U128(dep(20)), U128(20 * ONE_NEAR / NEAR_SCALE));
         assert_eq!(a.unwrap().as_str(), "frog.rulecard.testnet");
         let l = f.list_coins(None, None);
-        assert_eq!(l.len(), 1); assert_eq!(l[0].symbol, "FROG"); assert_eq!(l[0].seed.0, 20 * ONE_NEAR);
+        assert_eq!(l.len(), 1); assert_eq!(l[0].symbol, "FROG"); assert_eq!(l[0].seed.0, 20 * ONE_NEAR / NEAR_SCALE);
         assert!(f.get_params().admin.is_none());
     }
 
     #[test]
     fn a_failed_launch_frees_the_symbol() {
         let mut f = factory();
-        ctx(accounts(1), 21 * ONE_NEAR, vec![]);
+        ctx(accounts(1), dep(20), vec![]);
         let _ = f.create_coin("Frog".into(), "frog".into(), None, vec![]);
         ctx("rulecard.testnet".parse().unwrap(), 0, vec![PromiseResult::Failed]);
-        assert!(f.on_coin_created("frog".into(), "Frog".into(), accounts(1), U128(21 * ONE_NEAR), U128(20 * ONE_NEAR)).is_none());
+        assert!(f.on_coin_created("frog".into(), "Frog".into(), accounts(1), U128(dep(20)), U128(20 * ONE_NEAR / NEAR_SCALE)).is_none());
         assert!(!f.is_symbol_taken("frog".into()));
         assert_eq!(f.coin_count(), 0);
     }
@@ -150,8 +156,8 @@ mod tests {
     #[should_panic(expected = "that symbol is taken")]
     fn symbols_are_unique() {
         let mut f = factory();
-        ctx(accounts(1), 21 * ONE_NEAR, vec![]); let _ = f.create_coin("Frog".into(), "frog".into(), None, vec![]);
-        ctx(accounts(2), 21 * ONE_NEAR, vec![]); let _ = f.create_coin("Frog 2".into(), "FROG".into(), None, vec![]);
+        ctx(accounts(1), dep(20), vec![]); let _ = f.create_coin("Frog".into(), "frog".into(), None, vec![]);
+        ctx(accounts(2), dep(20), vec![]); let _ = f.create_coin("Frog 2".into(), "FROG".into(), None, vec![]);
     }
 
     #[test]
@@ -170,7 +176,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "attach a 5-100 NEAR seed")]
+    #[should_panic(expected = "attach a seed")]
     fn seed_is_checked() {
         let mut f = factory();
         ctx(accounts(1), 3 * ONE_NEAR, vec![]); let _ = f.create_coin("Frog".into(), "frog".into(), None, vec![]);
@@ -180,6 +186,6 @@ mod tests {
     #[should_panic(expected = "symbol: 2-10 letters or digits")]
     fn symbol_must_be_a_valid_account_part() {
         let mut f = factory();
-        ctx(accounts(1), 21 * ONE_NEAR, vec![]); let _ = f.create_coin("Frog".into(), "fr.og".into(), None, vec![]);
+        ctx(accounts(1), dep(20), vec![]); let _ = f.create_coin("Frog".into(), "fr.og".into(), None, vec![]);
     }
 }

@@ -9,8 +9,16 @@ let functionCall: (m: string, a: object, g: bigint, d: bigint) => any;
 
 const GAS = 300_000_000_000_000n;
 
+export type Scale = 'demo' | 'real';
+const SCALE_KEY = 'rulecard-scale';
+const savedScale = (): Scale => { try { return localStorage.getItem(SCALE_KEY) === 'real' ? 'real' : 'demo'; } catch { return 'demo'; } };
+
 export interface Net {
   mode: 'sandbox' | 'testnet';
+  /** demo = game NEAR ÷100 and time ÷12 (its own factory); real = full-size numbers */
+  scale: Scale;
+  scales: Scale[];
+  setScale(s: Scale): void;
   factoryId: string;
   me(): string | null;
   view<T = any>(contractId: string, method: string, args?: object): Promise<T>;
@@ -33,12 +41,15 @@ const panicText = (e: any) => { const m = String(e?.message ?? e); const k = m.m
 class SandboxNet implements Net {
   mode = 'sandbox' as const;
   player = 'you';
+  scale: Scale = savedScale();
+  scales: Scale[] = ['demo', 'real'];
   constructor(private ch: Chain) {}
-  get factoryId() { return this.ch.keys.factoryId; }
+  setScale(s: Scale) { this.scale = s; try { localStorage.setItem(SCALE_KEY, s); } catch { /* ignore */ } }
+  get factoryId() { return this.ch.keys.factories[this.scale]; }
   me() { return this.ch.id(this.player); }
   view<T>(c: string, m: string, a: object = {}) { return this.ch.view<T>(c, m, a); }
   call<T>(c: string, m: string, a: object = {}, d = 0n) { return this.ch.call<T>(this.player, c, m, a, d); }
-  coinId(s: string) { return this.ch.coinId(s); }
+  coinId(s: string) { return `${s.toLowerCase()}.${this.factoryId}`; }
   balance() { return this.ch.balance(this.player); }
   players() { return this.ch.players(); }
   setPlayer(n: string) { this.player = n; }
@@ -49,10 +60,16 @@ class WalletNet implements Net {
   mode = 'testnet' as const;
   private account: string | null = null;
   private listeners: (() => void)[] = [];
-  constructor(public factoryId: string, private nodeUrl: string, private selector: WalletSelector, private modal: WalletSelectorModal) {
+  scale: Scale;
+  scales: Scale[];
+  constructor(private factories: Partial<Record<Scale, string>>, private nodeUrl: string, private selector: WalletSelector, private modal: WalletSelectorModal) {
+    this.scales = (['demo', 'real'] as Scale[]).filter(s => factories[s]);
+    const want = savedScale(); this.scale = this.scales.includes(want) ? want : this.scales[0];
     const sync = () => { this.account = selector.store.getState().accounts.find(a => a.active)?.accountId ?? null; this.listeners.forEach(f => f()); };
     sync(); selector.store.observable.subscribe(sync);
   }
+  get factoryId() { return this.factories[this.scale]!; }
+  setScale(s: Scale) { if (this.factories[s]) { this.scale = s; try { localStorage.setItem(SCALE_KEY, s); } catch { /* ignore */ } } }
   me() { return this.account; }
   onChange(fn: () => void) { this.listeners.push(fn); }
   private async rpc(method: string, params: any) {
@@ -79,13 +96,14 @@ class WalletNet implements Net {
   async signOut() { const w = await this.selector.wallet(); await w.signOut(); }
 }
 
-/** Sandbox in dev unless VITE_NETWORK=testnet; testnet needs VITE_FACTORY_ID. */
+/** Sandbox in dev unless VITE_NETWORK=testnet; testnet needs VITE_FACTORY_DEMO and/or VITE_FACTORY_REAL. */
 export async function openNet(): Promise<Net> {
   const env = (import.meta as any).env ?? {};
   const mode = env.VITE_NETWORK ?? (env.DEV ? 'sandbox' : 'testnet');
   if (mode === 'sandbox') return new SandboxNet(await Chain.open());
-  const factoryId = env.VITE_FACTORY_ID;
-  if (!factoryId) throw new Error('Set VITE_FACTORY_ID to the testnet factory account (for example rulecard.testnet).');
+  const factories: Partial<Record<Scale, string>> = { demo: env.VITE_FACTORY_DEMO, real: env.VITE_FACTORY_REAL ?? env.VITE_FACTORY_ID };
+  if (!factories.demo && !factories.real) throw new Error('Set VITE_FACTORY_DEMO and/or VITE_FACTORY_REAL to the testnet factory accounts.');
+  const factoryId = (factories.demo ?? factories.real)!;
   const nodeUrl = env.VITE_NODE_URL ?? 'https://rpc.testnet.near.org';
   const [core, ui, mnw, meteor] = await Promise.all([
     import('@near-wallet-selector/core'), import('@near-wallet-selector/modal-ui'),
@@ -94,5 +112,5 @@ export async function openNet(): Promise<Net> {
   functionCall = core.actionCreators.functionCall as any;
   const selector = await core.setupWalletSelector({ network: 'testnet', modules: [mnw.setupMyNearWallet(), meteor.setupMeteorWallet()] });
   const modal = ui.setupModal(selector, { contractId: factoryId });
-  return new WalletNet(factoryId, nodeUrl, selector, modal);
+  return new WalletNet(factories, nodeUrl, selector, modal);
 }

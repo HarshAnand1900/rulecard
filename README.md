@@ -22,6 +22,20 @@ Track: **Memecoins With Mechanics** (NEAR). Judges score the mechanic, so this R
 **Supply reacts to the community:** active wallets and lockers keep their tokens; idle wallets shrink; the Ritual and pot cards
 burn supply when the crowd shows up. Every mint and burn is logged on-chain and shown on the coin page.
 
+## Demo mode and Real mode
+
+The same contract code is compiled twice, and the app has a **Demo / Real** switch:
+
+| | Demo | Real |
+|---|---|---|
+| Game NEAR amounts (curve, levels, seeds, caps) | ÷100: L2 needs ~6 NEAR in the curve, a seed is 0.05–1 NEAR | full size: L2 needs 625 NEAR, seeds 5–100 NEAR |
+| Time | ÷12: gm every 30 min, a Ritual "day" is 2h, raid rounds 100 s | real: gm every 6h, Ritual per UTC day, raid rounds 20 min |
+| Rules, percentages, caps, odds | identical | identical |
+| Contracts | its own factory and coins; `get_params` says `mode: "demo"`, `near_scale: 100`, `time_scale: 12` | its own factory and coins, `mode: "real"` |
+
+Demo mode exists so judges can play a whole game (rituals, levels, cards, a raid) with faucet testnet NEAR and in minutes.
+Real mode is the same game with the numbers we'd ship. Storage deposits are real NEAR in both.
+
 ## How the track requirements are met
 
 | Requirement | Where |
@@ -53,6 +67,8 @@ factory (rulecard.<network>)          one per deployment, no admin
   in the curve ("floor lift"); reward-pool releases lower it the same way. Tested on every path.
 
 ## Parameters (all fixed, all readable with `get_params`)
+
+Values below are **Real mode**. Demo mode divides every game NEAR amount by 100 and every duration by 12.
 
 | Group | Values |
 |---|---|
@@ -105,7 +121,7 @@ Every parameter above came out of a simulator in [`research/`](research) (Node, 
 
 ## What's in this build vs the roadmap
 
-**Built and tested** (`npm test`: 42 coin tests, 7 factory tests): factory, NEP-141 coins, curve and fees, gm, Energy, Daily Ritual,
+**Built and tested** (`npm test`: 42 coin tests and 7 factory tests, each run at real and demo scale): factory, NEP-141 coins, curve and fees, gm, Energy, Daily Ritual,
 levels and level drops, Vault, idle burn, the daily cap, packs, deck limits, Fade, make-room-first, Ember, Roll Call, Hype Siren,
 Prophecy (Bold bets), Inferno, tags and bet locks, raids with plans, Battle cry, scoring, spoils and win packs, price history, the log.
 
@@ -120,11 +136,11 @@ Needs Node 20+ and Docker (contracts build and the local NEAR sandbox run in con
 ```bash
 npm install
 docker build -t rulecard-builder -f contracts/Dockerfile.build contracts   # once
-npm test                       # contract tests (coin + factory)
-npm run contracts:build        # wasm → contracts/out/
+npm test                       # contract tests (coin + factory, real and demo scale)
+npm run contracts:build        # 4 wasm files → contracts/out/ (coin and factory, real and demo)
 ./sandbox/start.sh             # local NEAR sandbox on 127.0.0.1:3030
-node sandbox/deploy.mjs        # factory + test accounts (local test keys, gitignored)
-node sandbox/seed.mjs          # 3 demo coins, trading history, packs
+node sandbox/deploy.mjs        # real + demo factories and test accounts (local test keys, gitignored)
+node sandbox/seed.mjs          # 3 coins in each mode, trading history, packs
 npm run dev                    # http://127.0.0.1:5173
 ```
 
@@ -134,7 +150,7 @@ In sandbox mode the header has a player switcher and buttons that move the chain
 ## Run against testnet
 
 ```bash
-cp .env.example .env.testnet   # set VITE_FACTORY_ID to the deployed factory
+cp .env.example .env.testnet   # set VITE_FACTORY_DEMO and VITE_FACTORY_REAL to the deployed factories
 npx vite --mode testnet         # Connect wallet: MyNearWallet or Meteor
 ```
 

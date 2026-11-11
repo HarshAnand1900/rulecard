@@ -9,7 +9,11 @@ import { TIER_OF, TIER_NAME, CARD_TEXT, RULE_TEXT, LEVEL_NAME } from './types';
 import PriceChart, { type PricePoint } from './PriceChart';
 
 const MIN = 60_000, HOUR = 60 * MIN;
-const dur = (ms: number) => { ms = Math.max(0, ms); const d = Math.floor(ms / (24 * HOUR)), h = Math.floor((ms % (24 * HOUR)) / HOUR), m = Math.floor((ms % HOUR) / MIN); return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m ${Math.floor((ms % MIN) / 1000)}s`; };
+const dur = (ms: number) => { ms = Math.max(0, ms); const d = Math.floor(ms / (24 * HOUR)), h = Math.floor((ms % (24 * HOUR)) / HOUR), m = Math.floor((ms % HOUR) / MIN); const sec = Math.floor((ms % MIN) / 1000); return d ? `${d}d ${h}h` : h ? (m ? `${h}h ${m}m` : `${h}h`) : sec ? `${m}m ${sec}s` : `${m}m`; };
+// Demo scale: game NEAR ÷100 and time ÷12. Labels that state a rule use these so they match the contract.
+let NS = 1, TS = 1;
+const nearAmt = (x: number) => fmtNear(x / NS);
+const hrs = (h: number) => dur((h * HOUR) / TS);
 const short = (a: string) => a.replace(/\.test\.near$/, '').replace(/\.rulecard$/, '');
 const pct = (a: number, b: number) => (b > 0 ? Math.min(100, (a / b) * 100) : 0);
 const TACTIC = ['', 'Rally', 'Curse', 'Ward'];
@@ -44,6 +48,7 @@ export default function ChainApp() {
   }, [refresh]);
 
   if (err) return <div className="panel" style={{ margin: 16 }}><h2>Can't reach the chain</h2><p>{err}</p></div>;
+  if (ch) { NS = ch.scale === 'demo' ? 100 : 1; TS = ch.scale === 'demo' ? 12 : 1; }
   if (!ch) return <div className="panel" style={{ margin: 16 }}>Connecting to the sandbox…</div>;
   const ctx = { ch, me, act, busy, tick, coins, go: setPage };
 
@@ -54,6 +59,9 @@ export default function ChainApp() {
           <button className="logo linkish" onClick={() => setPage({ kind: 'discover' })}>RULECARD</button>
           <span className="tag">memecoins with mechanics · {ch.mode}</span>
         </div>
+        {ch.scales.length > 1 && <div className="seg scale" role="group" aria-label="Game scale">
+          {ch.scales.map(sc => <button key={sc} aria-pressed={ch.scale === sc} title={sc === 'demo' ? 'NEAR amounts ÷100, time 12× faster: a whole game in minutes' : 'Full-size numbers, real time'} onClick={() => { ch.setScale(sc); setCoins([]); setPage({ kind: 'discover' }); refresh(); }}>{sc === 'demo' ? 'Demo' : 'Real'}</button>)}
+        </div>}
         <nav className="seg" aria-label="Pages">
           <button aria-pressed={page.kind === 'discover'} onClick={() => setPage({ kind: 'discover' })}>Discover</button>
           <button aria-pressed={page.kind === 'launch'} onClick={() => setPage({ kind: 'launch' })}>Launch a coin</button>
@@ -74,6 +82,7 @@ export default function ChainApp() {
       {busy && <div className="busy" role="status">⏳ {busy}…</div>}
       {toast && <div className={`toast ${toast.ok ? 'ok' : 'bad'}`} role="status">{toast.text}</div>}
       <main className="page">
+        {ch.scale === 'demo' && <div className="demo-banner"><strong>Demo mode</strong>: same contract rules, but every NEAR amount is ÷100 and time runs 12× faster (gm every 30 min, a Ritual day is 2h, raid rounds 100 s). Separate factory and coins. Switch to <em>Real</em> for full-size numbers.</div>}
         {listErr && <div className="warn">{listErr}</div>}
         {page.kind === 'discover' && <Discover {...ctx} />}
         {page.kind === 'launch' && <Launch {...ctx} />}
@@ -132,9 +141,10 @@ const RULES: Rule[] = ['LaunchGuard', 'PaperTax', 'SoftTax', 'WhaleCap', 'Creato
 function Launch({ ch, me, act, busy, go }: Ctx) {
   const [name, setName] = useState(''); const [sym, setSym] = useState(''); const [seed, setSeed] = useState(20); const [rules, setRules] = useState<Rule[]>([]);
   const [deposit, setDeposit] = useState(5);
-  useEffect(() => { ch.view(ch.factoryId, 'get_params').then((p: any) => setDeposit(toNear(p.deploy_deposit))); }, [ch]);
+  const [bounds, setBounds] = useState<[number, number]>([5, 100]);
+  useEffect(() => { ch.view(ch.factoryId, 'get_params').then((p: any) => { setDeposit(toNear(p.deploy_deposit)); const b: [number, number] = [toNear(p.seed_min), toNear(p.seed_max)]; setBounds(b); setSeed(s => Math.min(b[1], Math.max(b[0], s > b[1] ? b[0] * 4 : s))); }); }, [ch, ch.scale]);
   const toggle = (r: Rule) => setRules(rs => rs.includes(r) ? rs.filter(x => x !== r) : rs.length < 3 ? [...rs, r] : rs);
-  const ok = name.length > 0 && /^[a-zA-Z0-9]{2,10}$/.test(sym) && seed >= 5 && seed <= 100 && !(rules.includes('PaperTax') && rules.includes('SoftTax'));
+  const ok = name.length > 0 && /^[a-zA-Z0-9]{2,10}$/.test(sym) && seed >= bounds[0] && seed <= bounds[1] && !(rules.includes('PaperTax') && rules.includes('SoftTax'));
   return (
     <section className="narrow">
       <h1>Launch a coin</h1>
@@ -145,7 +155,7 @@ function Launch({ ch, me, act, busy, go }: Ctx) {
           <h3>Creator rules <span className="muted small">(up to 3, locked forever)</span></h3>
           <div className="rule-grid">{RULES.map(r => <button key={r} className="rule" aria-pressed={rules.includes(r)} onClick={() => toggle(r)}><strong>{r}</strong><span className="small muted">{RULE_TEXT[r]}</span></button>)}</div>
         </div>
-        <label>Seed (NEAR, all into the pot) <input type="number" min={5} max={100} value={seed} onChange={e => setSeed(Number(e.target.value))} /></label>
+        <label>Seed ({bounds[0]}–{bounds[1]} NEAR, all into the pot) <input type="number" min={bounds[0]} max={bounds[1]} step={bounds[0]} value={seed} onChange={e => setSeed(Number(e.target.value))} /></label>
         <p className="small muted">The pot is your coin's fuel for burn cards. You can't take it back. Plus {fmtNear(deposit)} NEAR for the coin contract's storage.</p>
         <p className="small">Fees: 2% per trade = 0.3% protocol · 0.2% creator escrow (paid at graduation) · 1.5% pot. <strong>No admin key: nobody can change these numbers, not even you.</strong></p>
         <button className="btn primary" disabled={!ok || !!busy} onClick={() => act('Launch', async () => {
@@ -204,7 +214,7 @@ function CoinPage(p: Ctx & { id: string }) {
           <button className={`btn gm ${idleBurning ? 'burning' : ''}`} disabled={!h || !gmReady || !!busy} onClick={() => call('gm', 'gm', {}, 0n, 'gm! +Energy, idle clock reset')}>
             ☀ gm{h && !gmReady ? ` in ${dur(h.next_gm - now)}` : ''}
           </button>
-          <div className="small muted">{!h ? 'Buy to join' : idleBurning ? <span className="down">Idle burn running: gm to stop</span> : h.last_gm ? `idle burn starts in ${dur(h.idle_burn_starts - now)}` : 'gm every 6h'}</div>
+          <div className="small muted">{!h ? 'Buy to join' : idleBurning ? <span className="down">Idle burn running: gm to stop</span> : h.last_gm ? `idle burn starts in ${dur(h.idle_burn_starts - now)}` : `gm every ${hrs(6)}`}</div>
           <button className="linkish" onClick={() => setTab('today')}><Ring value={ritualPct} label="Ritual" small /></button>
         </div>
       </div>
@@ -223,8 +233,8 @@ function CoinPage(p: Ctx & { id: string }) {
       <nav className="tabs" aria-label="Coin sections">{tabs.map(([t, l]) => <button key={t} aria-pressed={tab === t} onClick={() => setTab(t)}>{l}</button>)}</nav>
       {lockPrompt !== null && (
         <div className="panel lock-prompt">
-          <strong>Lock 24h?</strong> Locked tokens are safe from idle burn and earn half of what idle burn takes.
-          <div className="row gap"><button className="btn primary" onClick={() => { const a = lockPrompt; setLockPrompt(null); call('Lock 24h', 'lock', { amount: a.toString(), hours: 24 }); }}>Lock {fmtTok(toTok(lockPrompt))} for 24h</button><button className="btn" onClick={() => setLockPrompt(null)}>Not now</button></div>
+          <strong>Lock {hrs(24)}?</strong> Locked tokens are safe from idle burn and earn half of what idle burn takes.
+          <div className="row gap"><button className="btn primary" onClick={() => { const a = lockPrompt; setLockPrompt(null); call('Lock', 'lock', { amount: a.toString(), hours: 24 }); }}>Lock {fmtTok(toTok(lockPrompt))} for {hrs(24)}</button><button className="btn" onClick={() => setLockPrompt(null)}>Not now</button></div>
         </div>
       )}
       {tab === 'trade' && <TradeTab {...props} onBought={t => setLockPrompt(t)} />}
@@ -241,7 +251,7 @@ type TabProps = Ctx & { id: string; d: CoinData; now: number; call: (label: stri
 
 function TradeTab({ ch, me, id, d, now, busy, act, onBought }: TabProps & { onBought: (t: bigint) => void }) {
   const [side, setSide] = useState<'buy' | 'sell'>('buy');
-  const [amt, setAmt] = useState(5);
+  const [amt, setAmt] = useState(5 / NS);
   const [q, setQ] = useState<BuyQuote | null>(null);
   const [sq, setSq] = useState<any>(null);
   const { c, h, hand } = d;
@@ -254,14 +264,14 @@ function TradeTab({ ch, me, id, d, now, busy, act, onBought }: TabProps & { onBo
   return (
     <div className="grid2">
       <div className="panel stack">
-        <div className="seg" role="group"><button aria-pressed={side === 'buy'} onClick={() => { setSide('buy'); setAmt(5); }}>Buy</button><button aria-pressed={side === 'sell'} onClick={() => { setSide('sell'); setAmt(Math.floor(myTok / 2)); }}>Sell</button></div>
+        <div className="seg" role="group"><button aria-pressed={side === 'buy'} onClick={() => { setSide('buy'); setAmt(5 / NS); }}>Buy</button><button aria-pressed={side === 'sell'} onClick={() => { setSide('sell'); setAmt(Math.floor(myTok / 2)); }}>Sell</button></div>
         <label>{side === 'buy' ? 'NEAR to spend' : `Tokens to sell (you have ${fmtTok(myTok)})`}<input type="number" min={0} value={amt} onChange={e => setAmt(Number(e.target.value))} /></label>
         {side === 'buy' && q && <div className="quote mono small">≈ {fmtTok(toTok(q.tokens))} ${c.symbol} · fee {fmtNear(toNear(q.fee))} N{toNear(q.storage) > 0 ? ` · first-buy storage ${toNear(q.storage)} N` : ''} · impact {(q.impact_bps / 100).toFixed(2)}%</div>}
         {side === 'sell' && sq && <div className="quote mono small">≈ {fmtNear(toNear(sq.near_out))} NEAR · fee {fmtNear(toNear(sq.fee))}{toNear(sq.tax) > 0 ? <span className="down"> · taxes {fmtNear(toNear(sq.tax))}</span> : ''} · impact {(sq.impact_bps / 100).toFixed(2)}%</div>}
         {locked && <div className="warn">You have a live Prophecy bet: no trading until {new Date(hand!.no_trade_until).toISOString().slice(11, 16)}.</div>}
         {hand && toTok(hand.tagged) > 0 && <div className="warn">Tagged: {fmtTok(toTok(hand.tagged))} tokens bought while a pot card was on the table. Selling them before {dur(hand.tag_until - now)} pays 10% to the pot.</div>}
         {d.raid?.phase === 2 && <div className="warn">A raid is on: selling pays +3% and lowers your side's Buy score.</div>}
-        {c.rules.includes('PaperTax') && <div className="small muted">Paper Tax: 10% on selling tokens bought less than 1h ago.</div>}
+        {c.rules.includes('PaperTax') && <div className="small muted">Paper Tax: 10% on selling tokens bought less than {hrs(1)} ago.</div>}
         <button className="btn primary" disabled={!!busy || amt <= 0 || !!locked || (side === 'buy' && c.graduated)} onClick={() => side === 'buy'
           ? act('Buy', async () => { const t: string = await ch.call(id, 'buy', {}, nearToYocto(amt)); onBought(BigInt(t)); }, 'Bought')
           : act('Sell', () => ch.call(id, 'sell', { amount: tokToUnits(amt).toString() }), 'Sold')}>{side === 'buy' ? `Buy with ${amt} NEAR` : `Sell ${fmtTok(amt)}`}</button>
@@ -271,12 +281,12 @@ function TradeTab({ ch, me, id, d, now, busy, act, onBought }: TabProps & { onBo
         {!h ? <p className="muted">You don't hold ${c.symbol} yet.</p> : <>
           <Row k="Balance" v={`${fmtTok(myTok)} (≈ ${fmtNear(toNear(h.value))} N with locks)`} />
           <Row k="Locked in the Vault" v={fmtTok(toTok(h.locked))} />
-          <Row k="Qualified (≥ 2 NEAR for 1h)" v={h.qualified ? 'yes' : 'not yet'} />
+          <Row k={`Qualified (≥ ${nearAmt(2)} NEAR for ${hrs(1)})`} v={h.qualified ? 'yes' : 'not yet'} />
           <Row k="Lost today / cap" v={`${fmtTok(toTok(h.lost_today))} / ${fmtTok(toTok(h.loss_cap_today))}`} />
           {toTok(h.pending_idle_burn) > 0 && <Row k="Idle burn due" v={<span className="down">{fmtTok(toTok(h.pending_idle_burn))}</span>} />}
         </>}
         <h3>Curve</h3>
-        <Row k="Sold" v={`${(100 - pct(toTok(c.curve_room), 793_191_832)).toFixed(1)}% · graduates at ~3,946 N`} />
+        <Row k="Sold" v={`${(100 - pct(toTok(c.curve_room), 793_191_832)).toFixed(1)}% · graduates at ~${nearAmt(3946)} N`} />
         <Row k="Fully backed" v={c.solvent ? 'yes ✓' : 'NO'} />
       </div>
     </div>
@@ -340,7 +350,7 @@ function CardsTab({ ch, me, id, d, now, busy, call }: TabProps) {
           </button>
         </div>
       </div>
-      {hand && hand.cut_used > 0 && <p className="small muted">Helping cut {dur(hand.cut_used)} off this pack's wait (max 1h).</p>}
+      {hand && hand.cut_used > 0 && <p className="small muted">Helping cut {dur(hand.cut_used)} off this pack's wait (max {hrs(1)}).</p>}
       <div className="panel">
         <h2>Your hand</h2>
         {!commons.length && !hand?.cards.length && <p className="muted">No cards yet: gm, then claim a pack.</p>}
@@ -368,7 +378,7 @@ function CardsTab({ ch, me, id, d, now, busy, call }: TabProps) {
 }
 
 function TableRow({ t, now, me, busy, call }: { t: Proposal; now: number; me: string; busy: string; call: TabProps['call'] }) {
-  const [amt, setAmt] = useState(t.card === 'Ember' ? 2 : 5);
+  const [amt, setAmt] = useState(t.card === 'Ember' ? 2 / NS : 5 / NS);
   const [yes, setYes] = useState(true);
   const phaseName = t.phase === 0 ? (t.card === 'Inferno' ? 'signing' : 'backing') : t.phase === 1 ? (t.card === 'Prophecy' ? 'betting' : 'fuel window') : t.card === 'Prophecy' ? 'waiting for the answer' : 'fires within 2 min';
   const mine = t.backers.includes(me) || t.proposer === me;
@@ -382,8 +392,8 @@ function TableRow({ t, now, me, busy, call }: { t: Proposal; now: number; me: st
       {t.question && <div className="small">Q: {typeof t.question === 'string' ? 'Will the coin be a net buyer over 2h?' : 'Line' in t.question ? `Price above ${(toNear(t.question.Line.price) * 1e6).toFixed(3)} µN?` : 'Crowd' in t.question ? `${t.question.Crowd.n}+ new wallets?` : `Vault share +${t.question.Vault.bps / 100} points?`}</div>}
       {t.phase === 0 && <div className="row gap small"><Bar label={t.card === 'Inferno' ? 'signers' : t.card === 'Ember' ? 'copies' : 'backers'} value={t.backers.length} max={t.needed} text={`${t.backers.length}/${t.needed}`} />
         {!mine && <button className="btn small" disabled={!!busy} onClick={() => call(t.card === 'Inferno' ? 'Sign' : 'Back', t.card === 'Inferno' ? 'sign' : 'back', { id: t.id }, 0n, 'Thanks: your next pack comes 10 min sooner')}>{t.card === 'Inferno' ? 'Sign' : t.card === 'Ember' ? 'Add my Ember' : 'Back'}</button>}</div>}
-      {t.card === 'Ember' && t.phase === 0 && <div className="row gap small">Stoke: <input className="tiny" type="number" value={amt} onChange={e => setAmt(Number(e.target.value))} /> NEAR (max 5) <button className="btn small" disabled={!!busy} onClick={() => call('Stoke', 'stoke', { id: t.id }, nearToYocto(amt))}>Stoke</button> <span className="muted">stoked {fmtNear(toNear(t.chip_total))}</span></div>}
-      {t.card === 'Inferno' && t.phase === 1 && <div className="row gap small">Fuel: <input className="tiny" type="number" value={amt} onChange={e => setAmt(Number(e.target.value))} /> NEAR (max 20) <button className="btn small" disabled={!!busy} onClick={() => call('Fuel', 'fuel', { id: t.id }, nearToYocto(amt), 'Fuelled: locked 24h with +5%')}>Fuel</button> <span className="muted">{fmtNear(toNear(t.chip_total))} N from {t.chips.length} wallets</span></div>}
+      {t.card === 'Ember' && t.phase === 0 && <div className="row gap small">Stoke: <input className="tiny" type="number" value={amt} onChange={e => setAmt(Number(e.target.value))} /> NEAR (max {nearAmt(5)}) <button className="btn small" disabled={!!busy} onClick={() => call('Stoke', 'stoke', { id: t.id }, nearToYocto(amt))}>Stoke</button> <span className="muted">stoked {fmtNear(toNear(t.chip_total))}</span></div>}
+      {t.card === 'Inferno' && t.phase === 1 && <div className="row gap small">Fuel: <input className="tiny" type="number" value={amt} onChange={e => setAmt(Number(e.target.value))} /> NEAR (max {nearAmt(20)}) <button className="btn small" disabled={!!busy} onClick={() => call('Fuel', 'fuel', { id: t.id }, nearToYocto(amt), `Fuelled: locked ${hrs(24)} with +5%`)}>Fuel</button> <span className="muted">{fmtNear(toNear(t.chip_total))} N from {t.chips.length} wallets</span></div>}
       {t.card === 'Prophecy' && t.phase >= 1 && <div className="row gap small wrap">
         <span>Yes {fmtTok(yesT)} · No {fmtTok(noT)} · {new Set(t.bets.map(b => b.account)).size} wallets (min 8)</span>
         {t.phase === 1 && <><select value={yes ? 'y' : 'n'} onChange={e => setYes(e.target.value === 'y')}><option value="y">Yes</option><option value="n">No</option></select>
@@ -404,9 +414,9 @@ function VaultTab({ d, now, busy, call }: TabProps) {
         <h2>Lock</h2>
         <p className="small muted">Locked tokens can't be sold. They're safe from idle burn and earn half of everything idle burn and early exits take, by weight.</p>
         <label>Tokens (you have {fmtTok(toTok(h.balance))}) <input type="number" value={amt} onChange={e => setAmt(Number(e.target.value))} /></label>
-        <div className="seg" role="group">{[6, 24, 72].map(x => <button key={x} aria-pressed={hours === x} onClick={() => setHours(x)}>{x}h ×{x === 6 ? '1' : x === 24 ? '1.5' : '2'}</button>)}</div>
+        <div className="seg" role="group">{[6, 24, 72].map(x => <button key={x} aria-pressed={hours === x} onClick={() => setHours(x)}>{hrs(x)} ×{x === 6 ? '1' : x === 24 ? '1.5' : '2'}</button>)}</div>
         <div className="row gap"><button className="btn ghost small" onClick={() => setAmt(Math.floor(toTok(h.balance)))}>All</button>
-          <button className="btn primary" disabled={!!busy || amt <= 0} onClick={() => call('Lock', 'lock', { amount: tokToUnits(amt).toString(), hours }, 0n, `Locked for ${hours}h`)}>Lock {fmtTok(amt)} for {hours}h</button></div>
+          <button className="btn primary" disabled={!!busy || amt <= 0} onClick={() => call('Lock', 'lock', { amount: tokToUnits(amt).toString(), hours }, 0n, `Locked for ${hrs(hours)}`)}>Lock {fmtTok(amt)} for {hrs(hours)}</button></div>
         <h3>Coin Vault</h3>
         <Row k="Locked" v={`${fmtTok(toTok(c.vault_locked))} (${pct(toTok(c.vault_locked), toTok(c.circulating)).toFixed(1)}% of circulating)`} />
       </div>
@@ -422,7 +432,7 @@ function VaultTab({ d, now, busy, call }: TabProps) {
         <button className="btn" disabled={!!busy || toTok(h.vault_earned) <= 0} onClick={() => call('Claim', 'claim_vault')}>Claim earnings</button>
         <h3>Idle burn</h3>
         <Row k="Last gm" v={h.last_gm ? `${dur(now - h.last_gm)} ago` : 'never'} />
-        <Row k="Burn starts" v={now >= h.idle_burn_starts ? <span className="down">running (1% every 6h)</span> : `in ${dur(h.idle_burn_starts - now)}`} />
+        <Row k="Burn starts" v={now >= h.idle_burn_starts ? <span className="down">running (1% every {hrs(6)})</span> : `in ${dur(h.idle_burn_starts - now)}`} />
         <Row k="Lost today / 8% cap" v={`${fmtTok(toTok(h.lost_today))} / ${fmtTok(toTok(h.loss_cap_today))}`} />
       </div>
     </div>

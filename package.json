@@ -8,13 +8,13 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "bash contracts/dcargo.sh coin test && bash contracts/dcargo.sh factory test",
+    "test": "bash contracts/dcargo.sh coin test && bash contracts/dcargo.sh coin \"test --features demo\" && bash contracts/dcargo.sh factory test && bash contracts/dcargo.sh factory \"test --features demo\"",
     "typecheck": "tsc --noEmit",
     "sandbox:start": "bash sandbox/start.sh",
     "sandbox:deploy": "node sandbox/deploy.mjs",
     "sandbox:reset": "bash sandbox/reset.sh",
     "sandbox:seed": "node sandbox/seed.mjs",
-    "contracts:build": "bash contracts/dcargo.sh coin near build non-reproducible-wasm --no-abi && bash contracts/dcargo.sh factory near build non-reproducible-wasm --no-abi"
+    "contracts:build": "bash contracts/build.sh"
   },
   "dependencies": {
     "@near-wallet-selector/core": "10.1.4",

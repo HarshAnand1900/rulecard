@@ -5,11 +5,18 @@ use uint::construct_uint;
 construct_uint! { pub struct U256(4); }
 
 pub const ONE_NEAR: u128 = 1_000_000_000_000_000_000_000_000;
+/// Demo builds (`--features demo`) run every NEAR amount of the game at 1/100 scale, so a full game fits in testnet NEAR.
+#[cfg(feature = "demo")]
+pub const NEAR_SCALE: u128 = 100;
+#[cfg(not(feature = "demo"))]
+pub const NEAR_SCALE: u128 = 1;
+/// One "game NEAR": the unit every game amount (curve, levels, caps, seeds) is written in.
+pub const GN: u128 = ONE_NEAR / NEAR_SCALE;
 pub const TOKEN: u128 = 1_000_000_000_000_000_000;
 /// Total supply, minted once at launch.
 pub const SUPPLY: u128 = 1_000_000_000 * TOKEN;
 /// Sizing A: virtual reserves 1,392 NEAR / 1,073M tokens.
-pub const X0: u128 = 1_392 * ONE_NEAR;
+pub const X0: u128 = 1_392 * GN;
 pub const Y0: u128 = 1_073_000_000 * TOKEN;
 /// Tokens the curve can sell. Selling all of them takes ~3,946 real NEAR (~19,074 NEAR market cap): graduation.
 pub const CAP: u128 = 793_191_832 * TOKEN;
@@ -90,38 +97,38 @@ mod tests {
     #[test]
     fn round_trip_never_profits_and_stays_solvent() {
         let mut p = Pool::new();
-        let (a, _) = p.buy(10 * ONE_NEAR); let (b, _) = p.buy(5 * ONE_NEAR);
+        let (a, _) = p.buy(10 * GN); let (b, _) = p.buy(5 * GN);
         assert!(p.solvent());
         let o = p.sell(a) + p.sell(b);
-        assert!(o <= 15 * ONE_NEAR); assert_eq!(p.circ, 0); assert!(p.solvent());
+        assert!(o <= 15 * GN); assert_eq!(p.circ, 0); assert!(p.solvent());
     }
     #[test]
     fn burn_raises_price_and_stays_backed() {
         let mut p = Pool::new();
-        let (a, _) = p.buy(100 * ONE_NEAR); let (b, _) = p.buy(50 * ONE_NEAR);
+        let (a, _) = p.buy(100 * GN); let (b, _) = p.buy(50 * GN);
         let p0 = p.price(); p.burn(b / 2);
         assert!(p.price() > p0); assert!(p.solvent());
         let paid = p.sell(a) + p.sell(b - b / 2);
-        assert!(150 * ONE_NEAR - paid < 1_000_000, "dust");
+        assert!(150 * GN - paid < 1_000_000, "dust");
     }
     #[test]
     fn release_lowers_price_and_stays_backed() {
-        let mut p = Pool::new(); p.buy(200 * ONE_NEAR);
+        let mut p = Pool::new(); p.buy(200 * GN);
         let p0 = p.price(); p.release(1_000_000 * TOKEN);
         assert!(p.price() < p0); assert!(p.solvent());
     }
     #[test]
     fn graduation_at_about_3946_near() {
-        let mut p = Pool::new(); let (t, used) = p.buy(10_000 * ONE_NEAR);
+        let mut p = Pool::new(); let (t, used) = p.buy(10_000 * GN);
         assert_eq!(t, CAP); assert_eq!(p.room(), 0);
-        let n = used / ONE_NEAR; assert!((3_940..3_952).contains(&n), "used {n}");
-        let m = p.mcap() / ONE_NEAR; assert!((19_000..19_150).contains(&m), "mcap {m}");
+        let n = used / GN; assert!((3_940..3_952).contains(&n), "used {n}");
+        let m = p.mcap() / GN; assert!((19_000..19_150).contains(&m), "mcap {m}");
     }
     #[test]
     fn level_targets_match_sizing_a() {
         for (real, mcap) in [(625u128, 2_724u128), (1_461, 5_450), (2_382, 9_536)] {
-            let mut p = Pool::new(); p.buy(real * ONE_NEAR);
-            let m = p.mcap() / ONE_NEAR; assert!(m.abs_diff(mcap) <= 2, "{real}: {m}");
+            let mut p = Pool::new(); p.buy(real * GN);
+            let m = p.mcap() / GN; assert!(m.abs_diff(mcap) <= 2, "{real}: {m}");
         }
     }
 }

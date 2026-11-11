@@ -25,7 +25,12 @@ mod tests;
 use math::*;
 
 // ------------------------------------------------------------------ constants (all public in get_params)
-pub const MIN: u64 = 60_000;
+/// Demo builds run the clock 12× faster: gm every 30 min, a Ritual "day" is 2h, raid rounds 100 s.
+#[cfg(feature = "demo")]
+pub const TIME_SCALE: u64 = 12;
+#[cfg(not(feature = "demo"))]
+pub const TIME_SCALE: u64 = 1;
+pub const MIN: u64 = 60_000 / TIME_SCALE;
 pub const HOUR: u64 = 60 * MIN;
 pub const DAY: u64 = 24 * HOUR;
 
@@ -33,13 +38,13 @@ pub const FEE_PROTOCOL_BPS: u128 = 30;
 pub const FEE_ESCROW_BPS: u128 = 20;
 pub const FEE_POT_BPS: u128 = 150;
 pub const FEE_BPS: u128 = FEE_PROTOCOL_BPS + FEE_ESCROW_BPS + FEE_POT_BPS;
-pub const SEED_MIN: u128 = 5 * ONE_NEAR;
-pub const SEED_MAX: u128 = 100 * ONE_NEAR;
+pub const SEED_MIN: u128 = 5 * GN;
+pub const SEED_MAX: u128 = 100 * GN;
 pub const STORAGE_COST: u128 = ONE_NEAR / 400; // 0.0025 NEAR per registered wallet
 
 pub const GM_EVERY: u64 = 6 * HOUR;
-pub const GM_MIN_VALUE: u128 = ONE_NEAR; // hold >= 1 NEAR worth to gm
-pub const QUALIFIED_VALUE: u128 = 2 * ONE_NEAR; // >= 2 NEAR held for 1h counts for levels
+pub const GM_MIN_VALUE: u128 = GN; // hold >= 1 NEAR worth to gm
+pub const QUALIFIED_VALUE: u128 = 2 * GN; // >= 2 NEAR held for 1h counts for levels
 pub const QUALIFIED_HOLD: u64 = HOUR;
 
 pub const IDLE_GRACE: u64 = 12 * HOUR;
@@ -52,23 +57,23 @@ pub const VAULT_WEIGHT_CAP: u128 = 5_000_000 * TOKEN; // a wallet counts for at 
 pub const VAULT_SCALE: u128 = 1_000_000_000_000_000_000; // accumulator precision
 
 pub const ENERGY_MAX: u32 = 100;
-pub const ENERGY_NEAR: u128 = 10 * ONE_NEAR; // +1 Energy per 10 NEAR of net buying
-pub const ENERGY_TRADE_CAP: u128 = 20 * ONE_NEAR; // one trade counts for at most 20 NEAR
+pub const ENERGY_NEAR: u128 = 10 * GN; // +1 Energy per 10 NEAR of net buying
+pub const ENERGY_TRADE_CAP: u128 = 20 * GN; // one trade counts for at most 20 NEAR
 
 pub const POT_DAILY_BPS: u128 = 7_500; // the pot spends at most 75% of itself per day
 
 pub const RITUAL_GM_MIN: u32 = 10;
 pub const RITUAL_GM_PCT: u32 = 60;
-pub const RITUAL_LOCK_MIN: u128 = 10 * ONE_NEAR;
+pub const RITUAL_LOCK_MIN: u128 = 10 * GN;
 pub const RITUAL_LOCK_PCT: u128 = 50;
 pub const RITUAL_BURN_BPS: u128 = 500;
 pub const RITUAL_STREAK_BURN_BPS: u128 = 700;
 pub const RITUAL_DOUBLE: u64 = 6 * HOUR;
 
 /// Level targets for L2, L3, L4.
-pub const LVL_MCAP: [u128; 3] = [2_725 * ONE_NEAR, 5_450 * ONE_NEAR, 9_537 * ONE_NEAR];
-pub const LVL_REAL: [u128; 3] = [625 * ONE_NEAR, 1_461 * ONE_NEAR, 2_382 * ONE_NEAR];
-pub const LVL_VOLUME: [u128; 3] = [900 * ONE_NEAR, 3_600 * ONE_NEAR, 9_500 * ONE_NEAR];
+pub const LVL_MCAP: [u128; 3] = [2_725 * GN, 5_450 * GN, 9_537 * GN];
+pub const LVL_REAL: [u128; 3] = [625 * GN, 1_461 * GN, 2_382 * GN];
+pub const LVL_VOLUME: [u128; 3] = [900 * GN, 3_600 * GN, 9_500 * GN];
 pub const LVL_CHECKINS: [u32; 3] = [15, 40, 100];
 pub const LVL_AGE: [u64; 3] = [30 * MIN, 3 * HOUR, 12 * HOUR];
 pub const LVL_HOLD: [u64; 3] = [15 * MIN, 30 * MIN, 60 * MIN];
@@ -262,6 +267,8 @@ pub struct ParamsView {
     pub level_mcap: Vec<U128>, pub level_real: Vec<U128>, pub level_volume: Vec<U128>, pub level_checkins: Vec<u32>,
     pub level_age_ms: Vec<u64>, pub level_hold_ms: Vec<u64>,
     pub admin: Option<AccountId>,
+    /// "demo" builds divide every game NEAR amount by `near_scale` and every duration by `time_scale`.
+    pub mode: String, pub near_scale: u32, pub time_scale: u32,
 }
 
 #[near(serializers = [json])]
@@ -347,6 +354,7 @@ impl Coin {
             level_volume: LVL_VOLUME.iter().map(|v| U128(*v)).collect(), level_checkins: LVL_CHECKINS.to_vec(),
             level_age_ms: LVL_AGE.to_vec(), level_hold_ms: LVL_HOLD.to_vec(),
             admin: None,
+            mode: if NEAR_SCALE > 1 { "demo".into() } else { "real".into() }, near_scale: NEAR_SCALE as u32, time_scale: TIME_SCALE as u32,
         }
     }
 

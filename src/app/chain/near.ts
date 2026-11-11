@@ -2,7 +2,7 @@
 import './polyfill';
 import { connect, keyStores, KeyPair, Account } from 'near-api-js';
 
-export interface Keys { nodeUrl: string; networkId: string; factoryId: string; protocolId: string; accounts: Record<string, { accountId: string; secretKey: string }>; }
+export interface Keys { nodeUrl: string; networkId: string; factories: { real: string; demo: string }; protocolId: string; accounts: Record<string, { accountId: string; secretKey: string }>; }
 export const TOKEN = 10n ** 18n;
 export const YOCTO = 10n ** 24n;
 const GAS = 300_000_000_000_000n;
@@ -23,7 +23,7 @@ export class Chain {
     const r = await fetch('/__sandbox/keys');
     if (!r.ok) throw new Error('No sandbox keys. Run ./sandbox/start.sh, node sandbox/deploy.mjs and node sandbox/seed.mjs');
     const keys: Keys = await r.json();
-    if (!keys.factoryId) throw new Error('Old sandbox keys. Run ./sandbox/reset.sh, ./sandbox/start.sh, node sandbox/deploy.mjs');
+    if (!keys.factories) throw new Error('Old sandbox keys. Run ./sandbox/reset.sh, ./sandbox/start.sh, node sandbox/deploy.mjs');
     const ch = new Chain(keys);
     const ks = new keyStores.InMemoryKeyStore();
     for (const a of Object.values(keys.accounts)) await ks.setKey(keys.networkId, a.accountId, KeyPair.fromString(a.secretKey as any));
@@ -31,9 +31,8 @@ export class Chain {
     for (const [n, a] of Object.entries(keys.accounts)) ch.accounts[n] = await near.account(a.accountId);
     return ch;
   }
-  players() { return Object.keys(this.keys.accounts).filter(n => n !== 'factory'); }
+  players() { return Object.keys(this.keys.accounts).filter(n => !n.startsWith('factory')); }
   id(name: string) { return this.keys.accounts[name].accountId; }
-  coinId(symbol: string) { return `${symbol.toLowerCase()}.${this.keys.factoryId}`; }
   view<T = any>(contractId: string, methodName: string, args: object = {}): Promise<T> { return this.accounts.you.viewFunction({ contractId, methodName, args }); }
   async call<T = any>(name: string, contractId: string, methodName: string, args: object = {}, deposit = 0n): Promise<T> {
     try {

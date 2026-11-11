@@ -16,7 +16,7 @@ export const near = await connect({ networkId: keys.networkId, nodeUrl: keys.nod
 const cache = {};
 export const acct = async name => (cache[name] ||= await near.account(keys.accounts[name].accountId));
 export const idOf = name => keys.accounts[name].accountId;
-export const coinId = symbol => `${symbol.toLowerCase()}.${keys.factoryId}`;
+export const coinId = (symbol, mode = 'real') => `${symbol.toLowerCase()}.${keys.factories[mode]}`;
 
 export async function call(name, contractId, methodName, args = {}, deposit = 0n) {
   const a = await acct(name);

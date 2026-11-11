@@ -17,7 +17,7 @@ pub const HAND_COMMONS: u8 = 12;
 pub const HAND: [usize; 3] = [3, 3, 1]; // Rare, Epic, Mythic
 pub const FADE: u64 = DAY;
 /// Eligibility per tier: NEAR held and hours held. Deck limit per tier: 1 per N eligible holders, with a minimum.
-pub const ELIG_NEAR: [u128; 3] = [3 * ONE_NEAR, 5 * ONE_NEAR, 10 * ONE_NEAR];
+pub const ELIG_NEAR: [u128; 3] = [3 * GN, 5 * GN, 10 * GN];
 pub const ELIG_HOLD: [u64; 3] = [HOUR, 2 * HOUR, 4 * HOUR];
 pub const CAP_RATIO: [u32; 3] = [2, 5, 12];
 pub const CAP_MIN: [u32; 3] = [8, 4, 2];

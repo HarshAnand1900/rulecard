@@ -6,7 +6,7 @@ use near_sdk::{env, near, require, AccountId, NearToken, Promise};
 
 pub const PAPER_TAX_BPS: u128 = 1_000; // 10% on selling tokens bought < 1h ago
 pub const SOFT_TAX_BPS: u128 = 500; // 5% on selling tokens bought < 30 min ago
-pub const LAUNCH_GUARD_NEAR: u128 = 30 * ONE_NEAR;
+pub const LAUNCH_GUARD_NEAR: u128 = 30 * GN;
 pub const LAUNCH_GUARD_MS: u64 = 10 * MIN;
 pub const WHALE_CAP_BPS: u128 = 200; // no wallet over 2% of supply before L3
 pub const CREATOR_LOCK_MS: u64 = DAY;
@@ -28,7 +28,7 @@ impl Coin {
         let a = env::predecessor_account_id();
         let mut dep = env::attached_deposit().as_yoctonear();
         if !self.is_registered(&a) { require!(dep > STORAGE_COST, "deposit too small"); dep -= STORAGE_COST; self.register(&a, now); }
-        require!(dep >= ONE_NEAR / 100, "minimum buy 0.01 NEAR");
+        require!(dep >= GN / 100, "minimum buy 0.01 NEAR");
         self.touch(now);
         let mut h = self.settle(&a, now);
         require!(now >= h.no_trade_until, "you have a live Prophecy bet: no trading until it resolves");

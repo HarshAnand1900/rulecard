@@ -14,7 +14,7 @@ fn ctx(who: usize, deposit: u128, ms: u64) {
     testing_env!(b.build());
 }
 fn acc(i: usize) -> AccountId { if i < 6 { accounts(i) } else { format!("user{i}.testnet").parse().unwrap() } }
-fn n(x: u128) -> u128 { x * ONE_NEAR }
+fn n(x: u128) -> u128 { x * GN }
 /// Equal within one part in a billion (Vault shares round down).
 fn close(a: u128, b: u128) -> bool { a.abs_diff(b) <= b / 1_000_000_000 + 2 }
 
@@ -176,7 +176,7 @@ fn ritual_made_burns_from_the_pot() {
     ctx(1, 0, day0 + 2 * HOUR); let half = bal(&c, 1) / 2; c.lock(U128(half), 24);
     ctx(2, 0, day0 + 2 * HOUR); let b2 = bal(&c, 2); c.lock(U128(b2), 24);
     ctx(3, 0, day0 + 2 * HOUR); let b3 = bal(&c, 3); c.lock(U128(b3), 24);
-    assert!(c.ritual.lock_near.0 >= RITUAL_LOCK_MIN, "locked {}", c.ritual.lock_near.0 / ONE_NEAR);
+    assert!(c.ritual.lock_near.0 >= RITUAL_LOCK_MIN, "locked {}", c.ritual.lock_near.0 / GN);
     let pot = c.pot; let burned = c.burned;
     ctx(5, 0, day0 + DAY + 1); c.poke();
     assert_eq!(c.ritual.last_made, Some(true));

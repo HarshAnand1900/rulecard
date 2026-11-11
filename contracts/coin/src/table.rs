@@ -13,15 +13,15 @@ pub const BET_WINDOW: u64 = 20 * MIN;
 pub const PROPHECY_LEN: u64 = 2 * HOUR;
 pub const FUEL_WINDOW: u64 = 15 * MIN;
 pub const FIRE_JITTER_MS: u64 = 2 * MIN;
-pub const STOKE_MAX: u128 = 5 * ONE_NEAR;
-pub const FUEL_MAX: u128 = 20 * ONE_NEAR;
+pub const STOKE_MAX: u128 = 5 * GN;
+pub const FUEL_MAX: u128 = 20 * GN;
 pub const FUEL_CAP_BPS: u128 = 1_000; // fuel total <= 10% of the curve's real NEAR
 pub const FUEL_BONUS_BPS: u128 = 500;
 pub const FUEL_BONUS_CAP: u128 = SUPPLY / 1_000; // 0.1% of supply per Inferno
 pub const INFERNO_SIGNERS: [u32; 4] = [3, 3, 5, 8];
 pub const SIGN_EVERY: u64 = 30 * MIN;
-pub const BET_MIN_VALUE: u128 = ONE_NEAR / 2;
-pub const BET_MAX_VALUE: u128 = 25 * ONE_NEAR;
+pub const BET_MIN_VALUE: u128 = GN / 2;
+pub const BET_MAX_VALUE: u128 = 25 * GN;
 pub const PROPHECY_MIN_WALLETS: usize = 8;
 pub const MAX_BETTORS: usize = 100;
 pub const TAG_FEE_BPS: u128 = 1_000;
@@ -245,7 +245,7 @@ impl Coin {
         let mine: u128 = p.chips.iter().filter(|c| c.account == a).map(|c| c.near.0).sum();
         let mut take = dep.min(max.saturating_sub(mine));
         if card == Card::Inferno { take = take.min(bps(self.real, FUEL_CAP_BPS).saturating_sub(p.chip_total.0)); }
-        require!(take >= ONE_NEAR / 10, "nothing left to add (min 0.1 NEAR, per-wallet and total caps)");
+        require!(take >= GN / 10, "nothing left to add (min 0.1 NEAR, per-wallet and total caps)");
         let mut h = self.settle(&a, now);
         require!(now >= h.no_trade_until, "you have a live Prophecy bet");
         self.pack_cut(&mut h, CUT_CHIP);
