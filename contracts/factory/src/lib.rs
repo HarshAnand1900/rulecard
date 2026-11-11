@@ -10,7 +10,7 @@ use near_sdk::store::{LazyOption, LookupSet, Vector};
 use near_sdk::{env, near, require, AccountId, CryptoHash, Gas, NearToken, PanicOnDefault, Promise, PromiseResult};
 
 pub const ONE_NEAR: u128 = 1_000_000_000_000_000_000_000_000;
-/// Storage for the new coin account (its state grows with holders; buyers pay 0.0025 NEAR each on top).
+/// Storage for the new coin account (its state grows with holders; buyers pay 0.0125 NEAR each on top).
 pub const DEPLOY_DEPOSIT: u128 = ONE_NEAR;
 /// Without a global contract each coin carries its own copy of the code (~390 KB of storage).
 pub const DEPLOY_DEPOSIT_FULL: u128 = 5 * ONE_NEAR;

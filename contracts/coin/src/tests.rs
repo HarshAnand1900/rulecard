@@ -171,7 +171,7 @@ fn ritual_made_burns_from_the_pot() {
     let mut c = launch(vec![]);
     let day0 = T0 / DAY * DAY + DAY; // start of the next UTC day
     let mut ids = vec![];
-    for i in 1..=10 { buy(&mut c, i, n(5), day0 + i as u64 * 1000); ids.push(i); }
+    for i in 1..=10 { buy(&mut c, i, n(5) + STORAGE_COST, day0 + i as u64 * 1000); ids.push(i); }
     for i in 1..=10 { ctx(i, 0, day0 + HOUR); c.gm(); }
     ctx(1, 1, day0 + 2 * HOUR); let half = bal(&c, 1) / 2; c.lock(U128(half), 24);
     ctx(2, 1, day0 + 2 * HOUR); let b2 = bal(&c, 2); c.lock(U128(b2), 24);
@@ -216,7 +216,7 @@ fn level_two_after_rules_hold_for_15_min() {
 #[test]
 fn paper_tax_charges_quick_flips_into_the_pot() {
     let mut c = launch(vec![Rule::PaperTax]);
-    let t = buy(&mut c, 1, n(10), T0);
+    let t = buy(&mut c, 1, n(10) + STORAGE_COST, T0);
     let pot = c.pot;
     ctx(1, 1, T0 + 10 * MIN); let out = c.sell(U128(t), None).0;
     assert!(out < n(9) && out > n(8), "10% tax + fees: {}", out);
@@ -622,10 +622,10 @@ fn crowd_counts_buyers_not_registrations() {
     let mut c = launch(vec![]);
     for i in 1..=3 { ctx(i, STORAGE_COST, T0 + i as u64); c.storage_deposit(None, None); }
     assert_eq!(c.buyers, 0, "registering alone doesn't count");
-    buy(&mut c, 4, n(1) / 2, T0 + 10);
+    buy(&mut c, 4, STORAGE_COST + n(1) / 2, T0 + 10);
     assert_eq!(c.buyers, 0, "half a NEAR isn't enough yet");
     buy(&mut c, 4, n(1), T0 + 20);
-    buy(&mut c, 5, n(2), T0 + 30);
+    buy(&mut c, 5, STORAGE_COST + n(2), T0 + 30);
     assert_eq!(c.buyers, 2);
 }
 

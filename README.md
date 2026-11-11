@@ -120,15 +120,16 @@ Values below are **Real mode**. Demo mode divides every game NEAR amount by 100 
 - **Draining the reward pool.** Every payout is capped (Inferno bonus 0.1% of supply per play; Vault earnings come only from tokens taken from others).
 - **Counting the same tokens twice for the Ritual.** A wallet's locks count only above what it already had counted that day, so unlock-relock loops add nothing.
 - **Sandwiching pot burns.** Fuel is capped at 10% of the curve's NEAR and buys during a pot card are tagged; with both, the simulated sandwich loses money.
-- **Faking a Prophecy "Crowd" answer by registering wallets.** Crowd counts only wallets whose buys reach 1 NEAR worth, not registrations.
 - **Hedging a Prophecy with two wallets.** 20% of the losing side always leaves (10% burned, 10% to the caster), so betting both sides loses.
 
 **What it doesn't stop (honest limits)**
+- **Storage is paid per holder.** Each wallet pays 0.0125 NEAR once (1.25 KB, the largest a holder record gets) and the coin account starts with 5 NEAR for its code and fixed-size logs, so holder growth never eats curve NEAR. If a future change made records bigger without raising that charge, storage could start locking curve NEAR and the last sellers' transactions could fail.
 - **Contracts can't gm.** Tokens held by another contract (an escrow, a future DEX pool, NEAR Intents) are a normal holder here and would idle-burn. The coin's own reserves (curve stock, reward pool, DEX reserve, Vault, bets) are never burned. Exempting pool accounts is part of the Ref Finance graduation work.
 - A whale can split a bag across many wallets. Per-wallet caps then apply per wallet; it costs gas and storage, not much more.
 - A bot can gm every 6h forever and never be idle. That is allowed: being there is the ritual. The Vault exists so humans can be safe without being online.
 - Raid plans are hidden from the app, but contract state is public: a determined player can read the other side's plan. Commit-reveal is on the roadmap.
 - **Raids trust sibling coins**, i.e. accounts directly under the factory. That's safe only because the factory has no key and deploys one fixed code; the defender also works out the spoils rate itself and never takes it from the caller.
+- A bettor can fake a Prophecy **Crowd** answer with fresh wallets that each buy 1 NEAR worth and sell it back: about 0.05 NEAR per fake wallet (fees + storage), against a payout of 30% of the losing side. Registering alone no longer counts, but small Crowd markets are still gameable.
 - A bettor can push a Prophecy **Line** or **Vault** answer with a second wallet (buying or locking). It costs real fees, slippage and a 6h+ lock, and bettors' own wallets can't trade, but it isn't impossible.
 - Randomness (card rolls, fire times) uses NEAR's block random seed. Good enough for a demo, not for large stakes.
 - "Eligible holders" for deck limits are counted as wallets that checked in within 24h while eligible (to avoid loops), so they can lag reality by up to a day.

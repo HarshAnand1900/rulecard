@@ -19,8 +19,8 @@ const arg = (k, d) => { const i = process.argv.indexOf(`--${k}`); return i > 0 ?
 const YES = process.argv.includes('--yes');
 const ACCOUNT = arg('account', process.env.RULECARD_TESTNET_ACCOUNT);
 const COINS = Number(arg('coins', '2'));
-const BOTS = Number(arg('bots', '8'));
-const BOT_NEAR = Number(arg('bot-near', '1.2'));
+const BOTS = Number(arg('bots', '16')); // L2 needs 15 qualified wallets checking in within the window
+const BOT_NEAR = Number(arg('bot-near', '1.0')); // L2 also needs ~6.25 NEAR in each curve and ~9 NEAR of volume
 const nodeUrl = process.env.RULECARD_TESTNET_RPC ?? 'https://test.rpc.fastnear.com';
 const out = join(here, '..', 'contracts', 'out');
 const keyFile = join(here, '.keys', 'testnet.json');
@@ -54,7 +54,8 @@ console.log(`\nRulecard testnet deploy (demo scale) ${YES ? '' : '— DRY RUN, n
   3. launch         ${COINS_META.map(c => '$' + c[1]).join(', ')} from ${ACCOUNT}: ${coinDeposit} NEAR each (5 storage + ${COIN_SEED} seed)
   4. write          sandbox/.keys/testnet.json (keys of the new accounts only; gitignored) and print your .env.testnet
   protocol fees go to ${ACCOUNT}. Estimated total ${total.toFixed(1)} NEAR (+ gas).
-  To reach L2 (raids), bots must put ~7 NEAR into each coin's curve; they get most of it back by selling.
+  To reach L2 (raids), each coin needs 15 qualified wallets checking in within 2h, ~6.25 NEAR in its curve and ~9 NEAR of volume.
+  Bots supply all three (they get most of the NEAR back by selling).
 `);
 if (BigInt(acct.amount) < N(total.toFixed(3))) console.log(`  ⚠ not enough NEAR: get about ${(total - Number(fmt(acct.amount))).toFixed(1)} more from the faucet, or use --coins 1 / --bots 5 / --bot-near 0.6\n`);
 if (!YES) { console.log('Add --yes to send these transactions.'); process.exit(0); }

@@ -77,7 +77,7 @@ Raids under option A: each coin contract records its own round scores. At the en
 - **Raid trust:** coins accept raid calls only from accounts under the same factory (they all run the same fixed code).
 - **Raid settlement** is one cross-contract exchange at the end (`settle_raid`, callable by anyone). A defender whose attacker never settles is freed after 6h.
 - **Deserting fee** (+3% on sells during a raid) goes to the pot instead of being burned as NEAR can't be burned; the pot later buys and burns.
-- **Coin storage:** the creator attaches 1 NEAR for the coin account; buyers pay 0.0025 NEAR once to register.
+- **Coin storage:** the creator attaches 5 NEAR for the coin account (code + fixed state); each buyer pays 0.0125 NEAR once to register, enough for the largest holder record (1.25 KB).
 
 ## 5. What exists today
 

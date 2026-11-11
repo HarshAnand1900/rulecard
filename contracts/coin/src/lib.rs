@@ -40,7 +40,7 @@ pub const FEE_POT_BPS: u128 = 150;
 pub const FEE_BPS: u128 = FEE_PROTOCOL_BPS + FEE_ESCROW_BPS + FEE_POT_BPS;
 pub const SEED_MIN: u128 = 5 * GN;
 pub const SEED_MAX: u128 = 100 * GN;
-pub const STORAGE_COST: u128 = ONE_NEAR / 400; // 0.0025 NEAR per registered wallet
+pub const STORAGE_COST: u128 = ONE_NEAR / 80; // 0.0125 NEAR per registered wallet = 1.25 KB, the most a holder record can use (with 10 locks)
 
 pub const GM_EVERY: u64 = 6 * HOUR;
 pub const GM_MIN_VALUE: u128 = GN; // hold >= 1 NEAR worth to gm
