@@ -34,6 +34,13 @@ The same contract code is compiled twice, and the app has a **Demo / Real** swit
 | Contracts | its own factory and coins; `get_params` says `mode: "demo"`, `near_scale: 100`, `time_scale: 12` | its own factory and coins, `mode: "real"` |
 
 Demo mode exists so judges can play a whole game (rituals, levels, cards, a raid) with faucet testnet NEAR and in minutes.
+In demo mode the coin page has a **Demo tour**: Buy → gm → Lock → Claim a pack → Back or play a card → Join a raid, each step
+ticked from the player's real on-chain state. A **bot runner** (`npm run bots -- --mode demo`) keeps the demo world alive: bots
+check in, trade, lock, claim packs, back and fuel cards, bet, start raids, fill plans, Battle cry and settle.
+
+**Discover** has two lists: **Live** coins (still on their curve, the game is on) and **Graduated** coins (a Hall of Fame:
+final market cap, graduation time, burns, raid record, creator escrow). Graduated coins close buys and the game; holders can
+still sell back to the curve. Moving graduated liquidity into a Ref Finance pool is the next roadmap step.
 Real mode is the same game with the numbers we'd ship. Storage deposits are real NEAR in both.
 
 ## How the track requirements are met
@@ -140,7 +147,8 @@ npm test                       # contract tests (coin + factory, real and demo s
 npm run contracts:build        # 4 wasm files → contracts/out/ (coin and factory, real and demo)
 ./sandbox/start.sh             # local NEAR sandbox on 127.0.0.1:3030
 node sandbox/deploy.mjs        # real + demo factories and test accounts (local test keys, gitignored)
-node sandbox/seed.mjs          # 3 coins in each mode, trading history, packs
+node sandbox/seed.mjs          # 3 coins in each mode (+ a graduated demo coin), trading history, packs
+npm run bots -- --mode demo --forward 5   # keep the world moving (sandbox: +5 min of chain time per tick)
 npm run dev                    # http://127.0.0.1:5173
 ```
 

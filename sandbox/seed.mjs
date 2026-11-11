@@ -51,6 +51,14 @@ for (let step = 0; step < 10; step++) {
   }
 }
 
+if (MODE === 'demo') {
+  // one coin that graduates, so the Hall of Fame isn't empty
+  await call('bob', F, 'create_coin', { name: 'Rocket Dog', symbol: 'RKT', icon: null, rules: [] }, G(10) + storage);
+  const RKT = coinId('RKT', MODE);
+  for (let i = 0; i < 12 && !(await view(RKT, 'get_coin')).graduated; i++) await tryCall(bots[i], RKT, 'buy', {}, G(500));
+  say(`$RKT graduated: ${(await view(RKT, 'get_coin')).graduated}`);
+}
+
 for (const c of [FROG, MOTH, ZAP]) {
   const v = await view(c, 'get_coin');
   say(`$${v.symbol}: L${v.level}, ${(Number(BigInt(v.real) / 10n ** 21n) / 1000).toFixed(1)} NEAR in curve, pot ${(Number(BigInt(v.pot) / 10n ** 21n) / 1000).toFixed(2)} NEAR, energy ${v.energy}, ${v.holders} holders`);

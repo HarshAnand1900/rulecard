@@ -221,3 +221,12 @@ table.log tr.burn td:nth-child(2) { color: var(--down); } table.log tr.mint td:n
 .chart-tip { position: absolute; top: 8px; pointer-events: none; background: var(--sunk); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; min-width: 140px; box-shadow: 0 6px 18px #0008; }
 .seg.scale button[aria-pressed="true"] { background: var(--gold); color: #111; }
 .demo-banner { border: 1px dashed var(--gold); color: var(--ink); background: #ffcc3312; border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+.coin-card.grad { border-color: #ffcc3355; }
+.grad-banner { border: 1px solid var(--gold); background: #ffcc3314; border-radius: 10px; padding: 10px 14px; font-size: 13.5px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tour { border-color: var(--gold); }
+.tour-head { width: 100%; }
+.tour-steps { margin: 8px 0 0; padding-left: 0; list-style: none; display: grid; gap: 6px; }
+.tour-steps li { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+.tour-steps li.ok span { color: var(--up); }
+.tour-steps li button { color: var(--muted); text-align: left; }
+.tour-steps li button:hover { color: var(--accent); }

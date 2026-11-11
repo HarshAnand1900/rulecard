@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-export const keys = JSON.parse(readFileSync(join(here, '.keys', 'keys.json'), 'utf8'));
+export const keys = JSON.parse(readFileSync(process.env.RULECARD_KEYS ?? join(here, '.keys', 'keys.json'), 'utf8'));
 export const NEAR = n => BigInt(utils.format.parseNearAmount(String(n)));
 export const TOKEN = 10n ** 18n;
 const GAS = 300_000_000_000_000n;

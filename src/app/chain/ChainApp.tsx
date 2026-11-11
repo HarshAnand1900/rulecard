@@ -96,25 +96,51 @@ type Ctx = { ch: Net; me: string; act: (l: string, f: () => Promise<unknown>, d?
 
 // ------------------------------------------------------------------ Discover
 function Discover({ ch, coins, tick, go }: Ctx) {
-  const [rows, setRows] = useState<Record<string, { c: CoinView; r: Ritual; raid: RaidView | null }>>({});
+  const [rows, setRows] = useState<Record<string, { c: CoinView; r: Ritual; raid: RaidView | null; raids: RaidView[]; gradAt: number | null }>>({});
+  const [show, setShow] = useState<'live' | 'grad'>('live');
   useEffect(() => {
     (async () => {
       const out: typeof rows = {};
       for (const e of coins) {
-        try { const [c, r, raid] = await Promise.all([ch.view<CoinView>(e.account_id, 'get_coin'), ch.view<Ritual>(e.account_id, 'get_ritual'), ch.view<RaidView | null>(e.account_id, 'get_raid')]); out[e.account_id] = { c, r, raid }; } catch { /* skip */ }
+        try {
+          const [c, r, raid] = await Promise.all([ch.view<CoinView>(e.account_id, 'get_coin'), ch.view<Ritual>(e.account_id, 'get_ritual'), ch.view<RaidView | null>(e.account_id, 'get_raid')]);
+          const extra = c.graduated ? await Promise.all([ch.view<RaidView[]>(e.account_id, 'get_raids'), ch.view<LogEntry[]>(e.account_id, 'get_log', { limit: 100 })]) : null;
+          out[e.account_id] = { c, r, raid, raids: extra?.[0] ?? [], gradAt: extra?.[1].find(l => l.kind === 'graduated')?.at ?? null };
+        } catch { /* skip */ }
       }
       setRows(out);
     })();
   }, [ch, coins, tick]);
+  const loaded = coins.filter(e => rows[e.account_id]);
+  const live = loaded.filter(e => !rows[e.account_id].c.graduated), grad = loaded.filter(e => rows[e.account_id].c.graduated);
+  const list = show === 'live' ? live : grad;
   return (
     <section>
-      <h1>Discover</h1>
-      <p className="muted">Every coin is its own NEP-141 contract with a curve, a pot, a Vault and a deck of rule cards. No admin key anywhere.</p>
+      <div className="row between wrap"><h1>Discover</h1>
+        <div className="seg" role="group" aria-label="Which coins">
+          <button aria-pressed={show === 'live'} onClick={() => setShow('live')}>Live · {live.length}</button>
+          <button aria-pressed={show === 'grad'} onClick={() => setShow('grad')}>Graduated · {grad.length}</button>
+        </div>
+      </div>
+      <p className="muted">{show === 'live' ? 'Coins still on their curve: rituals, cards and raids are on. Every coin is its own NEP-141 contract with no admin key.' : 'Hall of Fame: coins whose curve sold out. The game is over for them; their history stays on-chain. Listing on a DEX (Ref Finance) is the next step on the roadmap.'}</p>
       {!coins.length && <div className="panel">No coins yet. <button className="btn" onClick={() => go({ kind: 'launch' })}>Launch the first one</button></div>}
+      {coins.length > 0 && loaded.length < coins.length && <p className="small muted">Loading {coins.length - loaded.length} more…</p>}
+      {coins.length > 0 && !list.length && loaded.length === coins.length && <div className="panel muted">{show === 'live' ? 'Every coin has graduated.' : 'No coin has graduated yet: a curve sells out at ~' + nearAmt(3946) + ' NEAR.'}</div>}
       <div className="coin-grid">
-        {coins.map(e => {
-          const row = rows[e.account_id]; if (!row) return <div key={e.account_id} className="panel coin-card">Loading ${e.symbol}…</div>;
-          const { c, r, raid } = row;
+        {list.map(e => {
+          const { c, r, raid, raids, gradAt } = rows[e.account_id];
+          if (c.graduated) {
+            const won = raids.filter(x => x.result && x.result.outcome > 0).length, lost = raids.filter(x => x.result && x.result.outcome < 0).length;
+            return (
+              <button key={e.account_id} className="panel coin-card grad" onClick={() => go({ kind: 'coin', id: e.account_id })}>
+                <div className="row between"><strong className="big">${c.symbol}</strong><span className="chip gold">🎓 Graduated</span></div>
+                <div className="muted small">{c.name} · by {short(c.creator)}{gradAt ? ` · ${new Date(gradAt).toISOString().slice(0, 16).replace('T', ' ')} UTC` : ''}</div>
+                <div className="row between mono"><span>{fmtNear(toNear(c.mcap))} NEAR final mcap</span><span>{c.holders} holders</span></div>
+                <div className="row between small"><span>🔥 burned {fmtTok(toTok(c.burned))}</span><span>⚔ {won}W / {lost}L</span></div>
+                <div className="small muted">Creator escrow {toNear(c.escrow) > 0 ? `${fmtNear(toNear(c.escrow))} N to claim` : 'paid'}</div>
+              </button>
+            );
+          }
           const ritual = (pct(r.gm_count, r.gm_target) + pct(toNear(r.lock_near), toNear(r.lock_target))) / 2;
           return (
             <button key={e.account_id} className="panel coin-card" onClick={() => go({ kind: 'coin', id: e.account_id })}>
@@ -190,7 +216,13 @@ function CoinPage(p: Ctx & { id: string }) {
   if (!d) return <div className="panel">Loading…</div>;
   const { c, h } = d;
   const now = c.now;
-  const call = (label: string, m: string, a: object = {}, dep = 0n, done?: string) => act(label, () => ch.call(id, m, a, dep), done);
+  const tourKey = `rulecard-tour:${id}:${ch.me() ?? ''}`;
+  const call = (label: string, m: string, a: object = {}, dep = 0n, done?: string) => act(label, async () => {
+    const r = await ch.call(id, m, a, dep);
+    const step = ({ back: 'card', sign: 'card', stoke: 'card', fuel: 'card', bet: 'card', play_card: 'card', start_raid: 'raid', sign_raid: 'raid', set_plan: 'raid', battle_cry: 'raid' } as Record<string, string>)[m];
+    if (step) { try { const t = JSON.parse(localStorage.getItem(tourKey) ?? '{}'); t[step] = true; localStorage.setItem(tourKey, JSON.stringify(t)); } catch { /* ignore */ } }
+    return r;
+  }, done);
   const gmReady = !h || h.last_gm === 0 || now >= h.next_gm;
   const idleBurning = h && h.last_gm > 0 && now >= h.idle_burn_starts;
   const ritualPct = (pct(d.r.gm_count, d.r.gm_target) + pct(toNear(d.r.lock_near), toNear(d.r.lock_target))) / 2;
@@ -219,6 +251,8 @@ function CoinPage(p: Ctx & { id: string }) {
         </div>
       </div>
 
+      {c.graduated && <div className="grad-banner">🎓 <strong>${c.symbol} graduated</strong>: its curve sold out, so buys, rituals, cards and raids are over. Holders can still sell back to the curve. The creator's escrow ({fmtNear(toNear(c.escrow))} N) is claimable now. Next on the roadmap: graduating into a Ref Finance pool.
+        {ch.me() === c.creator && toNear(c.escrow) > 0 && <button className="btn small primary" disabled={!!busy} onClick={() => call('Claim escrow', 'claim_creator_escrow')}>Claim escrow</button>}</div>}
       <div className="stats">
         <Stat label="Energy" value={`${c.energy}/100`} bar={c.energy} />
         <Stat label="Pot" value={`${fmtNear(toNear(c.pot))} N`} sub={`spent today ${fmtNear(toNear(c.pot_spent_today))}`} />
@@ -229,6 +263,8 @@ function CoinPage(p: Ctx & { id: string }) {
       </div>
 
       <PriceChart points={d.prices} log={d.log} now={now} />
+
+      {ch.scale === 'demo' && !c.graduated && <Tour d={d} me={ch.me()} tourKey={tourKey} go={setTab} />}
 
       <nav className="tabs" aria-label="Coin sections">{tabs.map(([t, l]) => <button key={t} aria-pressed={tab === t} onClick={() => setTab(t)}>{l}</button>)}</nav>
       {lockPrompt !== null && (
@@ -508,6 +544,34 @@ function LogTab({ d }: TabProps) {
           <td className="small">{e.account ? short(e.account) : ''} {e.memo}</td>
         </tr>)}</tbody></table>
       <p className="small muted">Also emitted as NEP-297 events (nep141 ft_mint / ft_burn / ft_transfer and rulecard game events) for any indexer.</p>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ Demo tour
+function Tour({ d, me, tourKey, go }: { d: CoinData; me: string | null; tourKey: string; go: (t: Tab) => void }) {
+  const [open, setOpen] = useState(true);
+  let flags: Record<string, boolean> = {};
+  try { flags = JSON.parse(localStorage.getItem(tourKey) ?? '{}'); } catch { /* ignore */ }
+  const { h, hand } = d;
+  const mine = (p: Proposal) => !!me && (p.proposer === me || p.backers.includes(me) || p.chips.some(x => x.account === me) || p.bets.some(b => b.account === me));
+  const steps: [string, boolean, Tab, string][] = [
+    ['Buy some tokens', !!h && (toTok(h.balance) > 0 || toTok(h.locked) > 0), 'trade', 'Trade tab: a demo buy costs cents'],
+    ['Say gm', !!h && h.last_gm > 0, 'trade', 'the ☀ gm button in the header: +Energy and your idle clock resets'],
+    ['Lock in the Vault', !!h && h.locks.length > 0, 'vault', 'Vault tab: locked tokens are safe from idle burn and earn from it'],
+    ['Claim a pack', !!hand && hand.next_pack > 0, 'cards', 'Cards tab: 2 cards every 30 min after a gm'],
+    ['Back, sign or play a card', !!flags.card || [...d.table, ...d.hist].some(mine), 'cards', 'Cards tab: back a card on the Table, fuel an Inferno, bet on a Prophecy or play one of yours'],
+    ['Join a raid', !!flags.raid || d.plan.some(x => x > 0), 'raid', 'Raid tab: sign a raid, fill your 3-slot plan or Battle cry in a round'],
+  ];
+  const done = steps.filter(x => x[1]).length;
+  return (
+    <div className="panel tour">
+      <button className="linkish row between tour-head" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        <strong>Demo tour · {done}/{steps.length}</strong><span className="small muted">{done === steps.length ? 'all done: every step is a real transaction on-chain' : open ? 'hide' : 'show'}</span>
+      </button>
+      {open && <ol className="tour-steps">{steps.map(([t, ok, tab, hint]) => (
+        <li key={t} className={ok ? 'ok' : ''}><span>{ok ? '✓' : '○'} {t}</span>{!ok && <button className="linkish small" onClick={() => go(tab)}>{hint} →</button>}</li>
+      ))}</ol>}
     </div>
   );
 }

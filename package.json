@@ -14,7 +14,8 @@
     "sandbox:deploy": "node sandbox/deploy.mjs",
     "sandbox:reset": "bash sandbox/reset.sh",
     "sandbox:seed": "node sandbox/seed.mjs",
-    "contracts:build": "bash contracts/build.sh"
+    "contracts:build": "bash contracts/build.sh",
+    "bots": "node sandbox/bots.mjs"
   },
   "dependencies": {
     "@near-wallet-selector/core": "10.1.4",
