@@ -142,9 +142,20 @@ async function bootstrap() {
 
 log(`bots on the ${MODE} factory ${F}: ${bots.length} bots, ${PER} per coin per tick, every ${EVERY}s${FWD ? `, +${FWD} min per tick` : ''}`);
 if (BOOT) await bootstrap();
-for (let tick = 1; tick <= TICKS; tick++) {
-  const live = await liveCoins();
-  for (const x of live) { await housekeeping(x.id); await playCoin(x.id, live); }
-  log(`tick ${tick} done (${live.length} live coins: ${live.map(x => sym(x.id) + ' L' + x.level).join(', ')})`);
-  if (tick < TICKS) { if (FWD) await forward(FWD); else await sleep(EVERY * 1000); }
+// A tick that hits a network error (DNS, RPC down, rate limit) is logged and retried after a pause instead of ending the loop:
+// this has to run for days.
+let tick = 1, failures = 0;
+while (tick <= TICKS) {
+  try {
+    const live = await liveCoins();
+    for (const x of live) { await housekeeping(x.id); await playCoin(x.id, live); }
+    log(`tick ${tick} done (${live.length} live coins: ${live.map(x => sym(x.id) + ' L' + x.level).join(', ')})`);
+    failures = 0; tick++;
+    if (tick <= TICKS) { if (FWD) await forward(FWD); else await sleep(EVERY * 1000); }
+  } catch (e) {
+    failures++;
+    const wait = Math.min(300, 20 * failures);
+    log(`tick ${tick} failed (${String(e?.cause?.code ?? e?.message ?? e).slice(0, 90)}); retrying in ${wait}s`);
+    await sleep(wait * 1000);
+  }
 }
