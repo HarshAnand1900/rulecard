@@ -200,7 +200,7 @@ Every parameter above came out of a simulator in [`research/`](research) (Node, 
 
 ## What's in this build vs the roadmap
 
-**Built and tested** (`npm test`: 49 coin tests and 7 factory tests, each run at real and demo scale): factory, NEP-141 coins, curve and fees, gm, Energy, Daily Ritual,
+**Built and tested** (`npm test`: 50 coin tests and 7 factory tests, each run at real and demo scale): factory, NEP-141 coins, curve and fees, gm, Energy, Daily Ritual,
 levels and level drops, Vault, idle burn, the daily cap, packs, deck limits, Fade, make-room-first, Ember, Roll Call, Hype Siren,
 Prophecy (Bold bets), Inferno, tags and bet locks, raids with plans, Battle cry, scoring, spoils and win packs, price history, the log.
 
@@ -246,6 +246,19 @@ npx vite --mode testnet         # Connect wallet: MyNearWallet or Meteor
 | `sandbox/` | local chain scripts |
 | `research/` | simulators |
 | `docs/` | design (`v6-redesign.md`), build plan, UI spec (`ui-updates.md`), card designs |
+
+## How to check it yourself
+
+- **The Proof page** (top bar of the app) reads the chain live and checks, for the factory and every coin: no access keys, `admin: null`,
+  one code hash for all coins, **supply adds up** (tokens held + unsold curve + reward pool + DEX reserve = total supply, exactly),
+  the curve is fully backed, and the contract holds at least the NEAR its own books say it owes.
+- **A randomized test** (`random_operations_keep_every_invariant`): random buys, sells, check-ins, locks, unlocks, early exits,
+  transfers and pack claims from 10 wallets while time jumps by minutes, hours and days, under four creator-rule sets. After every
+  operation it checks that the curve is backed, the supply identity holds, no wallet lost more than the 8% daily cap, and the Vault's
+  totals match its wallets. It runs 900 operations by default and in CI; a 12,000-operation run (8 coins × 1,500 steps,
+  `RULECARD_FUZZ_SEEDS=8 RULECARD_FUZZ_STEPS=1500`) passes. Calls that fail are only the refusals a player can legitimately hit
+  (too early to gm, hand full, and so on); any other panic fails the test.
+- **CI** (`.github/workflows/ci.yml`) runs all of the above at both scales, plus the type check and the production build.
 
 ## One-tap and what's tested
 
