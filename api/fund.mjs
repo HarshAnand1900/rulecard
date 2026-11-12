@@ -6,7 +6,7 @@
 //   FUND_PRIVATE_KEY   that account's full-access key, "ed25519:..."
 //   FUND_NETWORK_ID    default "testnet"
 //   FUND_RPC           RPC url(s), comma separated (default: FastNEAR testnet, then rpc.testnet.near.org)
-//   FUND_AMOUNT_NEAR   sent to each new wallet (default 0.5)
+//   FUND_AMOUNT_NEAR   sent to each new wallet (default 0.25: the first buy is 0.09 plus 0.0125 storage, the rest is gas)
 //   FUND_KEEP_NEAR     the sponsor stops paying when its own balance would fall below this (default 1)
 //   FUND_POW_BITS      proof-of-work difficulty in zero bits (default 16; 0 turns it off)
 //   FUND_GLOBAL_HOUR   most wallets this site pays per hour (default 30)
@@ -81,7 +81,7 @@ async function fund(env, id, ip, _recent, _now, res) {
     for (const nodeUrl of urls) { try { near = await connect({ networkId, nodeUrl, keyStore: ks }); await near.connection.provider.status(); break; } catch (e) { lastErr = e; near = undefined; } }
     if (!near) throw lastErr ?? new Error('no RPC answered');
 
-    const amount = BigInt(utils.format.parseNearAmount(String(env.FUND_AMOUNT_NEAR ?? '0.5')));
+    const amount = BigInt(utils.format.parseNearAmount(String(env.FUND_AMOUNT_NEAR ?? '0.25')));
     const keep = BigInt(utils.format.parseNearAmount(String(env.FUND_KEEP_NEAR ?? '1')));
     const sponsor = await near.account(env.FUND_ACCOUNT_ID);
     const bal = BigInt((await sponsor.getAccountBalance()).available);

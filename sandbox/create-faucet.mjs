@@ -31,7 +31,7 @@ const acct = await rpc('query', { request_type: 'view_account', finality: 'final
 console.log(`\nPractice faucet ${YES ? '' : '— DRY RUN, nothing is sent'}
   your account   ${ACCOUNT}: ${fmt(acct.amount)} NEAR available
   credentials    ${existsSync(credPath) ? 'found' : 'NOT FOUND at ' + credPath}
-  create         ${faucetId} with ${AMOUNT} NEAR (about ${Math.floor((AMOUNT - 1) / 0.5)} practice wallets at 0.5 NEAR each; it keeps 1 NEAR back)
+  create         ${faucetId} with ${AMOUNT} NEAR (about ${Math.floor((AMOUNT - 1) / 0.25)} practice wallets at 0.25 NEAR each; it keeps 1 NEAR back)
   write          sandbox/.keys/faucet.json (its key; gitignored)
   then, on your host, set: FUND_ACCOUNT_ID=${faucetId}  FUND_PRIVATE_KEY=<the key from that file>  (and VITE_NETWORK, VITE_FACTORY_DEMO)
 `);

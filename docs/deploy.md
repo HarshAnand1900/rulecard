@@ -94,7 +94,7 @@ node sandbox/create-faucet.mjs --account YOU.testnet --credentials "C:/path/to/y
 |---|---|
 | `FUND_ACCOUNT_ID` | `faucet.YOU.testnet` |
 | `FUND_PRIVATE_KEY` | the `private_key` from `sandbox/.keys/faucet.json` (a secret: never commit it) |
-| `FUND_AMOUNT_NEAR` | `0.5` (sent to each new practice wallet) |
+| `FUND_AMOUNT_NEAR` | `0.25` (sent to each new practice wallet) |
 | `FUND_KEEP_NEAR` | `1` (the sponsor stops when its balance would fall below this) |
 | `FUND_PER_IP_HOUR` | `3` (wallets one visitor address can fund per hour) |
 | `VITE_NETWORK` / `VITE_FACTORY_DEMO` | `testnet` / `demo.YOU.testnet` |
