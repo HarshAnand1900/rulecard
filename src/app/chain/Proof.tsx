@@ -9,7 +9,7 @@ interface Check { label: string; ok: boolean | null; detail: string }
 interface CoinProof { entry: CoinEntry; checks: Check[]; codeHash: string; keys: number }
 interface FactoryProof { keys: number; admin: string | null; codeStored: boolean; mode: string; codeHash: string }
 
-const explorer = (ch: Net, id: string) => `https://${ch.mode === 'testnet' ? 'testnet.' : ''}nearblocks.io/address/${id}`;
+const explorer = (ch: Net, id: string) => (ch.explorer ? `${ch.explorer}/address/${id}` : undefined);
 const STORAGE_PER_BYTE = 10n ** 19n;
 const fmt = (y: bigint) => (Number(y / 10n ** 18n) / 1e6).toFixed(3);
 

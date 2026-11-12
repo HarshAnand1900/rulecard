@@ -21,6 +21,18 @@
         "5174"
       ],
       "port": 5174
+    },
+    {
+      "name": "rulecard-practice",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "--mode",
+        "practice",
+        "--port",
+        "5175"
+      ],
+      "port": 5175
     }
   ]
 }

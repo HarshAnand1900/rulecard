@@ -72,3 +72,43 @@ Then put the live URL at the top of the README ("Live demo").
 
 A judge connects MyNearWallet or Meteor (testnet), buys with faucet NEAR, and can try one-tap gm.
 The Real/Demo switch only appears when both `VITE_FACTORY_DEMO` and `VITE_FACTORY_REAL` are set; the hosted app is Demo only.
+
+## 4. Practice mode: play with no wallet
+
+The hosted app opens on two doors: **PLAY** (practice) and **PLAY WITH MY OWN TESTNET WALLET**.
+
+**PLAY** makes a throwaway wallet in the visitor's browser (an ordinary NEAR key kept in local storage), asks a small sponsor
+function for 0.5 testnet NEAR, buys a first bag and walks them through a 7-step guided first run. Every step is a real transaction
+signed locally, so there are no popups. The coins have no value. A visitor can back up the key from the *Practice* menu.
+
+The sponsor is `api/fund.mjs`, a Vercel Node function. Set it up once:
+
+```bash
+# 1. a separate faucet account, funded from your own (dry run first, then --yes)
+node sandbox/create-faucet.mjs --account YOU.testnet --credentials "C:/path/to/your-key.json" --amount 6
+node sandbox/create-faucet.mjs --account YOU.testnet --credentials "C:/path/to/your-key.json" --amount 6 --yes
+```
+2. On Vercel, add these environment variables (Project → Settings → Environment Variables). The key is in `sandbox/.keys/faucet.json`:
+
+| Variable | Value |
+|---|---|
+| `FUND_ACCOUNT_ID` | `faucet.YOU.testnet` |
+| `FUND_PRIVATE_KEY` | the `private_key` from `sandbox/.keys/faucet.json` (a secret: never commit it) |
+| `FUND_AMOUNT_NEAR` | `0.5` (sent to each new practice wallet) |
+| `FUND_KEEP_NEAR` | `1` (the sponsor stops when its balance would fall below this) |
+| `FUND_PER_IP_HOUR` | `3` (wallets one visitor address can fund per hour) |
+| `VITE_NETWORK` / `VITE_FACTORY_DEMO` | `testnet` / `demo.YOU.testnet` |
+
+What the sponsor will and won't do: it only funds brand-new accounts (a 64-hex-character implicit name), at most once each, never more
+than `FUND_AMOUNT_NEAR`, and it stops when it is nearly empty, answering "use your own wallet instead". Testnet NEAR has no value, so
+the worst abuse is draining the sponsor; refill it from your account whenever it runs low (about 10 practice wallets per 6 NEAR).
+
+**Testing it locally without spending anything:** `npm run dev -- --mode practice` runs the same flow against the local sandbox, with
+one of the sandbox accounts as the sponsor (needs `./sandbox/start.sh`, `node sandbox/deploy.mjs` and `node sandbox/seed.mjs`).
+
+## 5. Sounds
+
+The app plays short synthesized sound effects (gm, lock, buy and sell, packs, burns, Inferno, sirens, Ritual made or missed, raids,
+level-ups). They're generated with the Web Audio API, so there are no audio files, and the 🔊 button in the header mutes them (the
+choice is remembered). Browsers keep audio locked until the first click, so nothing plays before that. A sound slot for Omens exists;
+Omens themselves are on the roadmap.

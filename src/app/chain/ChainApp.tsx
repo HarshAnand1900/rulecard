@@ -1,7 +1,11 @@
 // Rulecard app: Discover, Launch and the coin page. Every action is a real transaction (local sandbox in dev).
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { toNear, toTok, nearToYocto, tokToUnits, fmtTok, fmtNear } from './near';
-import { openNet, type Net } from './net';
+import { openNet, savedDoor, saveDoor, needsDoor, type Net, type Door } from './net';
+import Landing from './Landing';
+import Onboard from './Onboard';
+import Guide, { guideWarVisited, markWarVisited } from './Guide';
+import { play, sfxForCall, isMuted, setMuted, onMuteChange } from './sound';
 import type {
   CoinEntry, CoinView, HolderView, Ritual, LevelView, LogEntry, HandView, Proposal, RaidView, Card, Question, Rule, BuyQuote,
 } from './types';
@@ -16,6 +20,7 @@ const dur = (ms: number) => { ms = Math.max(0, ms); const d = Math.floor(ms / (2
 let NS = 1, TS = 1;
 const nearAmt = (x: number) => fmtNear(x / NS);
 const hrs = (h: number) => dur((h * HOUR) / TS);
+const shortAcct = (a: string) => (/^[0-9a-f]{64}$/.test(a) ? `${a.slice(0, 6)}…${a.slice(-4)}` : a);
 const short = (a: string) => a.replace(/\.test\.near$/, '').replace(/\.rulecard$/, '');
 const pct = (a: number, b: number) => (b > 0 ? Math.min(100, (a / b) * 100) : 0);
 const TACTIC = ['', 'Rally', 'Curse', 'Ward'];
@@ -25,6 +30,8 @@ type Page = { kind: 'discover' } | { kind: 'launch' } | { kind: 'proof' } | { ki
 type Tab = 'trade' | 'today' | 'cards' | 'vault' | 'raid' | 'log';
 
 export default function ChainApp() {
+  const [door, setDoor] = useState<Door | null>(savedDoor());
+  const askDoor = needsDoor() && !door;
   const [ch, setCh] = useState<Net | null>(null);
   const [err, setErr] = useState('');
   const [me, setMe] = useState('you');
@@ -35,31 +42,42 @@ export default function ChainApp() {
   const [tick, setTick] = useState(0);
   const [bal, setBal] = useState(0);
   const [listErr, setListErr] = useState('');
+  const [ready, setReady] = useState(false); // practice mode: the wallet exists and holds its first bag
+  const [modal, setModal] = useState<'ways' | 'key' | null>(null);
+  const [muted, setMutedState] = useState(isMuted());
 
-  useEffect(() => { openNet().then(n => { n.onChange?.(() => setMe(n.me() ?? '')); setMe(n.me() ?? ''); setCh(n); }).catch(e => setErr(e.message)); }, []);
+  useEffect(() => onMuteChange(() => setMutedState(isMuted())), []);
+  useEffect(() => {
+    if (askDoor) return;
+    openNet(door).then(n => { n.onChange?.(() => setMe(n.me() ?? '')); setMe(n.me() ?? ''); setReady(n.mode !== 'practice' || !!n.me()); setCh(n); }).catch(e => setErr(e.message));
+  }, [door, askDoor]);
   const refresh = useCallback(() => setTick(t => t + 1), []);
   useEffect(() => { if (!ch) return; ch.view<CoinEntry[]>(ch.factoryId, 'list_coins', {}).then(c => { setCoins(c); setListErr(''); }).catch(e => setListErr(`Can't read the factory ${ch.factoryId}: ${e.message}`)); ch.balance().then(setBal); }, [ch, tick, me]);
-  useEffect(() => { const i = setInterval(refresh, ch?.mode === 'testnet' ? 10_000 : 5000); return () => clearInterval(i); }, [refresh, ch]);
+  useEffect(() => { const i = setInterval(refresh, ch && ch.mode !== 'sandbox' ? 10_000 : 5000); return () => clearInterval(i); }, [refresh, ch]);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 5000); return () => clearTimeout(t); }, [toast]);
+  useEffect(() => { if (page.kind === 'war' && me) markWarVisited(me); }, [page.kind, me]);
+  const switchDoor = (d: Door | null) => { saveDoor(d); location.reload(); };
 
   const act = useCallback(async (label: string, fn: () => Promise<unknown>, done?: string) => {
     setBusy(label);
     try { await fn(); setToast({ ok: true, text: done ?? `${label}: done` }); }
-    catch (e: any) { setToast({ ok: false, text: `${label}: ${e.message}` }); }
+    catch (e: any) { play('error'); setToast({ ok: false, text: `${label}: ${e.message}` }); }
     finally { setBusy(''); refresh(); }
   }, [refresh]);
 
-  if (err) return <div className="panel" style={{ margin: 16 }}><h2>Can't reach the chain</h2><p>{err}</p></div>;
+  if (askDoor) return <Landing onPick={d => { saveDoor(d); setDoor(d); }} />;
+  if (err) return <div className="panel" style={{ margin: 16 }}><h2>Can't reach the chain</h2><p>{err}</p>{needsDoor() && <button className="btn" onClick={() => switchDoor(door === 'practice' ? 'wallet' : 'practice')}>{door === 'practice' ? 'Use my own wallet instead' : 'Try practice mode instead'}</button>}</div>;
   if (ch) { NS = ch.scale === 'demo' ? 100 : 1; TS = ch.scale === 'demo' ? 12 : 1; }
-  if (!ch) return <div className="panel" style={{ margin: 16 }}>Connecting to the sandbox…</div>;
+  if (!ch) return <div className="panel" style={{ margin: 16 }}>Connecting…</div>;
   const ctx = { ch, me, act, busy, tick, coins, go: setPage };
+  const practice = ch.mode === 'practice';
 
   return (
     <>
       <header className="top">
         <div className="brand">
           <button className="logo linkish" onClick={() => setPage({ kind: 'discover' })}>RULECARD</button>
-          <span className="tag">memecoins with mechanics · {ch.mode}</span>
+          {practice ? <span className="tag practice" title="Free: a practice wallet was made for you, and the coins have no value">PRACTICE</span> : <span className="tag">{ch.mode === 'sandbox' ? 'local sandbox' : 'testnet · your wallet'}</span>}
         </div>
         {ch.scales.length > 1 && <div className="seg scale" role="group" aria-label="Game scale">
           {ch.scales.map(sc => <button key={sc} aria-pressed={ch.scale === sc} title={sc === 'demo' ? 'NEAR amounts ÷100, time 12× faster: a whole game in minutes' : 'Full-size numbers, real time'} onClick={() => { ch.setScale(sc); setCoins([]); setPage({ kind: 'discover' }); refresh(); }}>{sc === 'demo' ? 'Demo' : 'Real'}</button>)}
@@ -73,9 +91,19 @@ export default function ChainApp() {
         <div className="who">
           {ch.players ? <label className="small muted">Playing as{' '}
             <select value={ch.player} onChange={e => { ch.setPlayer!(e.target.value); setMe(ch.me() ?? ''); }}>{ch.players().map(p => <option key={p} value={p}>{p}</option>)}</select>
-          </label> : me ? <span className="small">{me} <button className="btn small ghost" onClick={() => ch.signOut!().then(refresh)}>Sign out</button></span>
+          </label> : practice ? <span className="small mono" title={me}>{shortAcct(me)}</span>
+            : me ? <span className="small">{me} <button className="btn small ghost" onClick={() => ch.signOut!().then(refresh)}>Sign out</button></span>
             : <button className="btn primary" onClick={() => ch.signIn!()}>Connect wallet</button>}
           {me && <span className="mono small">{fmtNear(bal)} NEAR</span>}
+          <button className="btn small ghost" aria-label={muted ? 'Turn sound on' : 'Turn sound off'} title={muted ? 'Sound is off' : 'Sound is on'} onClick={() => setMuted(!muted)}>{muted ? '🔇' : '🔊'}</button>
+          {needsDoor() && <details className="menu"><summary className="btn small ghost">{practice ? 'Practice' : 'Wallet'} ▾</summary><div className="menu-body">
+            <button onClick={() => setModal('ways')}>Two ways in: what is the difference?</button>
+            {practice ? <>
+              <button onClick={() => switchDoor('wallet')}>Switch to my own wallet</button>
+              <button onClick={() => setModal('key')}>Back up my practice key</button>
+              <button onClick={() => { if (confirm('Start over with a brand-new practice wallet? The current one is forgotten.')) { ch.resetWallet!(); location.reload(); } }}>Start over with a new wallet</button>
+            </> : <button onClick={() => switchDoor('practice')}>Switch to practice (free, no wallet)</button>}
+          </div></details>}
           {ch.fastForward && <span className="seg small" role="group" aria-label="Move sandbox time">
             {[[15, '+15m'], [60, '+1h'], [360, '+6h'], [1440, '+1d']].map(([m, l]) => (
               <button key={l} disabled={!!busy} onClick={() => act(`Time ${l}`, () => ch.fastForward!(m as number, coins.map(c => c.account_id)), `Moved the chain clock ${l}`)}>{l}</button>
@@ -83,10 +111,26 @@ export default function ChainApp() {
           </span>}
         </div>
       </header>
+      {practice && !ready && coins.length > 0 && <Onboard ch={ch} coins={coins} onDone={id => { setMe(ch.me() ?? ''); setReady(true); setPage({ kind: 'coin', id }); refresh(); }} onUseWallet={() => switchDoor('wallet')} />}
+      {practice && !ready && coins.length === 0 && !listErr && <div className="onboard"><div className="onboard-card">Looking for coins…</div></div>}
+      {modal && <div className="onboard" onClick={() => setModal(null)}><div className="onboard-card" onClick={e => e.stopPropagation()}>
+        {modal === 'ways' && <>
+          <h2 className="onboard-title">TWO WAYS IN, ONE GAME</h2>
+          <div className="way"><strong>PRACTICE</strong><span>Free. A practice wallet is made for you in this browser and sent a little testnet NEAR. Coins have no value. No popups.</span></div>
+          <div className="way"><strong>MY OWN WALLET</strong><span>Your own NEAR testnet account (MyNearWallet or Meteor). Same coins, same rules.</span></div>
+          <p className="small muted">Both run on NEAR testnet with real transactions. Neither uses real money.</p>
+        </>}
+        {modal === 'key' && <>
+          <h2 className="onboard-title">BACK UP YOUR PRACTICE KEY</h2>
+          <p className="small">This key is your practice wallet. It only lives in this browser: clear your browser data and it is gone. Anyone who has it can use this wallet, so do not share it. It has no value beyond this practice game.</p>
+          <textarea readOnly className="keybox" value={ch.exportKey?.() ?? ''} onFocus={e => e.currentTarget.select()} />
+        </>}
+        <button className="btn" onClick={() => setModal(null)}>Close</button>
+      </div></div>}
       {busy && <div className="busy" role="status">⏳ {busy}…</div>}
       {toast && <div className={`toast ${toast.ok ? 'ok' : 'bad'}`} role="status">{toast.text}</div>}
       <main className="page">
-        {ch.scale === 'demo' && <div className="demo-banner"><strong>Demo mode</strong>: same contract rules, but every NEAR amount is ÷100 and time runs 12× faster (gm every 30 min, a Ritual day is 2h, raid rounds 100 s). Separate factory and coins. Switch to <em>Real</em> for full-size numbers.</div>}
+        {ch.scale === 'demo' && !practice && <div className="demo-banner"><strong>Demo mode</strong>: same contract rules, but every NEAR amount is ÷100 and time runs 12× faster (gm every 30 min, a Ritual day is 2h, raid rounds 100 s). Separate factory and coins. Switch to <em>Real</em> for full-size numbers.</div>}
         {listErr && <div className="warn">{listErr}</div>}
         {page.kind === 'discover' && <Discover {...ctx} />}
         {page.kind === 'launch' && <Launch {...ctx} />}
@@ -219,14 +263,27 @@ function CoinPage(p: Ctx & { id: string }) {
       setD({ c, h, r, lv, hand, table, hist, raid, raids, log, plan, prices });
     })().catch(() => {});
   }, [ch, me, id, tick]);
+  const prev = useRef<CoinData | null>(null), prevId = useRef(id), lastBurn = useRef(0);
+  useEffect(() => {
+    if (prevId.current !== id) { prev.current = null; prevId.current = id; }
+    const q = prev.current;
+    if (d && q) {
+      if (d.c.level > q.c.level) play('levelUp');
+      if (d.r.streak > q.r.streak) play('ritualMade');
+      else if (d.r.day !== q.r.day && d.r.last_made === false) play('ritualMissed');
+      if (BigInt(d.c.burned) - BigInt(q.c.burned) >= 2_000_000n * 10n ** 18n && Date.now() - lastBurn.current > 20_000) { lastBurn.current = Date.now(); play('burn'); }
+      if (d.raid?.phase === 2 && q.raid?.phase !== 2) play('raidStart');
+      const lr = d.raids[d.raids.length - 1], pr = q.raids[q.raids.length - 1];
+      if (lr?.result && (!pr || pr.seq !== lr.seq || !pr.result)) play(lr.result.outcome > 0 ? 'raidWin' : 'raidLose');
+    }
+    prev.current = d;
+  }, [d, id]);
   if (!d) return <div className="panel">Loading…</div>;
   const { c, h } = d;
   const now = c.now;
-  const tourKey = `rulecard-tour:${id}:${ch.me() ?? ''}`;
   const call = (label: string, m: string, a: object = {}, dep = 0n, done?: string) => act(label, async () => {
     const r = await ch.call(id, m, a, dep);
-    const step = ({ back: 'card', sign: 'card', stoke: 'card', fuel: 'card', bet: 'card', play_card: 'card', start_raid: 'raid', sign_raid: 'raid', set_plan: 'raid', battle_cry: 'raid' } as Record<string, string>)[m];
-    if (step) { try { const t = JSON.parse(localStorage.getItem(tourKey) ?? '{}'); t[step] = true; localStorage.setItem(tourKey, JSON.stringify(t)); } catch { /* ignore */ } }
+    const sfx = sfxForCall(m, a); if (sfx) play(sfx);
     return r;
   }, done);
   const gmReady = !h || h.last_gm === 0 || now >= h.next_gm;
@@ -273,7 +330,8 @@ function CoinPage(p: Ctx & { id: string }) {
 
       <PriceChart points={d.prices} log={d.log} now={now} />
 
-      {ch.scale === 'demo' && !c.graduated && <Tour d={d} me={ch.me()} tourKey={tourKey} go={setTab} />}
+      {ch.scale === 'demo' && !c.graduated && <Guide ch={ch} me={ch.me()} coinId={id} h={h} hand={d.hand} r={d.r} busy={busy} visitedWar={guideWarVisited(ch.me())}
+        doCall={call} go={w => (w === 'war' ? p.go({ kind: 'war' }) : setTab(w))} fmtLock={() => (h ? BigInt(h.balance) / 2n : 0n)} />}
 
       <nav className="tabs" aria-label="Coin sections">{tabs.map(([t, l]) => <button key={t} aria-pressed={tab === t} onClick={() => setTab(t)}>{l}</button>)}</nav>
       {lockPrompt !== null && (
@@ -318,8 +376,8 @@ function TradeTab({ ch, me, id, d, now, busy, act, onBought }: TabProps & { onBo
         {d.raid?.phase === 2 && <div className="warn">A raid is on: selling pays +3% and lowers your side's Buy score.</div>}
         {c.rules.includes('PaperTax') && <div className="small muted">Paper Tax: 10% on selling tokens bought less than {hrs(1)} ago.</div>}
         <button className="btn primary" disabled={!!busy || amt <= 0 || !!locked || (side === 'buy' && c.graduated)} onClick={() => side === 'buy'
-          ? act('Buy', async () => { const t: string = await ch.call(id, 'buy', {}, nearToYocto(amt)); onBought(BigInt(t)); }, 'Bought')
-          : act('Sell', () => ch.call(id, 'sell', { amount: tokToUnits(amt).toString() }, 1n), 'Sold')}>{side === 'buy' ? `Buy with ${amt} NEAR` : `Sell ${fmtTok(amt)}`}</button>
+          ? act('Buy', async () => { const t: string = await ch.call(id, 'buy', {}, nearToYocto(amt)); play('buy'); onBought(BigInt(t)); }, 'Bought')
+          : act('Sell', async () => { await ch.call(id, 'sell', { amount: tokToUnits(amt).toString() }, 1n); play('sell'); }, 'Sold')}>{side === 'buy' ? `Buy with ${amt} NEAR` : `Sell ${fmtTok(amt)}`}</button>
       </div>
       <div className="panel stack">
         <h2>You</h2>
@@ -574,34 +632,6 @@ function LogTab({ d }: TabProps) {
           <td className="small">{e.account ? short(e.account) : ''} {e.memo}</td>
         </tr>)}</tbody></table>
       <p className="small muted">Also emitted as NEP-297 events (nep141 ft_mint / ft_burn / ft_transfer and rulecard game events) for any indexer.</p>
-    </div>
-  );
-}
-
-// ------------------------------------------------------------------ Demo tour
-function Tour({ d, me, tourKey, go }: { d: CoinData; me: string | null; tourKey: string; go: (t: Tab) => void }) {
-  const [open, setOpen] = useState(true);
-  let flags: Record<string, boolean> = {};
-  try { flags = JSON.parse(localStorage.getItem(tourKey) ?? '{}'); } catch { /* ignore */ }
-  const { h, hand } = d;
-  const mine = (p: Proposal) => !!me && (p.proposer === me || p.backers.includes(me) || p.chips.some(x => x.account === me) || p.bets.some(b => b.account === me));
-  const steps: [string, boolean, Tab, string][] = [
-    ['Buy some tokens', !!h && (toTok(h.balance) > 0 || toTok(h.locked) > 0), 'trade', 'Trade tab: a demo buy costs cents'],
-    ['Say gm', !!h && h.last_gm > 0, 'trade', 'the ☀ gm button in the header: +Energy and your idle clock resets'],
-    ['Lock in the Vault', !!h && h.locks.length > 0, 'vault', 'Vault tab: locked tokens are safe from idle burn and earn from it'],
-    ['Claim a pack', !!hand && hand.next_pack > 0, 'cards', 'Cards tab: 2 cards every 30 min after a gm'],
-    ['Back, sign or play a card', !!flags.card || [...d.table, ...d.hist].some(mine), 'cards', 'Cards tab: back a card on the Table, fuel an Inferno, bet on a Prophecy or play one of yours'],
-    ['Join a raid', !!flags.raid || d.plan.some(x => x > 0), 'raid', 'Raid tab: sign a raid, fill your 3-slot plan or Battle cry in a round'],
-  ];
-  const done = steps.filter(x => x[1]).length;
-  return (
-    <div className="panel tour">
-      <button className="linkish row between tour-head" onClick={() => setOpen(o => !o)} aria-expanded={open}>
-        <strong>Demo tour · {done}/{steps.length}</strong><span className="small muted">{done === steps.length ? 'all done: every step is a real transaction on-chain' : open ? 'hide' : 'show'}</span>
-      </button>
-      {open && <ol className="tour-steps">{steps.map(([t, ok, tab, hint]) => (
-        <li key={t} className={ok ? 'ok' : ''}><span>{ok ? '✓' : '○'} {t}</span>{!ok && <button className="linkish small" onClick={() => go(tab)}>{hint} →</button>}</li>
-      ))}</ol>}
     </div>
   );
 }

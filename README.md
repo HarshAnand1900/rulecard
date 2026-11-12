@@ -56,6 +56,17 @@ What this build uses that other chains don't give you as cleanly:
 Not used yet (roadmap): gasless check-ins through meta-transactions, buying a coin from another chain with NEAR Intents, and
 graduating into a Ref Finance pool.
 
+## Two ways in
+
+The hosted app opens on two doors into the same game, both on NEAR testnet with real transactions:
+- **PLAY (practice):** free, no wallet, no popups. A throwaway wallet is made in your browser, a small sponsor function sends it a
+  little testnet NEAR, it buys your first bag, and a 7-step guided first run (each step ticked from what the chain says you did, with
+  receipt links) takes you through gm, the Vault, a pack and the War Map. The coins have no value. You can back up the key from the menu.
+- **PLAY WITH MY OWN TESTNET WALLET:** MyNearWallet or Meteor, your own account, plus optional one-tap gm.
+
+Short synthesized sound effects (Web Audio, no audio files; mute in the header) go with the actions and with what happens to a coin:
+Ritual made or missed, burns, raids, level-ups.
+
 ## Demo mode and Real mode
 
 The same contract code is compiled twice, and the app has a **Demo / Real** switch:
