@@ -283,6 +283,6 @@ The app shows only what these views return. It never works out card effects, bur
 
 ---
 
-## 9. Omens [roadmap]
+## 9. Omens (four built; the rest [roadmap])
 
 When built: an **Omen banner** under the header ("Full Moon: Energy ×2 · 42 min left"), announced 15 min before. One icon per Omen (see card-designs.md §6).

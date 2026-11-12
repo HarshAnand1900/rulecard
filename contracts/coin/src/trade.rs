@@ -86,7 +86,8 @@ impl Coin {
         self.check_creator_lock(&a, &h, t, now);
         let out = self.with_pool(|p| p.sell(t));
         let fee = bps(out, FEE_BPS);
-        let tax = self.sell_tax(&mut h, t, out, now) + self.tag_fee(&mut h, t, out, now) + self.desert_fee(out, now);
+        let mut tax = self.sell_tax(&mut h, t, out, now) + self.tag_fee(&mut h, t, out, now) + self.desert_fee(out, now);
+        if self.omen_now(now) == 2 { tax += bps(out, THUNDER_BPS); } // Omen: Thunder
         self.raid_trade(&mut h, now, -(out as i128));
         let pay = out - fee - tax;
         if let Some(m) = min_near { require!(pay >= m.0, "slippage: less NEAR than min_near"); }
@@ -167,7 +168,8 @@ impl Coin {
         self.energy_acc += near.clamp(-cap, cap);
         let unit = ENERGY_NEAR as i128;
         if self.energy_acc >= unit {
-            let n = (self.energy_acc / unit) as u32;
+            let mut n = (self.energy_acc / unit) as u32;
+            if self.omen_now(env::block_timestamp_ms()) == 1 { n *= 2; } // Omen: Full Moon
             self.energy = (self.energy + n).min(ENERGY_MAX);
             self.energy_acc %= unit;
         }

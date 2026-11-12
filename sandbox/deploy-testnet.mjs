@@ -1,7 +1,11 @@
 // Deploy the DEMO-scale Rulecard world to NEAR testnet from your own funded testnet account.
 // Dry run by default: it checks your balance and prints exactly what it will do and what it costs. Add --yes to send.
 //
-//   node sandbox/deploy-testnet.mjs --account YOU.testnet [--coins 2] [--bots 8] [--bot-near 1.2] [--yes]
+//   node sandbox/deploy-testnet.mjs --account YOU.testnet [--coins 2] [--bots 8] [--bot-near 1.2] [--factory-name demo2] [--reuse-bots] [--yes]
+//
+// A redeploy (new contract code) needs a new factory name, because the old factory has no key left to change it. --reuse-bots keeps the
+// bots you already have (their keys stay in sandbox/.keys/testnet.json, the old file is copied to testnet.json.bak first) and only
+// creates the missing ones, so a redeploy costs the factory and the coins, not 16 new bots.
 //
 // Your key: put your account's credentials in a file OUTSIDE the repo, in the near-cli format
 //   { "account_id": "YOU.testnet", "private_key": "ed25519:..." }
@@ -9,7 +13,7 @@
 // prints it or writes it anywhere. Keys it creates for the new factory and bot accounts go to sandbox/.keys/testnet.json
 // (gitignored), which the bot runner uses: RULECARD_KEYS=sandbox/.keys/testnet.json npm run bots -- --mode demo
 import { connect, keyStores, KeyPair, utils, transactions } from 'near-api-js';
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -17,6 +21,8 @@ import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 const arg = (k, d) => { const i = process.argv.indexOf(`--${k}`); return i > 0 ? process.argv[i + 1] : d; };
 const YES = process.argv.includes('--yes');
+const REUSE = process.argv.includes('--reuse-bots');
+const FACTORY_NAME = arg('factory-name', 'demo');
 const ACCOUNT = arg('account', process.env.RULECARD_TESTNET_ACCOUNT);
 const COINS = Number(arg('coins', '2'));
 const BOTS = Number(arg('bots', '16')); // L2 needs 15 qualified wallets checking in within the window
@@ -42,15 +48,18 @@ const rpc = async (method, params) => { const r = await (await fetch(nodeUrl, { 
 const exists = async id => { try { await rpc('query', { request_type: 'view_account', finality: 'final', account_id: id }); return true; } catch { return false; } };
 
 const acct = await rpc('query', { request_type: 'view_account', finality: 'final', account_id: ACCOUNT });
-const factoryId = `demo.${ACCOUNT}`;
+const factoryId = `${FACTORY_NAME}.${ACCOUNT}`;
+const old = REUSE && existsSync(keyFile) ? JSON.parse(readFileSync(keyFile, 'utf8')) : null;
+const reusable = old ? Object.keys(old.accounts ?? {}).filter(k => /^bot\d+$/.test(k)) : [];
+const newBots = Math.max(0, BOTS - reusable.length);
 const coinDeposit = 5 + COIN_SEED; // the demo factory asks 5 NEAR storage (each coin carries its own code) + the seed
-const total = FACTORY_NEAR + COINS * coinDeposit + BOTS * BOT_NEAR + 0.3;
+const total = FACTORY_NEAR + COINS * coinDeposit + newBots * BOT_NEAR + 0.3;
 
 console.log(`\nRulecard testnet deploy (demo scale) ${YES ? '' : '— DRY RUN, nothing is sent'}
   your account      ${ACCOUNT}: ${fmt(acct.amount)} NEAR available
   credentials       ${existsSync(credPath) ? 'found at ' + credPath : 'NOT FOUND at ' + credPath}
   1. create         ${factoryId} with ${FACTORY_NEAR} NEAR, deploy the demo factory, store the demo coin code and delete its key (one transaction)
-  2. create         ${BOTS} bots bot1..bot${BOTS}.${ACCOUNT} with ${BOT_NEAR} NEAR each (= ${(BOTS * BOT_NEAR).toFixed(1)} NEAR)
+  2. bots           ${REUSE ? `keep ${Math.min(BOTS, reusable.length)} existing bots, create ${newBots} new` : `create ${BOTS} bots bot1..bot${BOTS}.${ACCOUNT}`} with ${BOT_NEAR} NEAR each (= ${(newBots * BOT_NEAR).toFixed(1)} NEAR)
   3. launch         ${COINS_META.map(c => '$' + c[1]).join(', ')} from ${ACCOUNT}: ${coinDeposit} NEAR each (5 storage + ${COIN_SEED} seed)
   4. write          sandbox/.keys/testnet.json (keys of the new accounts only; gitignored) and print your .env.testnet
   protocol fees go to ${ACCOUNT}. Estimated total ${total.toFixed(1)} NEAR (+ gas).
@@ -67,7 +76,8 @@ const ks = new keyStores.InMemoryKeyStore();
 await ks.setKey('testnet', ACCOUNT, KeyPair.fromString(cred.private_key ?? cred.secret_key));
 const near = await connect({ networkId: 'testnet', nodeUrl, keyStore: ks });
 const me = await near.account(ACCOUNT);
-const keys = { nodeUrl, networkId: 'testnet', factories: { demo: factoryId }, protocolId: ACCOUNT, accounts: {} };
+if (old) copyFileSync(keyFile, keyFile + '.bak');
+const keys = { nodeUrl, networkId: 'testnet', factories: { demo: factoryId }, protocolId: ACCOUNT, accounts: old ? { ...old.accounts } : {} };
 const save = () => { mkdirSync(dirname(keyFile), { recursive: true }); writeFileSync(keyFile, JSON.stringify(keys, null, 2)); };
 async function make(id, amount) {
   const kp = KeyPair.fromRandom('ed25519');
@@ -95,7 +105,7 @@ const params = await factory.viewFunction({ contractId: factoryId, methodName: '
 console.log(`   mode ${params.mode}, code stored ${params.code_stored}, admin ${params.admin}, coin storage ${fmt(params.deploy_deposit)} NEAR`);
 
 console.log(`2. ${BOTS} bots`);
-for (let i = 1; i <= BOTS; i++) { keys.accounts[`bot${i}`] = await make(`bot${i}.${ACCOUNT}`, BOT_NEAR); save(); }
+for (let i = 1; i <= BOTS; i++) { if (keys.accounts[`bot${i}`]) { console.log(`   bot${i}: kept`); continue; } keys.accounts[`bot${i}`] = await make(`bot${i}.${ACCOUNT}`, BOT_NEAR); save(); }
 
 console.log('3. coins');
 for (const [name, symbol, rules] of COINS_META) {

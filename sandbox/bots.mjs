@@ -83,6 +83,12 @@ async function ritualHelp(coin) {
   if (locked) log(`${sym(coin)}: ${locked} bots locked tokens for the Ritual`);
 }
 
+/** Omens roll when anyone touches a coin near the start of a cycle: poke the coins that are waiting, so players see the Omen coming. */
+async function omenPoke(coin) {
+  let o; try { o = await view(coin, 'get_omen'); } catch { return; } // coins from before Omens don't have it
+  if (o?.needs_roll) { await act(bots[0], coin, 'poke', {}, 0n, true); log(`${sym(coin)}: rolled the next Omen`); }
+}
+
 async function playCoin(coin, liveCoins) {
   const c = await view(coin, 'get_coin');
   for (const bot of [...bots].sort(() => Math.random() - 0.5).slice(0, PER)) {
@@ -172,7 +178,7 @@ let tick = 1, failures = 0;
 while (tick <= TICKS) {
   try {
     const live = await liveCoins();
-    for (const x of live) { await housekeeping(x.id); await ritualHelp(x.id); await playCoin(x.id, live); }
+    for (const x of live) { await housekeeping(x.id); await ritualHelp(x.id); await omenPoke(x.id); await playCoin(x.id, live); }
     log(`tick ${tick} done (${live.length} live coins: ${live.map(x => sym(x.id) + ' L' + x.level).join(', ')})`);
     failures = 0; tick++;
     if (tick <= TICKS) { if (FWD) await forward(FWD); else await sleep(EVERY * 1000); }

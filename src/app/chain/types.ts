@@ -59,3 +59,5 @@ export const RULE_TEXT: Record<Rule, string> = {
   WildCoin: 'Wild Omens 60% of the time', WarCoin: 'Raid shield 6h, spoils 20% both ways', PeaceCoin: 'No raids before L3',
 };
 export const LEVEL_NAME = ['', 'Launched', 'Rising', 'Hot', 'Legendary'];
+
+export interface OmenView { phase: 'none' | 'incoming' | 'active'; kind: number; name: string; text: string; starts_at: number; ends_at: number; needs_roll: boolean; }

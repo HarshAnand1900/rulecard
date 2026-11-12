@@ -109,6 +109,6 @@ one of the sandbox accounts as the sponsor (needs `./sandbox/start.sh`, `node sa
 ## 5. Sounds
 
 The app plays short synthesized sound effects (gm, lock, buy and sell, packs, burns, Inferno, sirens, Ritual made or missed, raids,
-level-ups). They're generated with the Web Audio API, so there are no audio files, and the 🔊 button in the header mutes them (the
-choice is remembered). Browsers keep audio locked until the first click, so nothing plays before that. A sound slot for Omens exists;
-Omens themselves are on the roadmap.
+level-ups, a jester's laugh when a coin misses its Ritual, a sad trombone when a raid is lost, an Omen sting). They're generated with the Web Audio API, so there are no audio files, and the 🔊 button in the header mutes them (the
+choice is remembered). Browsers keep audio locked until the first click, so nothing plays before that. The 🔊 menu has a volume slider and a list to
+preview every sound.

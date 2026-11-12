@@ -33,6 +33,7 @@ Track: **Memecoins With Mechanics** (NEAR). Judges score the mechanic, so this R
 |---|---|---|
 | **gm** | tap once every 6h | +1 Energy for the coin, your idle clock resets, counts toward today's Ritual |
 | **Daily Ritual** | the coin needs X wallets to gm and Y NEAR to be locked today | made: the pot buys and burns 5% (7% on a 3-day streak). Missed: idle burn ×2 for 6h |
+| **Omens** | on coins at level 2+, a one-hour Omen every 3 hours (2h break), rolled from the block's random seed and announced 15 min ahead | Full Moon (Energy ×2), Thunder (sells pay 1% more into the pot), Ghost Ember (the pot burns 3%), Treasure (one lucky gm gets a free pack) |
 | **Vault** | lock tokens for 6h / 24h / 72h | locked tokens are safe from every burn and earn half of what idle burn and early exits take |
 | **Idle burn** | nothing: it is the cost of not showing up | after 12h without a gm, 1% of your *unlocked* tokens every 6h: half burned, half to the Vault |
 | **Cards** | claim 2 cards every 6h; play them with other holders | Ember and Inferno burn from the pot; Prophecy is a 2h crowd bet; raid tactics fight other coins |
@@ -211,12 +212,12 @@ Every parameter above came out of a simulator in [`research/`](research) (Node, 
 
 ## What's in this build vs the roadmap
 
-**Built and tested** (`npm test`: 50 coin tests and 7 factory tests, each run at real and demo scale): factory, NEP-141 coins, curve and fees, gm, Energy, Daily Ritual,
-levels and level drops, Vault, idle burn, the daily cap, packs, deck limits, Fade, make-room-first, Ember, Roll Call, Hype Siren,
+**Built and tested** (`npm test`: 55 coin tests and 7 factory tests, each run at real and demo scale): factory, NEP-141 coins, curve and fees, gm, Energy, Daily Ritual,
+Omens (four of the thirteen designed: Full Moon, Thunder, Ghost Ember, Treasure), levels and level drops, Vault, idle burn, the daily cap, packs, deck limits, Fade, make-room-first, Ember, Roll Call, Hype Siren,
 Prophecy (Bold bets), Inferno, tags and bet locks, raids with plans, Battle cry, scoring, spoils and win packs, price history, the log.
 
 **Roadmap (designed in [`docs/v6-redesign.md`](docs/v6-redesign.md))**: Fire-vs-Stop contests and the contested cards (Storm,
-Black Hole, Whale Tax, Heist, Supernova), Plunder, Omens, Prophecy Safe bets and pack Duels, more Rares and Epics, Mythics, Card
+Black Hole, Whale Tax, Heist, Supernova), Plunder, the other nine Omens, Prophecy Safe bets and pack Duels, more Rares and Epics, Mythics, Card
 NFTs and a market, Hold the Line, commit-reveal raid plans, graduation into a DEX pool.
 
 ## Run it locally

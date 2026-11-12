@@ -278,3 +278,9 @@ table.log tr.burn td:nth-child(2) { color: var(--down); } table.log tr.mint td:n
 .menu-body { position: absolute; right: 0; top: calc(100% + 6px); z-index: 25; min-width: 250px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px; display: flex; flex-direction: column; box-shadow: 0 8px 24px #000a; }
 .menu-body button { background: none; border: 0; color: var(--ink); text-align: left; padding: 8px 10px; border-radius: 6px; cursor: pointer; } .menu-body button:hover { background: var(--sunk); }
 .keybox { width: 100%; min-height: 84px; font: 12px var(--f-mono); background: var(--sunk); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
+
+.omen-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 10px 14px; border: 1px solid var(--gold); border-radius: 10px; background: linear-gradient(90deg, #ffcc3318, transparent 70%), var(--panel); }
+.omen-banner.incoming { border-style: dashed; opacity: .85; }
+.omen-banner .omen-name { font: 400 18px/1 var(--f-display); letter-spacing: .04em; color: var(--gold); }
+.omen-banner.active .omen-name { animation: omenpulse 1.6s ease-in-out infinite; }
+@keyframes omenpulse { 50% { text-shadow: 0 0 12px var(--gold); } }

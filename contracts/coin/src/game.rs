@@ -22,13 +22,19 @@ impl Coin {
         let value = self.pool().value(h.bal + self.locked_of(&h));
         require!(value >= GM_MIN_VALUE, "hold at least 1 NEAR worth to gm");
         h.last_gm = now; h.idle_from = now; h.idle_applied = now;
-        let gain = if now < self.rollcall_until { self.rollcall_mult } else { 1 };
+        let mut gain = if now < self.rollcall_until { self.rollcall_mult } else { 1 };
+        if self.omen_now(now) == 1 { gain *= 2; } // Omen: Full Moon
         self.energy = (self.energy + gain).min(ENERGY_MAX);
         self.count_eligibility(&mut h, now);
         let today = now / DAY;
         if h.ritual_day != today + 1 { h.ritual_day = today + 1; self.ritual.gm_count += 1; } // stored +1 so day 0 isn't "already counted"
         let qualified = value >= QUALIFIED_VALUE && h.since > 0 && now >= h.since + QUALIFIED_HOLD;
         if qualified && (h.counted_checkin_at == 0 || now >= h.counted_checkin_at + DAY) { h.counted_checkin_at = now; self.checkins.add(now, 1); }
+        // Omen: Treasure. One lucky gm of the hour gets a pack that is ready to open now.
+        if self.omen_now(now) == 4 {
+            self.omen.gms += 1;
+            if self.omen.gms == self.omen.lucky && h.next_pack > now { h.next_pack = 0; self.push_log(now, "omen", Some(a.clone()), 0, 0, "Treasure: a free pack"); }
+        }
         self.save(&a, h);
         events::rulecard("gm", json!({ "account_id": a, "energy": self.energy, "ritual_gm": self.ritual.gm_count }));
         self.touch_level(now);
@@ -242,6 +248,7 @@ impl Coin {
             n += 1;
         }
         if self.ritual.day < today { self.ritual.day = today; }
+        self.touch_omen(now);
         self.step_all(now);
         self.expire_raid(now);
     }

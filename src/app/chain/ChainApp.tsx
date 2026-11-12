@@ -7,7 +7,7 @@ import Onboard from './Onboard';
 import Guide, { guideWarVisited, markWarVisited } from './Guide';
 import { play, sfxForCall, isMuted, setMuted, onMuteChange, getVolume, setVolume, SFX_LIST } from './sound';
 import type {
-  CoinEntry, CoinView, HolderView, Ritual, LevelView, LogEntry, HandView, Proposal, RaidView, Card, Question, Rule, BuyQuote,
+  CoinEntry, CoinView, HolderView, Ritual, LevelView, LogEntry, HandView, Proposal, RaidView, Card, Question, Rule, BuyQuote, OmenView,
 } from './types';
 import { TIER_OF, TIER_NAME, CARD_TEXT, RULE_TEXT, LEVEL_NAME } from './types';
 import PriceChart, { type PricePoint } from './PriceChart';
@@ -249,7 +249,7 @@ function Launch({ ch, me, act, busy, go }: Ctx) {
 }
 
 // ------------------------------------------------------------------ Coin page
-interface CoinData { c: CoinView; h: HolderView | null; r: Ritual; lv: LevelView; hand: HandView | null; table: Proposal[]; hist: Proposal[]; raid: RaidView | null; raids: RaidView[]; log: LogEntry[]; plan: number[]; prices: PricePoint[]; }
+interface CoinData { c: CoinView; h: HolderView | null; r: Ritual; lv: LevelView; hand: HandView | null; table: Proposal[]; hist: Proposal[]; raid: RaidView | null; raids: RaidView[]; log: LogEntry[]; plan: number[]; prices: PricePoint[]; omen: OmenView | null; }
 
 function CoinPage(p: Ctx & { id: string }) {
   const { ch, me, act, busy, tick, id } = p;
@@ -260,12 +260,13 @@ function CoinPage(p: Ctx & { id: string }) {
     (async () => {
       const acc = ch.me(); const v = <T,>(m: string, a: object = {}) => ch.view<T>(id, m, a);
       const mine = <T,>(m: string): Promise<T | null> => (acc ? v<T>(m, { account_id: acc }) : Promise.resolve(null));
-      const [c, h, r, lv, hand, table, hist, raid, raids, log, plan, prices] = await Promise.all([
+      const [c, h, r, lv, hand, table, hist, raid, raids, log, plan, prices, omen] = await Promise.all([
         v<CoinView>('get_coin'), mine<HolderView>('get_holder'), v<Ritual>('get_ritual'), v<LevelView>('get_level_progress'),
         mine<HandView>('get_hand'), v<Proposal[]>('get_table'), v<Proposal[]>('get_history'), v<RaidView | null>('get_raid'), v<RaidView[]>('get_raids'),
         v<LogEntry[]>('get_log', { limit: 100 }), mine<number[]>('get_my_plan').then(x => x ?? []), v<PricePoint[]>('get_prices'),
+        v<OmenView>('get_omen').catch(() => null), // coins launched before Omens existed don't have it
       ]);
-      setD({ c, h, r, lv, hand, table, hist, raid, raids, log, plan, prices });
+      setD({ c, h, r, lv, hand, table, hist, raid, raids, log, plan, prices, omen });
     })().catch(() => {});
   }, [ch, me, id, tick]);
   const prev = useRef<CoinData | null>(null), prevId = useRef(id), lastBurn = useRef(0);
@@ -277,6 +278,7 @@ function CoinPage(p: Ctx & { id: string }) {
       if (d.r.streak > q.r.streak) play('ritualMade');
       else if (d.r.day !== q.r.day && d.r.last_made === false) play('ritualMissed');
       if (BigInt(d.c.burned) - BigInt(q.c.burned) >= 2_000_000n * 10n ** 18n && Date.now() - lastBurn.current > 20_000) { lastBurn.current = Date.now(); play('burn'); }
+      if (d.omen?.phase === 'active' && d.omen.kind && !(q.omen?.phase === 'active' && q.omen.starts_at === d.omen.starts_at)) play('omen');
       if (d.raid?.phase === 2 && q.raid?.phase !== 2) play('raidStart');
       const lr = d.raids[d.raids.length - 1], pr = q.raids[q.raids.length - 1];
       if (lr?.result && (!pr || pr.seq !== lr.seq || !pr.result)) play(lr.result.outcome > 0 ? 'raidWin' : 'raidLose');
@@ -324,6 +326,12 @@ function CoinPage(p: Ctx & { id: string }) {
 
       {c.graduated && <div className="grad-banner">🎓 <strong>${c.symbol} graduated</strong>: its curve sold out, so buys, rituals, cards and raids are over. Holders can still sell back to the curve. The creator's escrow ({fmtNear(toNear(c.escrow))} N) is claimable now. Next on the roadmap: graduating into a Ref Finance pool.
         {ch.me() === c.creator && toNear(c.escrow) > 0 && <button className="btn small primary" disabled={!!busy} onClick={() => call('Claim escrow', 'claim_creator_escrow')}>Claim escrow</button>}</div>}
+      {d.omen && d.omen.phase !== 'none' && d.omen.kind > 0 && <div className={`omen-banner ${d.omen.phase}`} role="status">
+        <span className="omen-name">{d.omen.phase === 'active' ? '✦ OMEN' : '✧ OMEN INCOMING'} · {d.omen.name}</span>
+        <span className="small">{d.omen.text}</span>
+        <span className="mono small">{d.omen.phase === 'active' ? `ends in ${dur(d.omen.ends_at - now)}` : `starts in ${dur(d.omen.starts_at - now)}`}</span>
+      </div>}
+      {c.level < 2 && <p className="small muted">Omens (short luck events every few hours) begin when the coin reaches level 2.</p>}
       <div className="stats">
         <Stat label="Energy" value={`${c.energy}/100`} bar={c.energy} />
         <Stat label="Pot" value={`${fmtNear(toNear(c.pot))} N`} sub={`spent today ${fmtNear(toNear(c.pot_spent_today))}`} />

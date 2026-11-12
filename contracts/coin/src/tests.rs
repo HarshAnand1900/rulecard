@@ -11,6 +11,7 @@ fn ctx(who: usize, deposit: u128, ms: u64) {
         .attached_deposit(NearToken::from_yoctonear(deposit))
         .account_balance(NearToken::from_near(10_000_000)) // the mock contract can pay out any sell
         .block_timestamp(ms * 1_000_000)
+        .random_seed({ let mut sd = [0u8; 32]; sd[..8].copy_from_slice(&(ms / 997).wrapping_mul(0x9E37_79B9_7F4A_7C15).to_le_bytes()); sd[8] = (ms / 31) as u8; sd })
         .prepaid_gas(near_sdk::Gas::from_tgas(300));
     testing_env!(b.build());
 }
@@ -709,6 +710,7 @@ fn random_operations_keep_every_invariant() {
     for seed in 0..seeds {
         fresh_storage(); // each seed is a new coin on an empty chain
         let mut c = launch(rule_sets[(seed % 4) as usize].clone());
+        c.level = 2; // Omens run from level 2: the fuzz run covers them too
         let mut rng = Rng(0x9E37_79B9 ^ (seed + 1) * 7919);
         let mut ms = T0 + 1000;
         let mut registered = [false; 11];
@@ -765,4 +767,85 @@ fn random_operations_keep_every_invariant() {
         ctx(1, 0, ms); c.poke();
         invariants(&c, &users, &format!("seed {seed} end"));
     }
+}
+
+// ------------------------------------------------------------------ Omens
+fn omen_base() -> u64 { (T0 / OMEN_CYCLE + 4) * OMEN_CYCLE }
+fn force_omen(c: &mut Coin, base: u64, kind: u8) { c.omen = Omen { cycle: base / OMEN_CYCLE + 1, kind, fired: false, lucky: 1, gms: 0 }; }
+
+#[test]
+fn omen_is_announced_ahead_and_only_on_level_2_and_up() {
+    let mut c = launch(vec![]);
+    let base = omen_base();
+    ctx(1, 0, base - 10 * MIN); c.poke();
+    assert_eq!(c.omen.cycle, 0, "level 1 coins have no Omens");
+    c.level = 2;
+    ctx(1, 0, base - 10 * MIN); c.poke();
+    assert_eq!(c.omen.cycle, base / OMEN_CYCLE + 1, "rolled for the cycle that starts in 10 minutes");
+    let before = c.omen.kind;
+    ctx(1, 0, base - 5 * MIN); c.poke();
+    assert_eq!(c.omen.kind, before, "one roll per cycle");
+    // far from any Omen window (break): nothing is rolled
+    let mut d = launch(vec![]); d.level = 2;
+    ctx(1, 0, base + 2 * HOUR); d.poke();
+    assert_eq!(d.omen.cycle, 0, "no roll in the middle of a break");
+}
+
+#[test]
+fn full_moon_doubles_energy_from_gm() {
+    let mut c = launch(vec![]); c.level = 2;
+    let base = omen_base();
+    buy(&mut c, 1, n(10), base - 3 * HOUR); buy(&mut c, 2, n(10), base - 3 * HOUR);
+    force_omen(&mut c, base, 1);
+    let e0 = c.energy;
+    ctx(1, 0, base + 10 * MIN); c.gm();
+    assert_eq!(c.energy, e0 + 2, "gm during Full Moon");
+    ctx(2, 0, base + 2 * HOUR); c.gm();
+    assert_eq!(c.energy, e0 + 3, "gm after the hour is normal");
+}
+
+#[test]
+fn thunder_sells_pay_one_percent_more_into_the_pot() {
+    let mut c = launch(vec![]); c.level = 2;
+    let base = omen_base();
+    let t = buy(&mut c, 1, n(10), base - 3 * HOUR);
+    force_omen(&mut c, base, 2);
+    ctx(1, 0, base + 10 * MIN); let q = c.quote_sell(U128(t / 2), Some(acc(1)));
+    let pot0 = c.pot;
+    ctx(1, 1, base + 10 * MIN); let pay = c.sell(U128(t / 2), None).0;
+    let gross = q.near_out.0 + q.fee.0;
+    assert_eq!(q.near_out.0 - pay, bps(gross, THUNDER_BPS), "Thunder takes 1% of the sale");
+    assert!(c.pot - pot0 >= bps(gross, THUNDER_BPS), "and it goes to the pot");
+    assert!(c.pool().solvent());
+    check_supply(&mut c, &[1], base + 20 * MIN);
+}
+
+#[test]
+fn ghost_ember_burns_three_percent_of_the_pot_once() {
+    let mut c = launch(vec![]); c.level = 2;
+    let base = omen_base();
+    buy(&mut c, 1, n(10), base - 3 * HOUR);
+    force_omen(&mut c, base, 3);
+    let (pot0, burned0) = (c.pot, c.burned);
+    ctx(2, 0, base + MIN); c.poke();
+    assert!(c.omen.fired && c.burned > burned0);
+    assert!(pot0 - c.pot <= bps(pot0, GHOST_EMBER_BPS) + 1 && pot0 - c.pot >= bps(pot0, GHOST_EMBER_BPS) - 1, "3% of the pot");
+    let after = (c.pot, c.burned);
+    ctx(2, 0, base + 5 * MIN); c.poke();
+    assert_eq!((c.pot, c.burned), after, "fires once");
+    check_supply(&mut c, &[1], base + 10 * MIN);
+}
+
+#[test]
+fn treasure_makes_the_lucky_gm_pack_ready() {
+    let mut c = launch(vec![]); c.level = 2;
+    let base = omen_base();
+    buy(&mut c, 1, n(10), base - 7 * HOUR);
+    ctx(1, 0, base - 6 * HOUR); c.gm();
+    ctx(1, 0, base - 3 * HOUR); let _ = c.claim_pack(); // opened late: the next pack is still 3h away when the next gm comes
+    assert!(c.holder(&acc(1)).next_pack > base + 5 * MIN, "pack on cooldown");
+    force_omen(&mut c, base, 4);
+    ctx(1, 0, base + 5 * MIN); c.gm();
+    assert_eq!(c.holder(&acc(1)).next_pack, 0, "the lucky gm gets a pack ready");
+    ctx(1, 0, base + 6 * MIN); assert!(!c.claim_pack().is_empty());
 }

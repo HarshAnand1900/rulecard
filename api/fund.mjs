@@ -15,6 +15,9 @@
 import { connect, keyStores, KeyPair, utils } from 'near-api-js';
 
 const hits = new Map(); // ip -> [timestamps]; per warm instance, best effort
+const funded = new Set(); // wallets this instance already paid: a retry (or a double click) never pays twice
+let queue = Promise.resolve(); // one payment at a time: two payments from the same key at once collide on the nonce
+const allHits = []; // every payment this instance made (a cap on the whole site, not just one visitor)
 
 const send = (res, status, body) => {
   res.statusCode = status;
@@ -42,10 +45,19 @@ export default async function handler(req, res) {
   const id = String(body.account_id ?? '');
   if (!/^[0-9a-f]{64}$/.test(id)) return send(res, 400, { error: 'account_id must be a 64-character implicit account name' });
 
+  if (funded.has(id)) return send(res, 200, { ok: true, already: true });
   const ip = String(req.headers['x-forwarded-for'] ?? req.socket?.remoteAddress ?? 'unknown').split(',')[0].trim();
   const limit = Number(env.FUND_PER_IP_HOUR ?? 3), now = Date.now();
   const recent = (hits.get(ip) ?? []).filter(t => now - t < 3_600_000);
   if (recent.length >= limit) return send(res, 429, { error: 'Too many practice wallets from your address this hour: use your own wallet, or try later.' });
+  while (allHits.length && now - allHits[0] > 3_600_000) allHits.shift();
+  if (allHits.length >= Number(env.FUND_GLOBAL_HOUR ?? 30)) return send(res, 429, { error: 'A lot of people are practicing right now: try again in a few minutes, or use your own wallet.' });
+  return queue = queue.catch(() => {}).then(() => fund(env, id, ip, recent, now, res));
+}
+
+async function fund(env, id, ip, _recent, _now, res) {
+  if (funded.has(id)) return send(res, 200, { ok: true, already: true });
+  const now = Date.now(), recent = (hits.get(ip) ?? []).filter(t => now - t < 3_600_000); // fresh: other payments may have run while this one waited
 
   try {
     const networkId = env.FUND_NETWORK_ID ?? 'testnet';
@@ -63,9 +75,10 @@ export default async function handler(req, res) {
     if (bal < amount + keep) return send(res, 503, { error: 'The practice faucet is empty right now: use your own testnet wallet instead.' });
 
     // already funded? (an account that exists with real money is left alone)
-    try { const a = await near.connection.provider.query({ request_type: 'view_account', finality: 'final', account_id: id }); if (BigInt(a.amount) >= amount / 2n) return send(res, 200, { ok: true, already: true }); } catch { /* not created yet: that's the normal case */ }
+    try { const a = await near.connection.provider.query({ request_type: 'view_account', finality: 'optimistic', account_id: id }); if (BigInt(a.amount) >= amount / 2n) return send(res, 200, { ok: true, already: true }); } catch { /* not created yet: that's the normal case */ }
 
     const out = await sponsor.sendMoney(id, amount);
+    funded.add(id); allHits.push(now);
     hits.set(ip, [...recent, now]);
     return send(res, 200, { ok: true, tx: out.transaction?.hash, amount: String(amount) });
   } catch (e) {
