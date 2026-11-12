@@ -1,0 +1,9 @@
+# Never upload secrets or build junk to the host
+sandbox/.keys
+.env
+.env.*
+contracts/out
+contracts/**/target
+node_modules
+.claude
+research
