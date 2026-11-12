@@ -22,6 +22,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const arg = (k, d) => { const i = process.argv.indexOf(`--${k}`); return i > 0 ? process.argv[i + 1] : d; };
 const YES = process.argv.includes('--yes');
 const REUSE = process.argv.includes('--reuse-bots');
+const TOPUP_TO = Number(arg('topup-to', '0')); // bring each kept bot up to this many NEAR (sends only the difference)
 const TOPUP = Number(arg('topup', '0')); // NEAR sent to each kept bot (3 coins need more than 2)
 const FACTORY_NAME = arg('factory-name', 'demo');
 const ACCOUNT = arg('account', process.env.RULECARD_TESTNET_ACCOUNT);
@@ -55,13 +56,21 @@ const reusable = old ? Object.keys(old.accounts ?? {}).filter(k => /^bot\d+$/.te
 const newBots = Math.max(0, BOTS - reusable.length);
 const coinDeposit = 5 + COIN_SEED; // the demo factory asks 5 NEAR storage (each coin carries its own code) + the seed
 const keptBots = Math.min(BOTS, reusable.length);
-const total = FACTORY_NEAR + COINS * coinDeposit + newBots * BOT_NEAR + keptBots * TOPUP + 0.3;
+const balOf = async id => { try { return BigInt((await rpc('query', { request_type: 'view_account', finality: 'final', account_id: id })).amount); } catch { return 0n; } };
+const topups = {}; // bot name -> NEAR to send
+for (const k of reusable.slice(0, BOTS)) {
+  const id = old.accounts[k].accountId;
+  const want = TOPUP_TO > 0 ? Math.max(0, TOPUP_TO - Number(await balOf(id) / 10n ** 21n) / 1000) : TOPUP;
+  if (want > 0.005) topups[k] = Number(want.toFixed(3));
+}
+const topupTotal = Object.values(topups).reduce((a, b) => a + b, 0);
+const total = FACTORY_NEAR + COINS * coinDeposit + newBots * BOT_NEAR + topupTotal + 0.3;
 
 console.log(`\nRulecard testnet deploy (demo scale) ${YES ? '' : '— DRY RUN, nothing is sent'}
   your account      ${ACCOUNT}: ${fmt(acct.amount)} NEAR available
   credentials       ${existsSync(credPath) ? 'found at ' + credPath : 'NOT FOUND at ' + credPath}
   1. create         ${factoryId} with ${FACTORY_NEAR} NEAR, deploy the demo factory, store the demo coin code and delete its key (one transaction)
-  2. bots           ${REUSE ? `keep ${Math.min(BOTS, reusable.length)} existing bots, create ${newBots} new` : `create ${BOTS} bots bot1..bot${BOTS}.${ACCOUNT}`} with ${BOT_NEAR} NEAR each (= ${(newBots * BOT_NEAR).toFixed(1)} NEAR)${TOPUP ? `, and send each kept bot ${TOPUP} NEAR more (= ${(keptBots * TOPUP).toFixed(1)} NEAR)` : ''}
+  2. bots           ${REUSE ? `keep ${Math.min(BOTS, reusable.length)} existing bots, create ${newBots} new` : `create ${BOTS} bots bot1..bot${BOTS}.${ACCOUNT}`} with ${BOT_NEAR} NEAR each (= ${(newBots * BOT_NEAR).toFixed(1)} NEAR)${topupTotal ? `, and top up ${Object.keys(topups).length} of them${TOPUP_TO ? ` to ${TOPUP_TO} NEAR each` : ` by ${TOPUP} each`} (= ${topupTotal.toFixed(2)} NEAR)` : ''}
   3. launch         ${COINS_META.map(c => '$' + c[1]).join(', ')} from ${ACCOUNT}: ${coinDeposit} NEAR each (5 storage + ${COIN_SEED} seed)
   4. write          sandbox/.keys/testnet.json (keys of the new accounts only; gitignored) and print your .env.testnet
   protocol fees go to ${ACCOUNT}. Estimated total ${total.toFixed(1)} NEAR (+ gas).
@@ -107,7 +116,7 @@ const params = await factory.viewFunction({ contractId: factoryId, methodName: '
 console.log(`   mode ${params.mode}, code stored ${params.code_stored}, admin ${params.admin}, coin storage ${fmt(params.deploy_deposit)} NEAR`);
 
 console.log(`2. ${BOTS} bots`);
-for (let i = 1; i <= BOTS; i++) { if (keys.accounts[`bot${i}`]) { if (TOPUP > 0) await me.sendMoney(`bot${i}.${ACCOUNT}`, N(TOPUP)); console.log(`   bot${i}: kept${TOPUP ? `, +${TOPUP} NEAR` : ''}`); continue; } keys.accounts[`bot${i}`] = await make(`bot${i}.${ACCOUNT}`, BOT_NEAR); save(); }
+for (let i = 1; i <= BOTS; i++) { if (keys.accounts[`bot${i}`]) { const t = topups[`bot${i}`]; if (t) await me.sendMoney(`bot${i}.${ACCOUNT}`, N(t)); console.log(`   bot${i}: kept${t ? `, +${t} NEAR` : ''}`); continue; } keys.accounts[`bot${i}`] = await make(`bot${i}.${ACCOUNT}`, BOT_NEAR); save(); }
 
 console.log('3. coins');
 for (const [name, symbol, rules] of COINS_META) {

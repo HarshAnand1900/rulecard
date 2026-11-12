@@ -16,8 +16,8 @@ a rule or print an admin.
 ```
 
 **Live on NEAR testnet (demo scale):**
-- Factory: [`demo.harshtest1.testnet`](https://testnet.nearblocks.io/address/demo.harshtest1.testnet) (zero access keys: its only key was deleted in the deploy transaction)
-- Coins: [`frog.demo.harshtest1.testnet`](https://testnet.nearblocks.io/address/frog.demo.harshtest1.testnet) · [`moth.demo.harshtest1.testnet`](https://testnet.nearblocks.io/address/moth.demo.harshtest1.testnet)
+- Factory: [`demo2.harshtest1.testnet`](https://testnet.nearblocks.io/address/demo2.harshtest1.testnet) (zero access keys: its only key was deleted in the deploy transaction)
+- Coins: [`frog.demo2.harshtest1.testnet`](https://testnet.nearblocks.io/address/frog.demo2.harshtest1.testnet) · [`moth.demo2.harshtest1.testnet`](https://testnet.nearblocks.io/address/moth.demo2.harshtest1.testnet) · [`zap.demo2.harshtest1.testnet`](https://testnet.nearblocks.io/address/zap.demo2.harshtest1.testnet) (each has zero access keys and no admin; its icon is drawn by the contract from the coin's own state)
 - App: *(hosted link added here once it is deployed; until then `npx vite --mode testnet`, see [docs/deploy.md](docs/deploy.md))*
 
 Track: **Memecoins With Mechanics** (NEAR).
