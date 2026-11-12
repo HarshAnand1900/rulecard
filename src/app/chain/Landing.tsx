@@ -10,7 +10,7 @@ export default function Landing({ onPick }: { onPick: (d: Door) => void }) {
     <div className="landing">
       <div className="landing-inner">
         <h1 className="landing-title">RULECARD</h1>
-        <p className="landing-line">Most memecoins die when the community stops showing up. Here, that's literally the rule, and coins raid each other to stay alive.</p>
+        <p className="landing-line">A league of memecoins whose communities go to war. Show up every day or your bag burns, and the coin that shows up bigger raids the other.</p>
         <button className="play-btn" onClick={() => pick('practice')}><span aria-hidden="true">▶</span> PLAY</button>
         <button className="door-btn" onClick={() => pick('wallet')}>PLAY WITH MY OWN TESTNET WALLET</button>
         <p className="landing-foot">Play is free with no wallet: we make you a practice wallet · your own wallet uses your own testnet NEAR</p>
