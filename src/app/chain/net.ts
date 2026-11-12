@@ -259,7 +259,7 @@ export async function openNet(door?: Door | null): Promise<Net> {
   const factories: Partial<Record<Scale, string>> = { demo: env.VITE_FACTORY_DEMO, real: env.VITE_FACTORY_REAL };
   if (!factories.demo && !factories.real) throw new Error('Set VITE_FACTORY_DEMO and/or VITE_FACTORY_REAL to the testnet factory accounts.');
   // several public endpoints, comma separated: the app moves to the next one when one rate-limits
-  const nodeUrls = String(env.VITE_NODE_URL ?? 'https://test.rpc.fastnear.com,https://rpc.testnet.near.org').split(',').map((x: string) => x.trim()).filter(Boolean);
+  const nodeUrls = String(env.VITE_NODE_URL ?? 'https://test.rpc.fastnear.com,https://near-testnet.drpc.org,https://archival-rpc.testnet.near.org').split(',').map((x: string) => x.trim()).filter(Boolean);
   if (door === 'practice') {
     if (!factories.demo) throw new Error('Practice mode needs the demo factory (VITE_FACTORY_DEMO).');
     return new GuestNet({ factoryId: factories.demo, nodeUrls, networkId: 'testnet', fundUrl: env.VITE_FUND_URL ?? '/api/fund', explorer: 'https://testnet.nearblocks.io' });
