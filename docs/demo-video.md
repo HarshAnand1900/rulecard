@@ -3,6 +3,13 @@
 Record on **demo mode** (testnet, or the local sandbox with the +15m / +1h buttons). Keep every shot to what a judge can repeat.
 Say the loop in the first 20 seconds: judges will match this to pump.fun, so show the meme *doing* something right away. Lead with the community and the fight between coins; idle burn is the cost of not showing up, not the headline.
 
+## Open with the door
+
+Start on the landing page and press **PLAY**. Let the stepper run (wallet made, funded, first bag bought, about 15 seconds; speed it up
+in the edit). It shows in one clip that anyone can try this with no wallet and no setup, and that the actions are real transactions
+(the receipt links open on the NEAR explorer). Turn the sound on for the recording: the gm chime, the vault thud and the Ritual fanfare
+land well on video.
+
 ## Shot list
 
 | Time | On screen | Say |
