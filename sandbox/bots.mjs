@@ -14,6 +14,7 @@ import { call, view, NEAR, idOf, keys, forward, errMsg, acct } from './lib.mjs';
 const arg = (k, d) => { const i = process.argv.indexOf(`--${k}`); return i > 0 ? process.argv[i + 1] : d; };
 const MODE = arg('mode', 'demo');
 const TICKS = Number(arg('ticks', 'Infinity'));
+const DEADLINE = Date.now() + Number(arg('max-minutes', 'Infinity')) * 60_000; // stop cleanly after this many minutes (the GitHub workflow uses it)
 const EVERY = Number(arg('every', '300'));
 const FWD = Number(arg('forward', '0'));
 const PER = Number(arg('per-coin', '5'));
@@ -181,7 +182,7 @@ if (BOOT) {
 // A tick that hits a network error (DNS, RPC down, rate limit) is logged and retried after a pause instead of ending the loop:
 // this has to run for days.
 let tick = 1, failures = 0;
-while (tick <= TICKS) {
+while (tick <= TICKS && Date.now() < DEADLINE) {
   try {
     const live = await liveCoins();
     for (const x of live) { await housekeeping(x.id); await ritualHelp(x.id); await omenPoke(x.id); await playCoin(x.id, live); }

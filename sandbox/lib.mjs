@@ -20,7 +20,8 @@ const nap = ms => new Promise(r => setTimeout(r, ms));
 globalThis.fetch = async (...a) => {
   for (let i = 0; ; i++) {
     if (GAP) { const wait = Math.max(0, lastReq + GAP - Date.now()); lastReq = Date.now() + wait; if (wait) await nap(wait); }
-    const r = await realFetch(...a);
+    const init = a[1] ?? {};
+    const r = await realFetch(a[0], { ...init, signal: init.signal ?? AbortSignal.timeout(45_000) }); // a hung request must not freeze a long-running loop
     if (r.status !== 429 || i >= 8) return r;
     await nap(1000 * 1.6 ** i);
   }

@@ -1,12 +1,17 @@
-# Keeps the testnet demo world moving without anyone's laptop: one bot tick every 30 minutes.
-# Needs the repository secret BOT_KEYS = the contents of sandbox/.keys/testnet.json (written by sandbox/deploy-testnet.mjs).
-# Honest limit: GitHub's scheduler can run late by many minutes, so this keeps coins checked in, trading and burning, but it is
-# too slow to answer a judge's raid or card in the short demo-mode windows. For that, run the bots on an always-on machine
-# (see docs/deploy.md: Dockerfile.bots).
+# Keeps the testnet demo world moving without anyone's laptop: a long-running bot loop on GitHub's free runners (this repo is public).
+#
+# How it works: a run lasts about 5h45 (GitHub stops any job at 6h) and ticks every 2 minutes, so the bots can answer raids in
+# demo mode. A new run is triggered every 30 minutes; the `concurrency` group lets only ONE run go at a time and keeps one waiting,
+# so the next run starts the moment the current one ends. Needs the repository secret BOT_KEYS = the contents of
+# sandbox/.keys/testnet.json (the 16 throwaway bot keys; never your main account's key). Without the secret it does nothing.
+#
+# Honest limits: GitHub's scheduler can start runs late or occasionally drop one, so expect an occasional gap of minutes; and
+# GitHub's terms say Actions is for building and testing the project, so treat this as a short-term demo helper. Never run the
+# bots anywhere else at the same time: two loops on the same keys collide on nonces. See docs/deploy.md.
 name: Bots
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "17,47 * * * *"
   workflow_dispatch:
 
 concurrency:
@@ -14,21 +19,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  tick:
+  loop:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 355
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: One bot tick
+      - name: Is the BOT_KEYS secret set?
+        id: chk
         env:
           BOT_KEYS: ${{ secrets.BOT_KEYS }}
         run: |
-          if [ -z "$BOT_KEYS" ]; then echo "Secret BOT_KEYS is not set: nothing to do."; exit 0; fi
+          if [ -z "$BOT_KEYS" ]; then echo "Secret BOT_KEYS is not set: nothing to do."; echo "has=false" >> "$GITHUB_OUTPUT"; else echo "has=true" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/checkout@v4
+        if: steps.chk.outputs.has == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.chk.outputs.has == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --omit=dev
+        if: steps.chk.outputs.has == 'true'
+      - name: Bot loop (about 5h45, a tick every 2 minutes)
+        if: steps.chk.outputs.has == 'true'
+        env:
+          BOT_KEYS: ${{ secrets.BOT_KEYS }}
+        run: |
           mkdir -p sandbox/.keys
           printf '%s' "$BOT_KEYS" > sandbox/.keys/testnet.json
-          RULECARD_KEYS=sandbox/.keys/testnet.json node sandbox/bots.mjs --mode demo --ticks 1 --per-coin 3
+          RULECARD_KEYS=sandbox/.keys/testnet.json node sandbox/bots.mjs --mode demo --every 120 --per-coin 3 --max-minutes 340
+      - name: Remove the key file
+        if: always() && steps.chk.outputs.has == 'true'
+        run: rm -f sandbox/.keys/testnet.json

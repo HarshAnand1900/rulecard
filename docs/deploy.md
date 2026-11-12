@@ -38,16 +38,16 @@ You need *something* that stays on. What kind depends on what you want judges to
 
 | Option | Cost | Keeps the world alive (check-ins, trades, packs, Ritual, burns) | Answers a judge's raid or card in time |
 |---|---|---|---|
-| **GitHub Actions** (`.github/workflows/bots.yml`) | free in a public repo | yes, one tick every 30 min (GitHub can run it late) | **no**: demo-mode windows are 75 s to 15 min, a tick every 30 min is too slow |
+| **GitHub Actions** (`.github/workflows/bots.yml`) | free in a public repo | yes | **yes, mostly**: a long run (about 5h45) ticks every 2 minutes, and a new run is queued every 30 minutes so the next one starts when the last ends. GitHub can start runs late or drop one, so expect occasional gaps |
 | **An always-on machine** running `Dockerfile.bots` (a $4-5/month VPS, Oracle Cloud's Always Free VM, Fly.io, Railway, a spare PC or Raspberry Pi) | $0-5 a month | yes | **yes**: a tick every 2 minutes |
 | Your laptop | free | only while it's awake | only while it's awake |
 
-Recommended: turn on the Actions workflow now (free, nothing to host) so the world never goes fully dead, and put `Dockerfile.bots`
-on an always-on machine if you want judges to be able to start a raid or play a card and see bots respond.
+Recommended: the Actions workflow (free, nothing to host). Put `Dockerfile.bots` on an always-on machine instead if you want a
+steadier loop. Run the bots in only ONE place at a time: two loops on the same keys collide on nonces.
 
 **GitHub Actions:** push the repo, then in *Settings → Secrets and variables → Actions* add a secret `BOT_KEYS` whose value is the
 whole contents of `sandbox/.keys/testnet.json` (16 testnet bot keys; never commit that file). Run the **Bots** workflow once by hand
-from the Actions tab to check it works.
+from the Actions tab (*Run workflow*) to check it works; the first run starts the loop. Stop any bot loop on your own machine first.
 
 **Always-on machine:**
 ```bash
