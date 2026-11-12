@@ -23,7 +23,7 @@ export async function call(name, contractId, methodName, args = {}, deposit = 0n
   const r = await a.functionCall({ contractId, methodName, args, gas: GAS, attachedDeposit: deposit });
   const v = r.status?.SuccessValue; return v ? JSON.parse(Buffer.from(v, 'base64').toString()) : null;
 }
-export async function view(contractId, methodName, args = {}) { const a = await acct('you'); return a.viewFunction({ contractId, methodName, args }); }
+export async function view(contractId, methodName, args = {}) { const a = await acct(keys.accounts.you ? 'you' : Object.keys(keys.accounts)[0]); return a.viewFunction({ contractId, methodName, args }); }
 export async function rpc(method, params) {
   const r = await (await fetch(keys.nodeUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) })).json();
   if (r.error) throw new Error(JSON.stringify(r.error)); return r.result;

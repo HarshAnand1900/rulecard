@@ -224,6 +224,8 @@ In sandbox mode the header has a player switcher and buttons that move the chain
 
 ## Run against testnet
 
+Full guide (deploy, bots, hosting): [`docs/deploy.md`](docs/deploy.md).
+
 ```bash
 cp .env.example .env.testnet   # set VITE_FACTORY_DEMO and VITE_FACTORY_REAL to the deployed factories
 npx vite --mode testnet         # Connect wallet: MyNearWallet or Meteor

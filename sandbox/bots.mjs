@@ -5,11 +5,11 @@
 //   --bootstrap first pushes every live coin toward L2: all bots buy in, wait out the hold time, then all check in.
 //
 // Usage: node sandbox/bots.mjs [--mode demo|real] [--ticks N] [--every SECONDS] [--forward MINUTES] [--per-coin N]
-//                              [--bootstrap [--buy NEAR] [--hold MINUTES] [--only FROG,MOTH]]
+//                              [--bootstrap [--buy NEAR] [--extra NEAR] [--hold MINUTES] [--only FROG,MOTH]]
 //   --forward only works on the local sandbox (it moves the chain clock between ticks and during the bootstrap wait).
 //   RULECARD_KEYS=path/to/keys.json points it at another network (same file format as sandbox/.keys/keys.json).
 //   Gas costs real (testnet) NEAR: on testnet use --every 600 or more. A bot spends roughly 0.02 NEAR an hour.
-import { call, view, NEAR, idOf, keys, forward, errMsg } from './lib.mjs';
+import { call, view, NEAR, idOf, keys, forward, errMsg, acct } from './lib.mjs';
 
 const arg = (k, d) => { const i = process.argv.indexOf(`--${k}`); return i > 0 ? process.argv[i + 1] : d; };
 const MODE = arg('mode', 'demo');
@@ -21,6 +21,8 @@ const BOOT = process.argv.includes('--bootstrap');
 const S = MODE === 'demo' ? 100 : 1;
 const G = n => NEAR((n / S).toFixed(6));
 const F = keys.factories[MODE];
+// a check-in every ~75 min (demo) / 12h (real) keeps a bot inside the 18h-equivalent idle-burn grace; more would only burn gas
+const GM_GAP = (MODE === 'demo' ? 75 : 12 * 60) * 60_000;
 const bots = Object.keys(keys.accounts).filter(n => n.startsWith('bot'));
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const chance = p => Math.random() < p;
@@ -42,9 +44,10 @@ async function housekeeping(coin) {
     const me = idOf(bot);
     const h = await view(coin, 'get_holder', { account_id: me });
     if (!h) continue;
-    if ((h.last_gm === 0 || c.now >= h.next_gm) && (await act(bot, coin, 'gm', {}, 0n, true))) gms++;
+    let gmOk = false;
+    if ((h.last_gm === 0 || (c.now >= h.next_gm && c.now - h.last_gm >= GM_GAP)) && (await act(bot, coin, 'gm', {}, 0n, true))) { gms++; gmOk = true; }
     const hand = await view(coin, 'get_hand', { account_id: me });
-    if (hand && c.now >= hand.next_pack && h.last_gm > 0) {
+    if (hand && c.now >= hand.next_pack && (h.last_gm > 0 || gmOk) && (gmOk || chance(0.3))) {
       let ok = await act(bot, coin, 'claim_pack', {}, 0n, true);
       if (!ok) {
         const dup = hand.commons.find(([, n]) => n > 1);
@@ -61,6 +64,9 @@ async function playCoin(coin, liveCoins) {
   for (const bot of [...bots].sort(() => Math.random() - 0.5).slice(0, PER)) {
     const me = idOf(bot);
     const bal = BigInt(await view(coin, 'ft_balance_of', { account_id: me }));
+    const near = Number(BigInt((await (await acct(bot)).getAccountBalance()).available) / 10n ** 21n) / 1000;
+    if (near < 0.2 && bal > 0n) { await act(bot, coin, 'sell', { amount: (bal * 3n / 10n).toString() }, 1n); continue; } // low on gas money: sell 30%
+    if (near < 0.2) continue;
     if (bal === 0n || chance(0.45)) await act(bot, coin, 'buy', {}, G(1 + Math.random() * 7));
     else if (chance(0.25)) await act(bot, coin, 'sell', { amount: (bal / 5n).toString() }, 1n);
     else if (chance(0.2)) await act(bot, coin, 'lock', { amount: (bal / 4n).toString(), hours: pick([6, 24, 72]) }, 1n);
@@ -106,29 +112,21 @@ async function liveCoins() {
   return out;
 }
 
-/** Push every live coin toward L2: all bots buy in, the hold time passes, then every bot checks in. */
+/** Push every live coin toward L2 with buys only: round 1 puts ~7 NEAR in each curve, the hold time passes, every bot checks in,
+ *  round 2 adds the volume L2 asks for. (Selling back would lower the curve below the target, so there is none.) */
 async function bootstrap() {
-  const buy = Number(arg('buy', MODE === 'demo' ? '0.42' : '42'));
+  const buy = Number(arg('buy', MODE === 'demo' ? '0.45' : '45'));
+  const extra = Number(arg('extra', MODE === 'demo' ? '0.14' : '14'));
   const holdMin = Number(arg('hold', MODE === 'demo' ? '6' : '75')); // a qualified wallet must have held 1h of game time
   const only = arg('only', '').split(',').filter(Boolean).map(x => x.toUpperCase());
   const coins = (await liveCoins()).filter(c => !only.length || only.includes(sym(c.id)));
-  log(`bootstrap: ${bots.length} bots buy ${buy} NEAR into each of ${coins.map(c => sym(c.id)).join(', ')}, then wait ${holdMin} min`);
+  log(`bootstrap: ${bots.length} bots buy ${buy} NEAR into each of ${coins.map(c => sym(c.id)).join(', ')}, wait ${holdMin} min, check in, then buy ${extra} more`);
   for (const c of coins) for (const bot of bots) await act(bot, c.id, 'buy', {}, NEAR(buy.toFixed(6)), true);
   log('bought; waiting for the holding time...');
   if (FWD) await forward(holdMin); else await sleep(holdMin * 60_000);
-  for (const c of coins) { await housekeeping(c.id); await act(bots[0], c.id, 'poke', {}, 0n, true); }
+  for (const c of coins) { await housekeeping(c.id); }
+  for (const c of coins) for (const bot of bots) await act(bot, c.id, 'buy', {}, NEAR(extra.toFixed(6)), true);
   await sleep(1500);
-  // L2 also needs volume: if it's short, every bot sells 40% of its tokens and buys the same NEAR back (the 24h volume counts both)
-  for (const c of coins) {
-    const lv = await view(c.id, 'get_level_progress');
-    if (lv.rules.some(r => r.name === 'volume_24h' && !r.met)) {
-      for (const bot of bots) {
-        const bal = BigInt(await view(c.id, 'ft_balance_of', { account_id: idOf(bot) }));
-        if (bal > 0n) { await act(bot, c.id, 'sell', { amount: (bal * 4n / 10n).toString() }, 1n, true); await act(bot, c.id, 'buy', {}, NEAR((buy * 0.4).toFixed(6)), true); }
-      }
-      log(`${sym(c.id)}: volume top-up done`);
-    }
-  }
   for (const c of coins) {
     await act(bots[0], c.id, 'poke', {}, 0n, true);
     const v = await view(c.id, 'get_coin'), lv = await view(c.id, 'get_level_progress');

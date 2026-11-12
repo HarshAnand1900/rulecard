@@ -20,7 +20,7 @@ const YES = process.argv.includes('--yes');
 const ACCOUNT = arg('account', process.env.RULECARD_TESTNET_ACCOUNT);
 const COINS = Number(arg('coins', '2'));
 const BOTS = Number(arg('bots', '16')); // L2 needs 15 qualified wallets checking in within the window
-const BOT_NEAR = Number(arg('bot-near', '1.0')); // L2 also needs ~6.25 NEAR in each curve and ~9 NEAR of volume
+const BOT_NEAR = Number(arg('bot-near', '1.3')); // two coins × 0.59 NEAR of buys each, plus gas for days of judging
 const nodeUrl = process.env.RULECARD_TESTNET_RPC ?? 'https://test.rpc.fastnear.com';
 const out = join(here, '..', 'contracts', 'out');
 const keyFile = join(here, '.keys', 'testnet.json');
@@ -103,4 +103,12 @@ for (const [name, symbol, rules] of COINS_META) {
   console.log(`   $${symbol} → ${symbol.toLowerCase()}.${factoryId}`);
 }
 save();
-console.log(`\nDone. Put this in .env.testnet:\n  VITE_NETWORK=testnet\n  VITE_FACTORY_DEMO=${factoryId}\nThen: npx vite --mode testnet\nBots: RULECARD_KEYS=sandbox/.keys/testnet.json npm run bots -- --mode demo --every 90`);
+console.log(`
+Done. Put this in .env.testnet:
+  VITE_NETWORK=testnet
+  VITE_FACTORY_DEMO=${factoryId}
+Then: npx vite --mode testnet
+
+Push the coins to L2 (about 15 minutes), then keep the world moving (gas is real NEAR: use --every 600 or more):
+  RULECARD_KEYS=sandbox/.keys/testnet.json node sandbox/bots.mjs --mode demo --bootstrap --ticks 1
+  RULECARD_KEYS=sandbox/.keys/testnet.json node sandbox/bots.mjs --mode demo --every 600`);
