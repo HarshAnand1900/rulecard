@@ -13,7 +13,7 @@ const out = join(here, '..', 'contracts', 'out');
 const wasm = (c, m) => join(out, `rulecard_${c}_${m}.wasm`);
 const keyFile = join(here, '.keys', 'keys.json');
 const PLAYERS = ['you', 'alice', 'bob'];
-const BOTS = Array.from({ length: 12 }, (_, i) => `bot${i + 1}`);
+const BOTS = Array.from({ length: 16 }, (_, i) => `bot${i + 1}`); // L2 needs 15 qualified check-ins
 const TGAS = n => BigInt(n) * 1_000_000_000_000n;
 
 for (const m of ['real', 'demo']) for (const c of ['coin', 'factory']) if (!existsSync(wasm(c, m))) throw new Error(`build the contracts first (npm run contracts:build): ${wasm(c, m)} is missing`);

@@ -36,6 +36,21 @@ so this README is mostly about the mechanic.
 **Supply reacts to the community:** active wallets and lockers keep their tokens; idle wallets shrink; the Ritual and pot cards
 burn supply when the crowd shows up. Every mint and burn is logged on-chain and shown on the coin page.
 
+## Why NEAR
+
+What this build uses that other chains don't give you as cleanly:
+
+| NEAR feature | How Rulecard uses it |
+|---|---|
+| **Named sub-accounts with their own contract** | each coin is `frog.<factory>`, a real NEP-141 account that wallets and explorers see. The factory deploys it and then **deletes its own only key in the same transaction**, so nobody can create an impostor coin under it or change the code new coins run. Check it on the explorer: the factory shows 0 access keys |
+| **Function-call access keys** | **one-tap actions**: after one wallet approval, gm, claiming packs, backing cards and Battle cry sign with a key limited to *that coin* and a short list of methods, with no popup. Every call that moves money needs 1 yoctoNEAR (like `ft_transfer`), and a function-call key can never attach a deposit, so it can't sell, lock, bet or buy. `onetap.test.ts` proves this on a real chain |
+| **Async cross-contract calls with callbacks** | raids are two contracts agreeing on a result: one exchange to read the defender's scores, one to move the spoils, and a callback that puts the NEAR back in the pot if the transfer fails |
+| **Pay-for-what-you-use storage** | each holder pays the storage of their own record (0.0125 NEAR), so a coin never subsidises its growth out of its curve |
+| **Cheap enough gas to make rituals real** | a gm every few hours only works as a mechanic when a call costs a fraction of a cent |
+
+Not used yet (roadmap): gasless check-ins through meta-transactions, buying a coin from another chain with NEAR Intents, and
+graduating into a Ref Finance pool.
+
 ## Demo mode and Real mode
 
 The same contract code is compiled twice, and the app has a **Demo / Real** switch:
@@ -134,6 +149,37 @@ Values below are **Real mode**. Demo mode divides every game NEAR amount by 100 
 - Randomness (card rolls, fire times) uses NEAR's block random seed. Good enough for a demo, not for large stakes.
 - "Eligible holders" for deck limits are counted as wallets that checked in within 24h while eligible (to avoid loops), so they can lag reality by up to a day.
 
+## 60-day supply simulation
+
+`node research/supply-60d-sim.cjs` runs the contract's rules for 60 days (240 six-hour steps, 20 runs per community, 120 holders
+at the start) under three communities, and writes the chart below.
+
+![Total supply over 60 days under three communities, and what each kind of wallet keeps](docs/supply-60d.svg)
+
+| Community | Supply left at day 60 | Idle burn / Ritual / cards (tokens burned) | Ritual made | Faithful (gm ~every 6h) | Regular (every 12h) | Casual (once a day) | Drifter (rarely) |
+|---|---|---|---|---|---|---|---|
+| **Active** (stays engaged, keeps recruiting) | **79.9%** | 148M / 47M / 6M | 100% of days | keeps **161%** of its day-1 tokens | 112% | 48% | 13% |
+| **Fading** (engagement halves every ~12 days) | **67.4%** | 303M / 21M / 3M | 92% of days | 126% | 34% | 15% | 10% |
+| **Dead** (engaged 5 days, then almost nobody) | **65.3%** | 342M / 5M / 0.4M | 19% of days | 80% | 19% | 9% | 6% |
+
+What it shows:
+- **Supply reacts to the community.** An active coin loses about 20% of its supply in 60 days, a fading one a third, a dead one
+  about 35%, and almost all of that is **idle burn**: the Ritual and pot cards are small next to it.
+- **The faithful are paid by the sleepers.** In the active community, wallets that check in every ~6h *gain* tokens (half of every
+  idle burn goes to the Vault), and a 12h routine is roughly break-even: the 12h grace covers it.
+- **A dead coin deflates hard**, and each surviving token ends up backed by about 3.6× the NEAR (the "floor ×" column in the
+  script's output). That's the intended pressure: *sell before you sleep, or lock, or show up.*
+- **The Ritual is a relative target** (60% of yesterday's check-ins), so a slowly fading coin keeps making it (92% of days);
+  it only breaks on a sudden collapse (19% of days in the dead case).
+
+Honest findings from the model:
+- **"gm once a day" is not enough.** A wallet that checks in daily is idle for 18h+ every cycle and ends the 60 days with about half
+  its tokens (48% in the active community) unless it locks some in the Vault. The 12h grace is there on purpose; the app shows the idle
+  clock on the gm button and the Vault is the answer for people who can't show up.
+- It's a model, not the contract: holders check in by a fixed routine, trading volume is a flat 1.5 NEAR per checked-in wallet per day,
+  price is fixed at 3 µNEAR per token, and the Vault is claimed instantly. Real communities are messier; the shape (idle burn dominates,
+  the faithful gain, dead coins deflate) is what to take from it.
+
 ## Simulations
 
 Every parameter above came out of a simulator in [`research/`](research) (Node, no dependencies: `node research/<file>`).
@@ -143,6 +189,7 @@ Every parameter above came out of a simulator in [`research/`](research) (Node, 
 | `card-supply-sim.cjs` | Do players have the raid cards their side wants? | 2 cards per 6h + 3-card raid-win pack: 83–97% full raid plans, but 1 slot in 3 still missing the wanted card (pacing matters) |
 | `pyramid-sim.cjs`, `odds-v7-sim.cjs` | How many Rare / Epic / Mythic cards should exist? | limits that grow with eligible holders keep ~1 in 3 eligible holders with a Rare, 1 in 6 with an Epic at every coin size; at L3–L4 89–99% of Rare+ rolls hit the limit, so the limit (not the odds) decides supply |
 | `signers-sim.cjs` | How many signers can a coin really gather in 15 min? | 3 / 5 / 8 are reached 66–100% of hours on small coins; the first guess (10 / 20 / 30) blocked 80–100% of plays |
+| `supply-60d-sim.cjs` | What happens to supply over 60 days under an active, a fading and a dead community? | idle burn dominates supply change; faithful wallets gain, once-a-day wallets lose about half, dead coins deflate ~35% (see above) |
 | `redteam-sim.cjs` | What breaks? | uncapped fuel let a bot earn +20–25% by sandwiching → fuel cap + tag; casual players lost 8.6%/day with separate caps → one 8% cap; last-block contest sniping won 92% → bonus only for early chips |
 | `drop-tables-sim.cjs`, `mix-sim.cjs`, `fund-sim.cjs`, `sim-v3.cjs` | earlier versions (pot sizing, push sizes, fee split) | sizing A ($70k graduation), the 2% fee split, the 75% daily pot cap |
 
@@ -192,3 +239,12 @@ npx vite --mode testnet         # Connect wallet: MyNearWallet or Meteor
 | `sandbox/` | local chain scripts |
 | `research/` | simulators |
 | `docs/` | design (`v6-redesign.md`), build plan, UI spec (`ui-updates.md`), card designs |
+
+## One-tap and what's tested
+
+`⚡ Enable one-tap gm` (testnet, on a coin page) asks your wallet once to add a function-call key for that coin. The key signing,
+its limits (no deposits, only the listed methods, only that coin) are tested on a real chain by `npx vitest run
+src/app/chain/onetap.test.ts`. The wallet approval itself goes through NEAR Wallet Selector (MyNearWallet, Meteor) and is exercised
+only on testnet; if it fails, gm simply keeps opening the wallet as before.
+
+Demo video script and the submission text: [`docs/demo-video.md`](docs/demo-video.md).

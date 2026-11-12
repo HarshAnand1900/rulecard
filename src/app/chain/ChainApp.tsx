@@ -247,6 +247,9 @@ function CoinPage(p: Ctx & { id: string }) {
             ☀ gm{h && !gmReady ? ` in ${dur(h.next_gm - now)}` : ''}
           </button>
           <div className="small muted">{!h ? 'Buy to join' : idleBurning ? <span className="down">Idle burn running: gm to stop</span> : h.last_gm ? `idle burn starts in ${dur(h.idle_burn_starts - now)}` : `gm every ${hrs(6)}`}</div>
+          {ch.enableOneTap && h && (ch.oneTapReady!(id)
+            ? <span className="small up" title="gm, packs, backing and Battle cry sign without a wallet popup. Selling, locking, betting and buying still ask your wallet.">⚡ one-tap on · <button className="linkish small muted" onClick={() => act('Turn off one-tap', async () => ch.disableOneTap!(id), 'One-tap is off for this coin')}>turn off</button></span>
+            : <button className="linkish small" title="One wallet approval adds a limited key for this coin: it can check in, claim packs, back cards and Battle cry. It can never sell, lock, bet or buy, and it can't touch your other tokens or NEAR." onClick={() => act('Enable one-tap', () => ch.enableOneTap!(id), 'One-tap is on for this coin')}>⚡ Enable one-tap gm</button>)}
           <button className="linkish" onClick={() => setTab('today')}><Ring value={ritualPct} label="Ritual" small /></button>
         </div>
       </div>

@@ -1,22 +1,30 @@
-// Bot runner: keeps a Rulecard world alive. Every tick, a few bots on each live coin check in, claim packs, trade,
-// lock, back and sign cards, fuel, bet, play cards, start raids, fill raid plans, Battle cry and settle, then poke timers.
+// Bot runner: keeps a Rulecard world alive.
+//   Every tick: EVERY bot checks in and claims its pack when one is due (so a coin keeps its 15 qualified check-ins),
+//   then a few bots per coin trade, lock, back and sign cards, fuel, bet, play cards, start raids, fill plans, Battle cry,
+//   settle, and finally anyone pokes the coin so timers fire.
+//   --bootstrap first pushes every live coin toward L2: all bots buy in, wait out the hold time, then all check in.
+//
 // Usage: node sandbox/bots.mjs [--mode demo|real] [--ticks N] [--every SECONDS] [--forward MINUTES] [--per-coin N]
-//   --forward only works on the local sandbox (it moves the chain clock between ticks).
+//                              [--bootstrap [--buy NEAR] [--hold MINUTES] [--only FROG,MOTH]]
+//   --forward only works on the local sandbox (it moves the chain clock between ticks and during the bootstrap wait).
 //   RULECARD_KEYS=path/to/keys.json points it at another network (same file format as sandbox/.keys/keys.json).
+//   Gas costs real (testnet) NEAR: on testnet use --every 600 or more. A bot spends roughly 0.02 NEAR an hour.
 import { call, view, NEAR, idOf, keys, forward, errMsg } from './lib.mjs';
 
 const arg = (k, d) => { const i = process.argv.indexOf(`--${k}`); return i > 0 ? process.argv[i + 1] : d; };
 const MODE = arg('mode', 'demo');
 const TICKS = Number(arg('ticks', 'Infinity'));
-const EVERY = Number(arg('every', '60'));
+const EVERY = Number(arg('every', '300'));
 const FWD = Number(arg('forward', '0'));
 const PER = Number(arg('per-coin', '5'));
+const BOOT = process.argv.includes('--bootstrap');
 const S = MODE === 'demo' ? 100 : 1;
 const G = n => NEAR((n / S).toFixed(6));
 const F = keys.factories[MODE];
 const bots = Object.keys(keys.accounts).filter(n => n.startsWith('bot'));
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const chance = p => Math.random() < p;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 const log = (...a) => process.stdout.write(`[${new Date().toISOString().slice(11, 19)}] ${a.join(' ')}\n`);
 console.log = () => {}; console.warn = () => {}; // near-api-js receipt logs
 const sym = id => id.split('.')[0].toUpperCase();
@@ -26,21 +34,36 @@ async function act(bot, coin, method, args = {}, deposit = 0n, quiet = false) {
   catch (e) { return null; }
 }
 
+/** Every bot: gm when it is due, claim the pack when it is ready (dropping a Common first if the hand is full). */
+async function housekeeping(coin) {
+  const c = await view(coin, 'get_coin');
+  let gms = 0, packs = 0;
+  for (const bot of bots) {
+    const me = idOf(bot);
+    const h = await view(coin, 'get_holder', { account_id: me });
+    if (!h) continue;
+    if ((h.last_gm === 0 || c.now >= h.next_gm) && (await act(bot, coin, 'gm', {}, 0n, true))) gms++;
+    const hand = await view(coin, 'get_hand', { account_id: me });
+    if (hand && c.now >= hand.next_pack && h.last_gm > 0) {
+      let ok = await act(bot, coin, 'claim_pack', {}, 0n, true);
+      if (!ok) {
+        const dup = hand.commons.find(([, n]) => n > 1);
+        if (dup) { await act(bot, coin, 'drop_card', { card: dup[0] }, 0n, true); ok = await act(bot, coin, 'claim_pack', {}, 0n, true); }
+      }
+      if (ok) packs++;
+    }
+  }
+  if (gms || packs) log(`${sym(coin)}: ${gms} check-ins, ${packs} packs`);
+}
+
 async function playCoin(coin, liveCoins) {
   const c = await view(coin, 'get_coin');
   for (const bot of [...bots].sort(() => Math.random() - 0.5).slice(0, PER)) {
     const me = idOf(bot);
     const bal = BigInt(await view(coin, 'ft_balance_of', { account_id: me }));
-    // join or trade
     if (bal === 0n || chance(0.45)) await act(bot, coin, 'buy', {}, G(1 + Math.random() * 7));
     else if (chance(0.25)) await act(bot, coin, 'sell', { amount: (bal / 5n).toString() }, 1n);
     else if (chance(0.2)) await act(bot, coin, 'lock', { amount: (bal / 4n).toString(), hours: pick([6, 24, 72]) }, 1n);
-    await act(bot, coin, 'gm', {}, 0n, true) && log(`${bot} ${sym(coin)} gm`);
-    if (!(await act(bot, coin, 'claim_pack', {}, 0n, true))) {
-      const hand = await view(coin, 'get_hand', { account_id: me });
-      const full = hand?.commons.find(([, n]) => n > 1);
-      if (full && hand.commons.reduce((a, [, n]) => a + n, 0) >= 11) { await act(bot, coin, 'drop_card', { card: full[0] }, 0n, true); await act(bot, coin, 'claim_pack'); }
-    } else log(`${bot} ${sym(coin)} claimed a pack`);
     // the table
     for (const t of await view(coin, 'get_table')) {
       if (t.phase === 0 && t.proposer !== me && !t.backers.includes(me)) await act(bot, coin, t.card === 'Inferno' ? 'sign' : 'back', { id: t.id });
@@ -77,12 +100,47 @@ async function playCoin(coin, liveCoins) {
   await act(bots[0], coin, 'poke', {}, 0n, true);
 }
 
+async function liveCoins() {
+  const out = [];
+  for (const e of await view(F, 'list_coins', {})) { const v = await view(e.account_id, 'get_coin'); if (!v.graduated) out.push({ id: e.account_id, level: v.level }); }
+  return out;
+}
+
+/** Push every live coin toward L2: all bots buy in, the hold time passes, then every bot checks in. */
+async function bootstrap() {
+  const buy = Number(arg('buy', MODE === 'demo' ? '0.42' : '42'));
+  const holdMin = Number(arg('hold', MODE === 'demo' ? '6' : '75')); // a qualified wallet must have held 1h of game time
+  const only = arg('only', '').split(',').filter(Boolean).map(x => x.toUpperCase());
+  const coins = (await liveCoins()).filter(c => !only.length || only.includes(sym(c.id)));
+  log(`bootstrap: ${bots.length} bots buy ${buy} NEAR into each of ${coins.map(c => sym(c.id)).join(', ')}, then wait ${holdMin} min`);
+  for (const c of coins) for (const bot of bots) await act(bot, c.id, 'buy', {}, NEAR(buy.toFixed(6)), true);
+  log('bought; waiting for the holding time...');
+  if (FWD) await forward(holdMin); else await sleep(holdMin * 60_000);
+  for (const c of coins) { await housekeeping(c.id); await act(bots[0], c.id, 'poke', {}, 0n, true); }
+  await sleep(1500);
+  // L2 also needs volume: if it's short, every bot sells 40% of its tokens and buys the same NEAR back (the 24h volume counts both)
+  for (const c of coins) {
+    const lv = await view(c.id, 'get_level_progress');
+    if (lv.rules.some(r => r.name === 'volume_24h' && !r.met)) {
+      for (const bot of bots) {
+        const bal = BigInt(await view(c.id, 'ft_balance_of', { account_id: idOf(bot) }));
+        if (bal > 0n) { await act(bot, c.id, 'sell', { amount: (bal * 4n / 10n).toString() }, 1n, true); await act(bot, c.id, 'buy', {}, NEAR((buy * 0.4).toFixed(6)), true); }
+      }
+      log(`${sym(c.id)}: volume top-up done`);
+    }
+  }
+  for (const c of coins) {
+    await act(bots[0], c.id, 'poke', {}, 0n, true);
+    const v = await view(c.id, 'get_coin'), lv = await view(c.id, 'get_level_progress');
+    log(`${sym(c.id)}: L${v.level}, curve ${(Number(BigInt(v.real) / 10n ** 21n) / 1000).toFixed(2)} NEAR; unmet: ${lv.rules.filter(r => !r.met).map(r => r.name).join(', ') || 'none (level-up when the hold time ends)'}`);
+  }
+}
+
 log(`bots on the ${MODE} factory ${F}: ${bots.length} bots, ${PER} per coin per tick, every ${EVERY}s${FWD ? `, +${FWD} min per tick` : ''}`);
+if (BOOT) await bootstrap();
 for (let tick = 1; tick <= TICKS; tick++) {
-  const entries = await view(F, 'list_coins', {});
-  const live = [];
-  for (const e of entries) { const v = await view(e.account_id, 'get_coin'); if (!v.graduated) live.push({ id: e.account_id, level: v.level }); }
-  for (const x of live) await playCoin(x.id, live);
-  log(`tick ${tick} done (${live.length} live coins)`);
-  if (tick < TICKS) { if (FWD) await forward(FWD); else await new Promise(r => setTimeout(r, EVERY * 1000)); }
+  const live = await liveCoins();
+  for (const x of live) { await housekeeping(x.id); await playCoin(x.id, live); }
+  log(`tick ${tick} done (${live.length} live coins: ${live.map(x => sym(x.id) + ' L' + x.level).join(', ')})`);
+  if (tick < TICKS) { if (FWD) await forward(FWD); else await sleep(EVERY * 1000); }
 }
