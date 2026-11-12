@@ -288,3 +288,27 @@ table.log tr.burn td:nth-child(2) { color: var(--down); } table.log tr.mint td:n
 .cheat-row { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; padding: 8px 0; border-top: 1px solid #ffffff18; }
 .cheat-out { min-width: 220px; max-width: 420px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 .stamp { display: inline-block; border: 2px solid #ff5c5c; color: #ff5c5c; font: 400 13px/1 var(--f-display); letter-spacing: .08em; padding: 3px 7px; transform: rotate(-2deg); border-radius: 4px; }
+
+/* War Map: one block per coin, sized by war points */
+.treemap { position: relative; width: 100%; aspect-ratio: 16 / 8; min-height: 280px; max-height: 460px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--sunk); margin-bottom: 14px; }
+.tm-block { position: absolute; padding: 3px; border: 0; background: none; cursor: pointer; text-align: left; color: var(--ink); transition: left .7s, top .7s, width .7s, height .7s; }
+.tm-in { display: flex; flex-direction: column; gap: 6px; width: 100%; height: 100%; padding: 10px; border-radius: 9px; overflow: hidden;
+  background: linear-gradient(160deg, hsl(var(--hue) 55% 24%), hsl(var(--hue) 45% 14%)); border: 1px solid hsl(var(--hue) 55% 38%); }
+.tm-block:hover .tm-in, .tm-block:focus-visible .tm-in { border-color: var(--accent); }
+.tm-block.champ .tm-in { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
+.tm-block.raiding .tm-in { animation: tmraid 1.4s ease-in-out infinite; }
+@keyframes tmraid { 50% { box-shadow: inset 0 0 22px #ff6262aa; } }
+.tm-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.tm-icon { border-radius: 50%; flex: none; }
+.tm-sym { font: 400 18px/1 var(--f-display); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tm-pts { margin-left: auto; font-size: 22px; color: var(--gold); }
+.tm-meta { color: #ffffffb0; }
+.tm-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: auto; }
+.tm-tag { font: 11px var(--f-mono); border: 1px solid #ffffff40; border-radius: 99px; padding: 1px 8px; background: #0008; }
+.tm-tag.hot { border-color: var(--accent); color: var(--accent); } .tm-tag.up { border-color: var(--up); color: var(--up); } .tm-tag.down { border-color: var(--down); color: var(--down); }
+.chronicle { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.chron-card { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--sunk); }
+.chron-line { padding: 3px 0; border-bottom: 1px dashed var(--line); }
+.chron-line.up { color: var(--up); } .chron-line.down { color: var(--down); }
+.chron-line .mono { margin-right: 6px; }
+@media (max-width: 700px) { .treemap { aspect-ratio: 4 / 5; max-height: none; } }
