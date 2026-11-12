@@ -29,6 +29,8 @@ export interface Net {
   call<T = any>(contractId: string, method: string, args?: object, deposit?: bigint): Promise<T>;
   coinId(symbol: string): string;
   balance(): Promise<number>;
+  /** account facts for the Proof page: balance, storage, code hash and how many access keys it has */
+  accountInfo(account: string): Promise<{ amount: string; storageUsage: number; codeHash: string; keys: number }>;
   // sandbox only
   players?(): string[];
   player?: string;
@@ -59,6 +61,10 @@ class SandboxNet implements Net {
   call<T>(c: string, m: string, a: object = {}, d = 0n) { return this.ch.call<T>(this.player, c, m, a, d); }
   coinId(s: string) { return `${s.toLowerCase()}.${this.factoryId}`; }
   balance() { return this.ch.balance(this.player); }
+  async accountInfo(account: string) {
+    const [a, k] = await Promise.all([this.ch.rpc('query', { request_type: 'view_account', finality: 'final', account_id: account }), this.ch.rpc('query', { request_type: 'view_access_key_list', finality: 'final', account_id: account })]);
+    return { amount: a.amount, storageUsage: a.storage_usage, codeHash: a.code_hash, keys: k.keys.length };
+  }
   players() { return this.ch.players(); }
   setPlayer(n: string) { this.player = n; }
   fastForward(min: number, coins: string[]) { return this.ch.fastForward(min, coins); }
@@ -117,6 +123,10 @@ class WalletNet implements Net {
     } catch (e) { throw new Error(panicText(e)); }
   }
   coinId(s: string) { return `${s.toLowerCase()}.${this.factoryId}`; }
+  async accountInfo(account: string) {
+    const [a, k] = await Promise.all([this.rpc('query', { request_type: 'view_account', finality: 'final', account_id: account }), this.rpc('query', { request_type: 'view_access_key_list', finality: 'final', account_id: account })]);
+    return { amount: a.amount, storageUsage: a.storage_usage, codeHash: a.code_hash, keys: k.keys.length };
+  }
   async balance() { if (!this.account) return 0; const r = await this.rpc('query', { request_type: 'view_account', finality: 'optimistic', account_id: this.account }); return toNear(r.amount); }
   oneTapReady(coin: string) { try { return !!this.account && !!localStorage.getItem(oneTapKeyName(this.account, coin)); } catch { return false; } }
   disableOneTap(coin: string) { try { if (this.account) localStorage.removeItem(oneTapKeyName(this.account, coin)); } catch { /* ignore */ } }

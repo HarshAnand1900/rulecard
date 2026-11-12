@@ -7,6 +7,7 @@ import type {
 } from './types';
 import { TIER_OF, TIER_NAME, CARD_TEXT, RULE_TEXT, LEVEL_NAME } from './types';
 import PriceChart, { type PricePoint } from './PriceChart';
+import Proof from './Proof';
 
 const MIN = 60_000, HOUR = 60 * MIN;
 const dur = (ms: number) => { ms = Math.max(0, ms); const d = Math.floor(ms / (24 * HOUR)), h = Math.floor((ms % (24 * HOUR)) / HOUR), m = Math.floor((ms % HOUR) / MIN); const sec = Math.floor((ms % MIN) / 1000); return d ? `${d}d ${h}h` : h ? (m ? `${h}h ${m}m` : `${h}h`) : sec ? `${m}m ${sec}s` : `${m}m`; };
@@ -19,7 +20,7 @@ const pct = (a: number, b: number) => (b > 0 ? Math.min(100, (a / b) * 100) : 0)
 const TACTIC = ['', 'Rally', 'Curse', 'Ward'];
 const tacticName = (code: number) => (code ? `${TACTIC[Math.floor(code / 10)]} ×${['1', '2', '3'][code % 10]}` : '—');
 
-type Page = { kind: 'discover' } | { kind: 'launch' } | { kind: 'coin'; id: string };
+type Page = { kind: 'discover' } | { kind: 'launch' } | { kind: 'proof' } | { kind: 'coin'; id: string };
 type Tab = 'trade' | 'today' | 'cards' | 'vault' | 'raid' | 'log';
 
 export default function ChainApp() {
@@ -64,6 +65,7 @@ export default function ChainApp() {
         </div>}
         <nav className="seg" aria-label="Pages">
           <button aria-pressed={page.kind === 'discover'} onClick={() => setPage({ kind: 'discover' })}>Discover</button>
+          <button aria-pressed={page.kind === 'proof'} onClick={() => setPage({ kind: 'proof' })}>Proof</button>
           <button aria-pressed={page.kind === 'launch'} onClick={() => setPage({ kind: 'launch' })}>Launch a coin</button>
         </nav>
         <div className="who">
@@ -86,6 +88,7 @@ export default function ChainApp() {
         {listErr && <div className="warn">{listErr}</div>}
         {page.kind === 'discover' && <Discover {...ctx} />}
         {page.kind === 'launch' && <Launch {...ctx} />}
+        {page.kind === 'proof' && <Proof ch={ch} coins={coins} tick={tick} />}
         {page.kind === 'coin' && <CoinPage {...ctx} id={page.id} />}
       </main>
     </>
