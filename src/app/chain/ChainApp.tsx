@@ -5,7 +5,7 @@ import { openNet, savedDoor, saveDoor, needsDoor, type Net, type Door } from './
 import Landing from './Landing';
 import Onboard from './Onboard';
 import Guide, { guideWarVisited, markWarVisited } from './Guide';
-import { play, sfxForCall, isMuted, setMuted, onMuteChange } from './sound';
+import { play, sfxForCall, isMuted, setMuted, onMuteChange, getVolume, setVolume, SFX_LIST } from './sound';
 import type {
   CoinEntry, CoinView, HolderView, Ritual, LevelView, LogEntry, HandView, Proposal, RaidView, Card, Question, Rule, BuyQuote,
 } from './types';
@@ -95,7 +95,12 @@ export default function ChainApp() {
             : me ? <span className="small">{me} <button className="btn small ghost" onClick={() => ch.signOut!().then(refresh)}>Sign out</button></span>
             : <button className="btn primary" onClick={() => ch.signIn!()}>Connect wallet</button>}
           {me && <span className="mono small">{fmtNear(bal)} NEAR</span>}
-          <button className="btn small ghost" aria-label={muted ? 'Turn sound on' : 'Turn sound off'} title={muted ? 'Sound is off' : 'Sound is on'} onClick={() => setMuted(!muted)}>{muted ? '🔇' : '🔊'}</button>
+          <details className="menu"><summary className="btn small ghost" aria-label="Sound settings" title={muted ? 'Sound is off' : 'Sound is on'}>{muted ? '🔇' : '🔊'}</summary><div className="menu-body" style={{ minWidth: 250 }}>
+            <button onClick={() => setMuted(!muted)}>{muted ? 'Turn sound on' : 'Mute all sound'}</button>
+            <label className="small" style={{ padding: '4px 10px', display: 'block' }}>Volume <input type="range" min="0.05" max="1" step="0.05" defaultValue={getVolume()} onChange={e => setVolume(Number(e.target.value))} onPointerUp={() => play('gm')} /></label>
+            <div className="small muted" style={{ padding: '4px 10px' }}>Tap to hear each one</div>
+            {SFX_LIST.map(x => <button key={x.id} onClick={() => play(x.id)}><strong>{x.label}</strong> <span className="small muted">· {x.when}</span></button>)}
+          </div></details>
           {needsDoor() && <details className="menu"><summary className="btn small ghost">{practice ? 'Practice' : 'Wallet'} ▾</summary><div className="menu-body">
             <button onClick={() => setModal('ways')}>Two ways in: what is the difference?</button>
             {practice ? <>
