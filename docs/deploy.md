@@ -112,3 +112,9 @@ The app plays short synthesized sound effects (gm, lock, buy and sell, packs, bu
 level-ups, a jester's laugh when a coin misses its Ritual, a sad trombone when a raid is lost, an Omen sting). They're generated with the Web Audio API, so there are no audio files, and the 🔊 button in the header mutes them (the
 choice is remembered). Browsers keep audio locked until the first click, so nothing plays before that. The 🔊 menu has a volume slider and a list to
 preview every sound.
+
+## 6. Hosting on Vercel from GitHub
+
+The hosted app is a Vercel project connected to this repository: every push to `main` builds and deploys it. Set the project's
+environment variables (Settings → Environment Variables) as in section 4 plus `VITE_NETWORK` and `VITE_FACTORY_DEMO`; they are not
+read from `.env.testnet`, which is only for local runs. After changing a variable, redeploy for it to take effect.
