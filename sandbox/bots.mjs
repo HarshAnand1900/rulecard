@@ -171,7 +171,13 @@ async function bootstrap() {
 }
 
 log(`bots on the ${MODE} factory ${F}: ${bots.length} bots, ${PER} per coin per tick, every ${EVERY}s${FWD ? `, +${FWD} min per tick` : ''}`);
-if (BOOT) await bootstrap();
+if (BOOT) {
+  // the bootstrap is safe to repeat (a bot that already holds a coin doesn't buy again), so a network error just means: wait and go on
+  for (let attempt = 1; attempt <= 8; attempt++) {
+    try { await bootstrap(); break; }
+    catch (e) { log(`bootstrap hit a network error (${String(e?.cause?.code ?? e?.message ?? e).slice(0, 60)}); retrying in 20s (${attempt}/8)`); await sleep(20_000); }
+  }
+}
 // A tick that hits a network error (DNS, RPC down, rate limit) is logged and retried after a pause instead of ending the loop:
 // this has to run for days.
 let tick = 1, failures = 0;
