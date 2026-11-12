@@ -31,7 +31,7 @@ impl Coin {
     }
 
     pub fn ft_metadata(&self) -> FtMetadata {
-        FtMetadata { spec: "ft-1.0.0".into(), name: self.p.name.clone(), symbol: self.p.symbol.clone(), icon: self.p.icon.clone(), reference: None, reference_hash: None, decimals: 18 }
+        FtMetadata { spec: "ft-1.0.0".into(), name: self.p.name.clone(), symbol: self.p.symbol.clone(), icon: Some(self.p.icon.clone().unwrap_or_else(|| self.live_icon())), reference: None, reference_hash: None, decimals: 18 }
     }
 
     #[payable]
@@ -130,5 +130,29 @@ impl Coin {
         if moved_tag > 0 { if now >= r.tag_until { r.tagged = 0; } r.tagged += moved_tag; r.tag_until = r.tag_until.max(tag_until); }
         self.save(to, r);
         events::ft_transfer(from, to, amount, memo);
+    }
+}
+
+impl Coin {
+    /// The coin's face is its war record: drawn from its own state every time a wallet or explorer asks for the icon.
+    /// Level ring, the symbol, the current streak, the last 7 Rituals (flame = made, ash = missed) and crossed swords during a raid.
+    pub(crate) fn live_icon(&self) -> String {
+        let sym: String = self.p.symbol.chars().filter(|c| c.is_ascii_alphanumeric()).take(4).collect::<String>().to_uppercase();
+        let ring = ["rgb(120,130,150)", "rgb(80,200,120)", "rgb(90,160,255)", "rgb(255,204,51)"][(self.level.clamp(1, 4) - 1) as usize];
+        let r = &self.ritual;
+        let mut dots = String::new();
+        for i in 0..7u64 {
+            let day = r.day.saturating_sub(7 - i);
+            let made = r.made_days.contains(&day);
+            let born = day * DAY + DAY > self.p.created_ms;
+            let fill = if !born { "rgb(40,44,56)" } else if made { "rgb(255,120,40)" } else { "rgb(90,90,100)" };
+            dots.push_str(&format!("<circle cx='{}' cy='100' r='5' fill='{}'/>", 28 + i * 12, fill));
+        }
+        let raid = if self.raid.as_ref().map_or(false, |x| x.phase >= 2 && x.result.is_none()) { "<path d='M30 30L98 98M98 30L30 98' stroke='rgb(255,70,70)' stroke-width='5' opacity='0.55'/>" } else { "" };
+        let svg = format!(
+            "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'><circle cx='64' cy='64' r='60' fill='rgb(18,20,28)' stroke='{ring}' stroke-width='6'/><text x='64' y='62' font-family='Arial' font-weight='bold' font-size='{fs}' fill='white' text-anchor='middle'>{sym}</text><text x='64' y='84' font-family='Arial' font-size='11' fill='rgb(255,204,51)' text-anchor='middle'>L{lv} STREAK {st}</text>{dots}{raid}</svg>",
+            fs = if sym.len() > 3 { 24 } else { 30 }, lv = self.level, st = r.streak);
+        let enc = svg.replace('%', "%25").replace('<', "%3C").replace('>', "%3E").replace('#', "%23");
+        format!("data:image/svg+xml;utf8,{enc}")
     }
 }

@@ -39,7 +39,7 @@ export default function WarMap({ ch, coins, tick, go }: { ch: Net; coins: CoinEn
       {!rows.length && <div className="panel muted">No coins to rank yet.</div>}
       <div className="panel">
         <table className="log war">
-          <thead><tr><th>#</th><th>Coin</th><th>Level</th><th>Ritual streak</th><th>Last day</th><th>Raids W–L</th><th>Now</th></tr></thead>
+          <thead><tr><th>#</th><th>Coin</th><th>Level</th><th>Ritual streak</th><th>High score</th><th>Last day</th><th>Raids W–L</th><th>Now</th></tr></thead>
           <tbody>
             {rows.map((r, i) => (
               <tr key={r.id}>
@@ -47,6 +47,7 @@ export default function WarMap({ ch, coins, tick, go }: { ch: Net; coins: CoinEn
                 <td><button className="linkish" onClick={() => go(r.id)}><strong>${r.sym}</strong></button> <span className="muted small">{fmtNear(toNear(r.c.mcap))} N mcap</span></td>
                 <td>L{r.c.level} {LEVEL_NAME[r.c.level]}</td>
                 <td>🔥 {r.r.streak}</td>
+                <td className="mono">🏆 {Math.max(r.r.best_streak ?? 0, r.r.streak)}</td>
                 <td>{r.r.last_made === null ? '·' : r.r.last_made ? <span className="up">made ✓</span> : <span className="down">missed ✗</span>}</td>
                 <td className="mono">{r.won}–{r.lost}</td>
                 <td>{r.raid && r.raid.phase === 2 ? <span className="chip hot">⚔ {r.raid.attacking ? 'attacking' : 'defending'} ${sym(r.raid.attacking ? r.raid.defender : r.raid.attacker)}</span> : r.raid && r.raid.phase < 2 ? <span className="chip">raid forming</span> : <span className="muted small">at peace</span>}</td>

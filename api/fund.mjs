@@ -8,11 +8,23 @@
 //   FUND_RPC           RPC url(s), comma separated (default: FastNEAR testnet, then rpc.testnet.near.org)
 //   FUND_AMOUNT_NEAR   sent to each new wallet (default 0.5)
 //   FUND_KEEP_NEAR     the sponsor stops paying when its own balance would fall below this (default 1)
+//   FUND_POW_BITS      proof-of-work difficulty in zero bits (default 16; 0 turns it off)
+//   FUND_GLOBAL_HOUR   most wallets this site pays per hour (default 30)
 //   FUND_PER_IP_HOUR   how many wallets one visitor address can fund per hour (default 3)
 //
 // What it will and won't do: it only funds brand-new implicit accounts (a 64-character hex name), at most once each, at most
 // FUND_AMOUNT_NEAR, and it stops when the sponsor is nearly empty. Testnet NEAR has no value; the worst abuse is draining the sponsor.
 import { connect, keyStores, KeyPair, utils } from 'near-api-js';
+import { createHash } from 'node:crypto';
+
+// Proof of work: sha256(`${account}:${ts}:${nonce}`) must start with POW_BITS zero bits (default 16, about a second in a browser). Matches src/app/chain/pow.ts.
+function powOk(id, ts, nonce, bits) {
+  if (bits <= 0) return true;
+  if (!Number.isFinite(ts) || Math.abs(Date.now() - ts) > 600_000 || !Number.isSafeInteger(nonce) || nonce < 0) return false;
+  const h = createHash('sha256').update(`${id}:${ts}:${nonce}`).digest();
+  let n = 0; for (const b of h) { if (b === 0) { n += 8; continue; } n += Math.clz32(b) - 24; break; }
+  return n >= bits;
+}
 
 const hits = new Map(); // ip -> [timestamps]; per warm instance, best effort
 const funded = new Set(); // wallets this instance already paid: a retry (or a double click) never pays twice
@@ -46,6 +58,7 @@ export default async function handler(req, res) {
   if (!/^[0-9a-f]{64}$/.test(id)) return send(res, 400, { error: 'account_id must be a 64-character implicit account name' });
 
   if (funded.has(id)) return send(res, 200, { ok: true, already: true });
+  if (!powOk(id, Number(body.ts), Number(body.nonce), Number(env.FUND_POW_BITS ?? 16))) return send(res, 400, { error: 'The faucet needs a small proof of work with each request: reload the page and try again.' });
   const ip = String(req.headers['x-forwarded-for'] ?? req.socket?.remoteAddress ?? 'unknown').split(',')[0].trim();
   const limit = Number(env.FUND_PER_IP_HOUR ?? 3), now = Date.now();
   const recent = (hits.get(ip) ?? []).filter(t => now - t < 3_600_000);

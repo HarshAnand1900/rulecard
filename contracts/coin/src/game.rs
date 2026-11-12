@@ -261,6 +261,7 @@ impl Coin {
         let mut burned_near = 0;
         if made {
             self.ritual.streak += 1;
+            if self.ritual.streak > self.ritual.best_streak { self.ritual.best_streak = self.ritual.streak; self.ritual.best_streak_day = day; }
             let rate = if self.ritual.streak >= 3 { RITUAL_STREAK_BURN_BPS } else { RITUAL_BURN_BPS };
             burned_near = self.pot_burn(now, bps(self.pot, rate), "Daily Ritual made");
             self.ritual.made_days.push(day); if self.ritual.made_days.len() > 7 { self.ritual.made_days.remove(0); }

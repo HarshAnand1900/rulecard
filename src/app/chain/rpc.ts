@@ -1,7 +1,7 @@
 // Shared RPC client for the testnet modes (wallet and practice): endpoint failover, retry on network errors, and a small read cache.
 import { toNear } from './near';
 
-export const panicText = (e: any) => { const m = String(e?.message ?? e); const k = m.match(/Smart contract panicked: ([^"\\]*)/); return k ? k[1] : m.slice(0, 160); };
+export const panicText = (e: any) => { const m = String(e?.message ?? e); if (/MethodNotFound/.test(m)) return 'MethodNotFound: this contract has no such method'; const k = m.match(/Smart contract panicked: ([^"\\]*)/); return k ? k[1] : m.slice(0, 160); };
 
 export class RpcClient {
   private ep = 0; // index of the RPC endpoint that last worked

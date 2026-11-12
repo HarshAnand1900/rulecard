@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { Net } from './net';
 import type { CoinEntry, CoinView, Proposal } from './types';
 import { toNear } from './near';
+import Cheat from './Cheat';
 import chart from '../../../docs/supply-60d.svg';
 
 interface Check { label: string; ok: boolean | null; detail: string }
@@ -57,7 +58,24 @@ export default function Proof({ ch, coins, tick }: { ch: Net; coins: CoinEntry[]
   const fPassed = f ? [f.keys === 0, f.admin === null, f.codeStored].filter(Boolean).length : 0;
   return (
     <section>
-      <h1>Proof</h1>
+      <h1>Judges: start here</h1>
+      <p className="muted">The memecoin track's requirements, each with where to see it. Everything below the table is read live from the chain.</p>
+      <div className="panel">
+        <table className="log">
+          <thead><tr><th>The track asks for</th><th>Where to see it</th></tr></thead>
+          <tbody>
+            <tr><td>A NEP-141 token with the mechanic in the contract</td><td>Every coin is its own contract. Checks per coin are below; the rules are in <code>contracts/coin/src</code>.</td></tr>
+            <tr><td>Parameters fixed at launch, readable, no admin</td><td>The No admin and No access keys rows below, and <code>get_params</code> on any coin.</td></tr>
+            <tr><td>Streak and today's progress</td><td>The Ritual tab on a coin: today's progress, current streak and the coin's best streak (its high score).</td></tr>
+            <tr><td>A log of every mint and burn</td><td>The Log tab and the price chart. Every one is also a NEP-297 event, so an indexer can rebuild the history.</td></tr>
+            <tr><td>Sybil limits written plainly</td><td>Check-ins need 1 NEAR of tokens held. Levels count only wallets holding 2 NEAR for an hour. A practice wallet is free but only holds a small bag.</td></tr>
+            <tr><td>A simulation before the parameters</td><td>The 60-day chart further down, and the parameter sweep in the README.</td></tr>
+            <tr><td>Raids: coins fighting coins</td><td>The War Map page. Labelled 🤖 bots keep the demo world moving; their whole brain is <code>sandbox/bots.mjs</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <Cheat ch={ch} coins={coins} />
+      <h2>Live proof</h2>
       <p className="muted">Read live from the chain every few seconds, not from this app's own state. Click any address to check it on the explorer yourself.</p>
       {err && <div className="warn">{err}</div>}
       <div className={`panel proof-head ${f && fPassed === 3 && passed === all.length ? 'ok' : ''}`}>

@@ -21,7 +21,7 @@ let NS = 1, TS = 1;
 const nearAmt = (x: number) => fmtNear(x / NS);
 const hrs = (h: number) => dur((h * HOUR) / TS);
 const shortAcct = (a: string) => (/^[0-9a-f]{64}$/.test(a) ? `${a.slice(0, 6)}…${a.slice(-4)}` : a);
-const short = (a: string) => a.replace(/\.test\.near$/, '').replace(/\.rulecard$/, '');
+const short = (a: string) => (/^bot\d+\./.test(a) ? '🤖 ' + a.split('.')[0] : a.replace(/\.test\.near$/, '').replace(/\.rulecard$/, ''));
 const pct = (a: number, b: number) => (b > 0 ? Math.min(100, (a / b) * 100) : 0);
 const TACTIC = ['', 'Rally', 'Curse', 'Ward'];
 const tacticName = (code: number) => (code ? `${TACTIC[Math.floor(code / 10)]} ×${['1', '2', '3'][code % 10]}` : '—');
@@ -85,7 +85,7 @@ export default function ChainApp() {
         <nav className="seg" aria-label="Pages">
           <button aria-pressed={page.kind === 'discover'} onClick={() => setPage({ kind: 'discover' })}>Discover</button>
           <button aria-pressed={page.kind === 'war'} onClick={() => setPage({ kind: 'war' })}>War Map</button>
-          <button aria-pressed={page.kind === 'proof'} onClick={() => setPage({ kind: 'proof' })}>Proof</button>
+          <button aria-pressed={page.kind === 'proof'} onClick={() => setPage({ kind: 'proof' })}>Judges</button>
           <button aria-pressed={page.kind === 'launch'} onClick={() => setPage({ kind: 'launch' })}>Launch a coin</button>
         </nav>
         <div className="who">
@@ -442,7 +442,7 @@ function TodayTab({ d, now }: TabProps) {
         <Bar label="gm" value={r.gm_count} max={r.gm_target} text={`${r.gm_count} / ${r.gm_target} wallets`} />
         <Bar label="Locked" value={toNear(r.lock_near)} max={toNear(r.lock_target)} text={`${fmtNear(toNear(r.lock_near))} / ${fmtNear(toNear(r.lock_target))} NEAR`} />
         <p className="small">Made it: the pot burns <strong>{r.streak >= 2 ? '7%' : '5%'}</strong> Missed: idle burn ×2 for the next {hrs(6)}.</p>
-        <p className="small muted">Streak: 🔥 {r.streak} day{r.streak === 1 ? '' : 's'}{r.last_made !== null && ` · yesterday ${r.last_made ? 'made ✓' : 'missed ✗'}`}</p>
+        <p className="small muted">Streak: 🔥 {r.streak} day{r.streak === 1 ? '' : 's'} · best ever {Math.max(r.best_streak ?? 0, r.streak)}{r.last_made !== null && ` · yesterday ${r.last_made ? 'made ✓' : 'missed ✗'}`}</p>
       </div>
       <div className="panel stack">
         <div className="row between"><h2>{lv.next ? `To L${lv.next} ${LEVEL_NAME[lv.next]}` : 'Top level'}</h2>{lv.all_met_since && <span className="chip hot">hold {dur(lv.all_met_since + lv.hold_ms - now)}</span>}</div>

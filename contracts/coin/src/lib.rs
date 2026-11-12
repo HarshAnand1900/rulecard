@@ -193,6 +193,9 @@ pub struct Ritual {
     pub gm_count: u32,
     pub lock_near: U128,
     pub streak: u32,
+    /// the longest run of made Rituals so far (the coin's high score) and the day it was reached
+    pub best_streak: u32,
+    pub best_streak_day: u64,
     pub last_made: Option<bool>,
     pub made_days: Vec<u64>,
     pub double_from: Vec<u64>,
@@ -327,7 +330,7 @@ impl Coin {
             vault_locked: 0, vault_w: 0, vault_acc: 0, vault_rewards: 0,
             energy: 0, energy_acc: 0, buys: Ring::default(), sells: Ring::default(), checkins: Ring::default(),
             level: 1, level_ok_since: None, level_at: vec![now],
-            ritual: Ritual { day: now / DAY, gm_target: RITUAL_GM_MIN, lock_target: U128(RITUAL_LOCK_MIN), gm_count: 0, lock_near: U128(0), streak: 0, last_made: None, made_days: vec![], double_from: vec![] },
+            ritual: Ritual { day: now / DAY, gm_target: RITUAL_GM_MIN, lock_target: U128(RITUAL_LOCK_MIN), gm_count: 0, lock_near: U128(0), streak: 0, best_streak: 0, best_streak_day: 0, last_made: None, made_days: vec![], double_from: vec![] },
             graduated: false, log: Vector::new(b"l"), log_seq: 0,
             nonce: 0, stock: vec![], elig: vec![Ring::default(), Ring::default(), Ring::default()], table: vec![], history: vec![], next_prop: 0,
             epics_day: 0, epics_today: 0, last_ember: 0, hype_until: 0, hype_last: 0, rollcall_until: 0, rollcall_mult: 1, tag_until: 0,

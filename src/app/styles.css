@@ -284,3 +284,7 @@ table.log tr.burn td:nth-child(2) { color: var(--down); } table.log tr.mint td:n
 .omen-banner .omen-name { font: 400 18px/1 var(--f-display); letter-spacing: .04em; color: var(--gold); }
 .omen-banner.active .omen-name { animation: omenpulse 1.6s ease-in-out infinite; }
 @keyframes omenpulse { 50% { text-shadow: 0 0 12px var(--gold); } }
+
+.cheat-row { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; padding: 8px 0; border-top: 1px solid #ffffff18; }
+.cheat-out { min-width: 220px; max-width: 420px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.stamp { display: inline-block; border: 2px solid #ff5c5c; color: #ff5c5c; font: 400 13px/1 var(--f-display); letter-spacing: .08em; padding: 3px 7px; transform: rotate(-2deg); border-radius: 4px; }

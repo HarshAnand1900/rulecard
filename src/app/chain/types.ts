@@ -18,7 +18,7 @@ export interface HolderView {
   balance: string; pending_idle_burn: string; locked: string; locks: Lock[]; vault_weight: string; vault_earned: string;
   since: number; last_gm: number; next_gm: number; idle_burn_starts: number; lost_today: string; loss_cap_today: string; value: string; qualified: boolean;
 }
-export interface Ritual { day: number; gm_target: number; lock_target: string; gm_count: number; lock_near: string; streak: number; last_made: boolean | null; made_days: number[]; double_from: number[]; }
+export interface Ritual { day: number; gm_target: number; lock_target: string; gm_count: number; lock_near: string; streak: number; best_streak?: number; best_streak_day?: number; last_made: boolean | null; made_days: number[]; double_from: number[]; }
 export interface RuleCheck { name: string; current: string; target: string; met: boolean; }
 export interface LevelView { level: number; next: number | null; rules: RuleCheck[]; all_met_since: number | null; hold_ms: number; }
 export interface LogEntry { seq: number; at: number; kind: string; account: string | null; amount: string; near: string; memo: string; }

@@ -2,6 +2,7 @@
 // - sandbox:  the local NEAR sandbox, signing with local test keys (dev only), with a player switcher and a clock you can move;
 // - practice: a throwaway wallet made in the browser and funded by a small sponsor endpoint (testnet; coins have no value);
 // - wallet:   your own testnet account through NEAR Wallet Selector (MyNearWallet, Meteor).
+import { solvePow, POW_BITS } from './pow';
 import { connect, keyStores, KeyPair } from 'near-api-js';
 import { Chain } from './near';
 import { RpcClient, panicText } from './rpc';
@@ -143,7 +144,8 @@ class GuestNet implements Net {
     if ((await this.r.balanceOf(this.account!)) >= 0.15) { onStep('ready'); return; }
     onStep('funding');
     let res: Response;
-    try { res = await fetch(this.cfg.fundUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ account_id: this.account }) }); }
+    const pow = await solvePow(this.account!, POW_BITS); // the faucet asks every new wallet for a small proof of work
+    try { res = await fetch(this.cfg.fundUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ account_id: this.account, ...pow }) }); }
     catch { throw new Error('the practice faucet can\'t be reached: use your own wallet instead'); }
     const body: any = await res.json().catch(() => ({}));
     if (!res.ok || body.error) throw new Error(body.error ?? `the practice faucet answered ${res.status}: use your own wallet instead`);
@@ -156,7 +158,12 @@ class GuestNet implements Net {
   async call<T>(contractId: string, method: string, args: object = {}, deposit = 0n): Promise<T> {
     if (!this.kp || !this.account) throw new Error('your practice wallet is not ready yet');
     let last: any;
+    // A network error can hit AFTER the chain accepted the transaction. Retrying would then send it twice (a second buy, a second
+    // check-in attempt): so before each retry we ask the chain whether this wallet's key nonce moved, and if it did we stop.
+    const nonce = async () => { try { return Number((await this.r.rpc('query', { request_type: 'view_access_key', finality: 'optimistic', account_id: this.account!, public_key: this.kp!.getPublicKey().toString() })).nonce); } catch { return -1; } };
+    const before = await nonce();
     for (let i = 0; i < 3; i++) {
+      if (i > 0 && before >= 0) { const now = await nonce(); if (now > before) { this.r.clearCache(); return null as T; } }
       try {
         const ks = new keyStores.InMemoryKeyStore(); await ks.setKey(this.cfg.networkId, this.account, this.kp);
         const near = await connect({ networkId: this.cfg.networkId, nodeUrl: this.r.nodeUrl, keyStore: ks });
@@ -167,7 +174,7 @@ class GuestNet implements Net {
       } catch (e: any) {
         const m = String(e?.message ?? e);
         if (/does not have enough balance|NotEnoughBalance/i.test(m)) { this.r.clearCache(); throw new Error('your practice wallet is almost out of NEAR: reset it, or use your own wallet'); }
-        if (/panicked|ExecutionError|FunctionCallError/.test(m)) { this.r.clearCache(); throw new Error(panicText(e)); }
+        if (/panicked|ExecutionError|FunctionCallError|MethodNotFound|MethodResolveError|is not found/.test(m)) { this.r.clearCache(); throw new Error(panicText(e)); }
         last = e; this.r.rotate(); await new Promise(r => setTimeout(r, 500 * (i + 1)));
       }
     }

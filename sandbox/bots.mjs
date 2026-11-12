@@ -116,7 +116,7 @@ async function playCoin(coin, liveCoins) {
     }
     // raids
     const raid = await view(coin, 'get_raid');
-    if (!raid && c.level >= 2 && chance(0.15)) {
+    if (!raid && c.level >= 2 && chance(0.5)) { // judges should always find a raid running or about to start
       const targets = liveCoins.filter(x => x.id !== coin && x.level >= c.level);
       if (targets.length) await act(bot, coin, 'start_raid', { target: pick(targets).id });
     } else if (raid) {

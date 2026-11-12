@@ -184,6 +184,7 @@ fn ritual_made_burns_from_the_pot() {
     assert_eq!(c.ritual.last_made, Some(true));
     assert!(c.pot < pot && c.burned > burned, "pot burned on a made Ritual");
     assert_eq!(c.ritual.streak, 1);
+    assert_eq!((c.ritual.best_streak, c.ritual.best_streak_day), (1, day0 / DAY), "the high score is kept");
     check_supply(&mut c, &ids, day0 + DAY + 2);
 }
 
@@ -848,4 +849,16 @@ fn treasure_makes_the_lucky_gm_pack_ready() {
     ctx(1, 0, base + 5 * MIN); c.gm();
     assert_eq!(c.holder(&acc(1)).next_pack, 0, "the lucky gm gets a pack ready");
     ctx(1, 0, base + 6 * MIN); assert!(!c.claim_pack().is_empty());
+}
+
+#[test]
+fn the_icon_is_drawn_from_the_coin_state_and_is_safe() {
+    let mut c = launch(vec![]);
+    let a = c.ft_metadata().icon.unwrap();
+    assert!(a.starts_with("data:image/svg+xml;utf8,%3Csvg"));
+    assert!(!a.contains('<') && !a.contains('#') && a.contains("STREAK 0"));
+    c.ritual.streak = 4; c.level = 3;
+    let b = c.ft_metadata().icon.unwrap();
+    assert!(b.contains("STREAK 4") && b.contains("L3") && a != b, "the face changes with the coin");
+    assert!(a.len() < 2_000, "small enough for a wallet");
 }
