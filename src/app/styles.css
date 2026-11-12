@@ -236,3 +236,14 @@ table.log tr.burn td:nth-child(2) { color: var(--down); } table.log tr.mint td:n
 .proof-row { display: grid; grid-template-columns: 22px 1fr; gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
 .proof-row.ok .proof-mark { color: var(--up); } .proof-row.bad .proof-mark { color: var(--down); }
 .proof-mark { font-weight: 700; }
+/* Ritual hero */
+.ritual-hero { border-color: var(--gold); background: linear-gradient(180deg, #ffcc3310, transparent 60%), var(--panel); display: flex; flex-direction: column; gap: 10px; }
+.ritual-hero.ok { border-color: var(--up); }
+.hero-nums { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.hero-nums b { display: block; font: 400 34px/1.05 var(--f-display); }
+.hero-nums span { color: var(--muted); font-size: 13px; }
+.hero-meter { height: 10px; }
+.hero-meter i { background: var(--gold); }
+.dots { display: inline-flex; gap: 5px; }
+.dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); display: inline-block; }
+.dot.made { background: var(--up); border-color: var(--up); } .dot.missed { background: var(--down); border-color: var(--down); } .dot.none { opacity: .35; }

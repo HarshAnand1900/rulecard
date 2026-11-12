@@ -1,0 +1,11 @@
+# The Rulecard bots on any always-on machine (a VPS, Fly.io, Railway, a spare PC or Raspberry Pi):
+#   docker build -f Dockerfile.bots -t rulecard-bots .
+#   docker run -d --restart unless-stopped -e BOT_KEYS="$(cat sandbox/.keys/testnet.json)" rulecard-bots
+# BOT_KEYS is the contents of sandbox/.keys/testnet.json. It is passed at run time and never baked into the image.
+# BOT_EVERY is the seconds between ticks (default 120: quick enough to answer a judge's raid or card in demo mode).
+FROM node:22-alpine
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+COPY sandbox ./sandbox
+CMD ["sh", "-c", "printf '%s' \"$BOT_KEYS\" > /tmp/keys.json && RULECARD_KEYS=/tmp/keys.json exec node sandbox/bots.mjs --mode demo --every ${BOT_EVERY:-120}"]

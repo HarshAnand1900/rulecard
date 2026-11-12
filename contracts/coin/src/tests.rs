@@ -9,6 +9,7 @@ fn ctx(who: usize, deposit: u128, ms: u64) {
     b.current_account_id("frog.rulecard.testnet".parse().unwrap())
         .predecessor_account_id(acc(who))
         .attached_deposit(NearToken::from_yoctonear(deposit))
+        .account_balance(NearToken::from_near(10_000_000)) // the mock contract can pay out any sell
         .block_timestamp(ms * 1_000_000)
         .prepaid_gas(near_sdk::Gas::from_tgas(300));
     testing_env!(b.build());
@@ -654,3 +655,114 @@ fn prophecy_caster_share_settles_idle_burn_first() {
     ctx(1, 0, later); assert_eq!(bal(&c, 1), left + 1_000, "nothing more burns on the new tokens for the past");
 }
 
+
+// ------------------------------------------------------------------ fuzz: random operations, invariants after every one
+/// An empty mock chain (the testing_env! macro would carry the previous test's storage over).
+fn fresh_storage() {
+    let b = VMContextBuilder::new();
+    near_sdk::env::set_blockchain_interface(near_sdk::MockedBlockchain::new(b.build(), near_sdk::test_vm_config(), near_sdk::RuntimeFeesConfig::test(), Default::default(), Default::default(), Default::default(), None));
+}
+
+struct Rng(u64);
+impl Rng {
+    fn next(&mut self) -> u64 { self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407); self.0 >> 33 }
+    fn below(&mut self, n: u64) -> u64 { self.next() % n.max(1) }
+}
+
+/// Refusals a valid player can run into. Any other panic from a call the fuzzer thought was fine is a bug.
+const REFUSALS: [&str; 16] = [
+    "gm once every 6h", "hold at least 1 NEAR worth", "buy first", "next pack is not ready", "gm first", "make room", "not enough unlocked balance",
+    "graduated", "still locked", "nothing bought", "deposit too small", "minimum buy", "at most 10 locks", "receiver is not registered", "amount must be positive", "no such lock",
+];
+
+fn try_op(what: &str, f: impl FnOnce()) {
+    if let Err(e) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)) {
+        let msg = e.downcast_ref::<String>().cloned().or_else(|| e.downcast_ref::<&str>().map(|s| s.to_string())).unwrap_or_default();
+        if !REFUSALS.iter().any(|r| msg.contains(r)) { panic!("`{what}` failed in a way a valid player shouldn't hit: {msg}"); }
+    }
+}
+
+fn invariants(c: &Coin, users: &[usize], what: &str) {
+    assert!(c.pool().solvent(), "{what}: the curve is no longer fully backed");
+    // every token is somewhere: held by wallets + unsold on the curve + the reward pool + the DEX reserve = what's left of the supply
+    assert_eq!(c.circ + c.pool().room() + c.reward_pool + DEX_RESERVE, SUPPLY - c.burned, "{what}: supply identity broke");
+    for &u in users {
+        let h = c.holder(&acc(u));
+        assert!(h.loss_used <= bps(h.loss_base, DAILY_LOSS_CAP_BPS) + 1, "{what}: wallet {u} lost more than 8% of its day-start balance");
+    }
+}
+
+fn vault_sums(c: &Coin, users: &[usize], what: &str) {
+    let locked: u128 = users.iter().map(|&u| c.locked_of(&c.holder(&acc(u)))).sum();
+    assert_eq!(c.vault_locked, locked, "{what}: Vault locked total != sum of the wallets' locks");
+    let w: u128 = users.iter().map(|&u| c.holder(&acc(u)).w).sum();
+    assert_eq!(c.vault_w, w, "{what}: Vault weight total != sum of the wallets' weights");
+}
+
+#[test]
+fn random_operations_keep_every_invariant() {
+    let rule_sets: [Vec<Rule>; 4] = [vec![], vec![Rule::PaperTax], vec![Rule::Ruthless], vec![Rule::SoftTax]];
+    let users: Vec<usize> = (1..=10).collect();
+    // RULECARD_FUZZ_SEEDS / RULECARD_FUZZ_STEPS make it bigger (a 12,000-operation run: 8 seeds x 1,500 steps)
+    let env = |k: &str, d: u64| std::env::var(k).ok().and_then(|v| v.parse().ok()).unwrap_or(d);
+    let (seeds, steps) = (env("RULECARD_FUZZ_SEEDS", 3), env("RULECARD_FUZZ_STEPS", 300) as u32);
+    for seed in 0..seeds {
+        fresh_storage(); // each seed is a new coin on an empty chain
+        let mut c = launch(rule_sets[(seed % 4) as usize].clone());
+        let mut rng = Rng(0x9E37_79B9 ^ (seed + 1) * 7919);
+        let mut ms = T0 + 1000;
+        let mut registered = [false; 11];
+        for step in 0..steps {
+            ms += 1_000 + rng.below(30_000);
+            let u = 1 + rng.below(10) as usize;
+            let what = format!("seed {seed} step {step} user {u}");
+            match rng.below(100) {
+                0..=29 => { // buy
+                    let amount = GN * (1 + rng.below(60)) as u128 + STORAGE_COST;
+                    ctx(u, amount, ms);
+                    try_op(&what, || { c.buy(None); });
+                    registered[u] = true;
+                }
+                30..=44 => { // sell a share of what's there
+                    ctx(u, 1, ms);
+                    let b = c.ft_balance_of(acc(u)).0;
+                    if b > 0 { let a = b / 100 * (1 + rng.below(100)) as u128; if a > 0 { try_op(&what, || { c.sell(U128(a), None); }); } }
+                }
+                45..=54 => { ctx(u, 0, ms); try_op(&what, || c.gm()); }
+                55..=64 => { // lock
+                    ctx(u, 1, ms);
+                    let b = c.ft_balance_of(acc(u)).0;
+                    if b > 0 { let a = b / 100 * (1 + rng.below(60)) as u128; let hours = [6u8, 24, 72][rng.below(3) as usize]; if a > 0 { try_op(&what, || { c.lock(U128(a), hours); }); } }
+                }
+                65..=69 => { // unlock, or leave early
+                    ctx(u, 1, ms);
+                    if let Some(h) = c.get_holder(acc(u)) {
+                        if !h.locks.is_empty() {
+                            let i = rng.below(h.locks.len() as u64) as u32;
+                            if ms >= h.locks[i as usize].until { try_op(&what, || { c.unlock(i); }); } else { try_op(&what, || { c.leave_early(i); }); }
+                        }
+                    }
+                }
+                70..=77 => { // a transfer to another registered wallet
+                    let v = 1 + rng.below(10) as usize;
+                    if v != u && registered[v] {
+                        ctx(u, 1, ms);
+                        let b = c.ft_balance_of(acc(u)).0;
+                        let a = b / 100 * (1 + rng.below(100)) as u128;
+                        if a > 0 { try_op(&what, || c.ft_transfer(acc(v), U128(a), None)); }
+                    }
+                }
+                78..=84 => { ctx(u, 0, ms); try_op(&what, || { c.claim_pack(); }); }
+                85..=88 => { ctx(u, 0, ms); c.poke(); }
+                _ => { // time passes: usually minutes, sometimes hours, now and then days
+                    ms += match rng.below(20) { 0 => rng.below(3 * 24) * 3_600_000, 1..=5 => rng.below(12 * 60) * 60_000, _ => rng.below(60) * 60_000 };
+                }
+            }
+            invariants(&c, &users, &what);
+            if step % 25 == 24 { vault_sums(&c, &users, &what); }
+            if step % 200 == 199 { check_supply(&mut c, &users, ms); invariants(&c, &users, &format!("{what} after settling everyone")); }
+        }
+        ctx(1, 0, ms); c.poke();
+        invariants(&c, &users, &format!("seed {seed} end"));
+    }
+}

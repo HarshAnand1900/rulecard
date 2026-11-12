@@ -1,21 +1,22 @@
 # Rulecard
 
-**A memecoin that only survives if its holders show up.**
+**Most memecoins die when the community stops showing up. In Rulecard, that is literally the rule, and communities fight each other to stay alive.**
 
 ```
- every 6h: holders say gm ──► today's Ritual (X wallets gm + Y NEAR locked)
+ every day the WHOLE coin has to show up: enough wallets say gm, enough NEAR gets locked in the Vault
                                    │
               made ◄───────────────┴───────────────► missed
-   the pot buys & burns 5% of itself            idle burn ×2 for 6h
-   (supply drops, price floor rises)            (sleeping bags shrink faster)
+   the pot buys & burns 5% of itself            sleepers' bags burn twice as fast
+   (supply drops, the floor rises)              (the cost of not showing up)
 
- don't show up for 12h ──► 1% of your unlocked bag burns every 6h (half burned, half paid to the Vault)
- lock in the Vault     ──► safe from every burn, and you earn what the sleepers lose
+ coins also RAID each other: the community that shows up in bigger numbers takes 15% of the other coin's pot
+ lock in the Vault ──► safe from every burn, and you earn what the sleepers lose
 ```
 
-That loop is the coin. Everything else (rule cards the crowd plays together, raids against other coins, levels) is how it
-gets wild. Every NEP-141 coin is its own contract, every number is fixed at launch, and nobody holds an admin key: the factory
-deletes its own key in its deploy transaction.
+The Ritual is the coin. Rule cards the crowd plays together, levels and raids between coins are how it gets wild. Every
+NEP-141 coin is its own contract, every number is fixed at launch, and nobody holds an admin key: the factory deletes its own key
+in its deploy transaction. The app has a **Proof** page that checks all of this live on the chain, and a **War Map** of coins ranked
+by level and Ritual streak.
 
 **Live on NEAR testnet (demo scale):**
 - Factory: [`demo.harshtest1.testnet`](https://testnet.nearblocks.io/address/demo.harshtest1.testnet) (zero access keys: its only key was deleted in the deploy transaction)
@@ -33,7 +34,7 @@ Track: **Memecoins With Mechanics** (NEAR). Judges score the mechanic, so this R
 | **gm** | tap once every 6h | +1 Energy for the coin, your idle clock resets, counts toward today's Ritual |
 | **Daily Ritual** | the coin needs X wallets to gm and Y NEAR to be locked today | made: the pot buys and burns 5% (7% on a 3-day streak). Missed: idle burn ×2 for 6h |
 | **Vault** | lock tokens for 6h / 24h / 72h | locked tokens are safe from every burn and earn half of what idle burn and early exits take |
-| **Idle burn** | nothing (that's the point) | after 12h without a gm, 1% of your *unlocked* tokens every 6h: half burned, half to the Vault |
+| **Idle burn** | nothing: it is the cost of not showing up | after 12h without a gm, 1% of your *unlocked* tokens every 6h: half burned, half to the Vault |
 | **Cards** | claim 2 cards every 6h; play them with other holders | Ember and Inferno burn from the pot; Prophecy is a 2h crowd bet; raid tactics fight other coins |
 | **Raids** | sign, plan 3 hidden tactics, buy, lock and Battle cry in 3 rounds | the loser's pot pays 15% to the winner, which buys and burns its own tokens |
 

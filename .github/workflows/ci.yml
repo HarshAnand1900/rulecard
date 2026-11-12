@@ -1,0 +1,44 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  contracts:
+    name: Contract tests (real and demo scale)
+    runs-on: ubuntu-latest
+    env:
+      RULECARD_FUZZ_SEEDS: 5     # the randomized test: 5 coins x 500 random operations, invariants checked after each
+      RULECARD_FUZZ_STEPS: 500
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            contracts/coin/target
+            contracts/factory/target
+          key: cargo-${{ hashFiles('contracts/*/Cargo.lock') }}
+      - name: Coin contract
+        working-directory: contracts/coin
+        run: cargo test && cargo test --features demo
+      - name: Factory contract
+        working-directory: contracts/factory
+        run: cargo test && cargo test --features demo
+
+  app:
+    name: App typecheck and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+        env:
+          VITE_NETWORK: testnet
+          VITE_FACTORY_DEMO: demo.example.testnet

@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+.env*
+sandbox/.keys
+contracts
+research
+docs
+*.wasm

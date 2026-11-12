@@ -32,6 +32,32 @@ node sandbox/bots.mjs --mode demo --every 600              # then: a tick every 
 - The bots must keep running through judging. Your laptop is fine while you're awake; for 24/7 use any small always-on machine
   (a VPS, a Raspberry Pi, a free-tier container): clone the repo, copy `sandbox/.keys/testnet.json` there (never commit it), `npm install`, run the command above under `pm2`, `tmux` or a systemd unit.
 
+## 2b. Keeping the bots running without your laptop
+
+You need *something* that stays on. What kind depends on what you want judges to be able to do:
+
+| Option | Cost | Keeps the world alive (check-ins, trades, packs, Ritual, burns) | Answers a judge's raid or card in time |
+|---|---|---|---|
+| **GitHub Actions** (`.github/workflows/bots.yml`) | free in a public repo | yes, one tick every 30 min (GitHub can run it late) | **no**: demo-mode windows are 75 s to 15 min, a tick every 30 min is too slow |
+| **An always-on machine** running `Dockerfile.bots` (a $4-5/month VPS, Oracle Cloud's Always Free VM, Fly.io, Railway, a spare PC or Raspberry Pi) | $0-5 a month | yes | **yes**: a tick every 2 minutes |
+| Your laptop | free | only while it's awake | only while it's awake |
+
+Recommended: turn on the Actions workflow now (free, nothing to host) so the world never goes fully dead, and put `Dockerfile.bots`
+on an always-on machine if you want judges to be able to start a raid or play a card and see bots respond.
+
+**GitHub Actions:** push the repo, then in *Settings → Secrets and variables → Actions* add a secret `BOT_KEYS` whose value is the
+whole contents of `sandbox/.keys/testnet.json` (16 testnet bot keys; never commit that file). Run the **Bots** workflow once by hand
+from the Actions tab to check it works.
+
+**Always-on machine:**
+```bash
+docker build -f Dockerfile.bots -t rulecard-bots .
+docker run -d --restart unless-stopped -e BOT_KEYS="$(cat sandbox/.keys/testnet.json)" rulecard-bots     # BOT_EVERY=120 seconds by default
+docker logs -f $(docker ps -q --filter ancestor=rulecard-bots)
+```
+The keys are passed at run time and are not baked into the image. The bots make each day's Ritual (they check in and lock enough
+NEAR), so the coin page shows "made" and a growing streak.
+
 ## 3. Host the app
 
 The app is a static site. Build it with the factory address baked in:

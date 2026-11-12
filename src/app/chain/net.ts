@@ -76,7 +76,10 @@ class WalletNet implements Net {
   private listeners: (() => void)[] = [];
   scale: Scale;
   scales: Scale[];
-  constructor(private factories: Partial<Record<Scale, string>>, private nodeUrl: string, private selector: WalletSelector, private modal: WalletSelectorModal) {
+  private ep = 0; // index of the RPC endpoint that last worked
+  private cache = new Map<string, { at: number; p: Promise<any> }>();
+  get nodeUrl() { return this.nodeUrls[this.ep % this.nodeUrls.length]; }
+  constructor(private factories: Partial<Record<Scale, string>>, private nodeUrls: string[], private selector: WalletSelector, private modal: WalletSelectorModal) {
     this.scales = (['demo', 'real'] as Scale[]).filter(s => factories[s]);
     const want = savedScale(); this.scale = this.scales.includes(want) ? want : this.scales[0];
     const sync = () => { this.account = selector.store.getState().accounts.find(a => a.active)?.accountId ?? null; this.listeners.forEach(f => f()); };
@@ -86,24 +89,38 @@ class WalletNet implements Net {
   setScale(s: Scale) { if (this.factories[s]) { this.scale = s; try { localStorage.setItem(SCALE_KEY, s); } catch { /* ignore */ } } }
   me() { return this.account; }
   onChange(fn: () => void) { this.listeners.push(fn); }
+  /** Public RPCs rate-limit, and their 429 replies carry no CORS header (the browser then reports a network error), so a failed
+   *  request is retried on the next endpoint. RPC-level answers (no such account, a contract panic) are real and thrown at once. */
   private async rpc(method: string, params: any) {
-    // public RPCs answer 429 when a page asks for a lot at once: back off and retry instead of failing the screen
-    let res: Response | undefined;
-    for (let i = 0; i < 5; i++) {
-      res = await fetch(this.nodeUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 'rc', method, params }) });
-      if (res.status !== 429) break;
-      await new Promise(r => setTimeout(r, 400 * 2 ** i));
+    let last: any;
+    for (let i = 0; i < 6; i++) {
+      const idx = (this.ep + i) % this.nodeUrls.length;
+      let r: any;
+      try {
+        const res = await fetch(this.nodeUrls[idx], { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 'rc', method, params }) });
+        if (res.status === 429 || res.status >= 500) throw new Error(`HTTP ${res.status}`);
+        r = await res.json();
+      } catch (e) { last = e; await new Promise(r => setTimeout(r, 300 * 2 ** Math.min(i, 3))); continue; }
+      this.ep = idx;
+      if (r.error) throw new Error(r.error?.data ?? r.error?.message ?? 'RPC error');
+      if (r.result?.error) throw new Error(panicText(r.result.error));
+      return r.result;
     }
-    const r = await res!.json();
-    if (r.error) throw new Error(r.error?.data ?? r.error?.message ?? 'RPC error');
-    if (r.result?.error) throw new Error(panicText(r.result.error));
-    return r.result;
+    throw new Error(`the testnet RPC isn't answering (${String(last?.message ?? last).slice(0, 60)}); try again in a moment`);
   }
-  async view<T>(contractId: string, method: string, args: object = {}): Promise<T> {
-    const r = await this.rpc('query', { request_type: 'call_function', finality: 'optimistic', account_id: contractId, method_name: method, args_base64: btoa(JSON.stringify(args)) });
-    return JSON.parse(new TextDecoder().decode(new Uint8Array(r.result)));
+  view<T>(contractId: string, method: string, args: object = {}): Promise<T> {
+    const key = `${contractId}|${method}|${JSON.stringify(args)}`, hit = this.cache.get(key);
+    if (hit && Date.now() - hit.at < 3000) return hit.p;
+    const p = this.rpc('query', { request_type: 'call_function', finality: 'optimistic', account_id: contractId, method_name: method, args_base64: btoa(JSON.stringify(args)) })
+      .then(r => JSON.parse(new TextDecoder().decode(new Uint8Array(r.result))) as T);
+    this.cache.set(key, { at: Date.now(), p });
+    p.catch(() => this.cache.delete(key));
+    return p;
   }
   async call<T>(contractId: string, method: string, args: object = {}, deposit = 0n): Promise<T> {
+    try { return await this.send<T>(contractId, method, args, deposit); } finally { this.cache.clear(); }
+  }
+  private async send<T>(contractId: string, method: string, args: object = {}, deposit = 0n): Promise<T> {
     if (!this.account) { this.signIn(); throw new Error('sign in first'); }
     // one-tap: no deposit, a listed method and a limited key for this coin: sign locally, no popup
     if (deposit === 0n && ONE_TAP_METHODS.includes(method) && this.oneTapReady(contractId)) {
@@ -152,7 +169,8 @@ export async function openNet(): Promise<Net> {
   const factories: Partial<Record<Scale, string>> = { demo: env.VITE_FACTORY_DEMO, real: env.VITE_FACTORY_REAL };
   if (!factories.demo && !factories.real) throw new Error('Set VITE_FACTORY_DEMO and/or VITE_FACTORY_REAL to the testnet factory accounts.');
   const factoryId = (factories.demo ?? factories.real)!;
-  const nodeUrl = env.VITE_NODE_URL ?? 'https://test.rpc.fastnear.com';
+  // several public endpoints, comma separated: the app moves to the next one when one rate-limits
+  const nodeUrls = String(env.VITE_NODE_URL ?? 'https://test.rpc.fastnear.com,https://rpc.testnet.near.org').split(',').map((x: string) => x.trim()).filter(Boolean);
   const [core, ui, mnw, meteor] = await Promise.all([
     import('@near-wallet-selector/core'), import('@near-wallet-selector/modal-ui'),
     import('@near-wallet-selector/my-near-wallet'), import('@near-wallet-selector/meteor-wallet'), import('@near-wallet-selector/modal-ui/styles.css'),
@@ -161,5 +179,5 @@ export async function openNet(): Promise<Net> {
   toNajAction = core.internalActionToNaj as any;
   const selector = await core.setupWalletSelector({ network: 'testnet', modules: [mnw.setupMyNearWallet(), meteor.setupMeteorWallet()] });
   const modal = ui.setupModal(selector, { contractId: factoryId });
-  return new WalletNet(factories, nodeUrl, selector, modal);
+  return new WalletNet(factories, nodeUrls, selector, modal);
 }

@@ -59,6 +59,30 @@ async function housekeeping(coin) {
   if (gms || packs) log(`${sym(coin)}: ${gms} check-ins, ${packs} packs`);
 }
 
+/** Make the coin's Daily Ritual: the lock half of the target is NEAR locked in the Vault today. Bots free their expired locks,
+ *  then lock a quarter of what they hold until the target is met (the gm half is covered by every bot's check-ins). */
+async function ritualHelp(coin) {
+  const r = await view(coin, 'get_ritual');
+  let need = BigInt(r.lock_target) - BigInt(r.lock_near);
+  if (need <= 0n) return;
+  const c = await view(coin, 'get_coin');
+  let locked = 0;
+  for (const bot of [...bots].sort(() => Math.random() - 0.5)) {
+    const me = idOf(bot);
+    const h = await view(coin, 'get_holder', { account_id: me });
+    if (!h) continue;
+    for (let i = h.locks.length - 1; i >= 0; i--) if (c.now >= h.locks[i].until) await act(bot, coin, 'unlock', { index: i }, 0n, true);
+    const bal = BigInt(await view(coin, 'ft_balance_of', { account_id: me }));
+    if (bal === 0n || h.locks.length >= 6) continue;
+    const price = BigInt(c.price); // yocto NEAR per whole token (1e18 units)
+    const part = bal / 4n, value = part * price / 10n ** 18n;
+    if (value === 0n) continue;
+    if (await act(bot, coin, 'lock', { amount: part.toString(), hours: 24 }, 1n, true)) { need -= value; locked++; }
+    if (need <= 0n) break;
+  }
+  if (locked) log(`${sym(coin)}: ${locked} bots locked tokens for the Ritual`);
+}
+
 async function playCoin(coin, liveCoins) {
   const c = await view(coin, 'get_coin');
   for (const bot of [...bots].sort(() => Math.random() - 0.5).slice(0, PER)) {
@@ -148,7 +172,7 @@ let tick = 1, failures = 0;
 while (tick <= TICKS) {
   try {
     const live = await liveCoins();
-    for (const x of live) { await housekeeping(x.id); await playCoin(x.id, live); }
+    for (const x of live) { await housekeeping(x.id); await ritualHelp(x.id); await playCoin(x.id, live); }
     log(`tick ${tick} done (${live.length} live coins: ${live.map(x => sym(x.id) + ' L' + x.level).join(', ')})`);
     failures = 0; tick++;
     if (tick <= TICKS) { if (FWD) await forward(FWD); else await sleep(EVERY * 1000); }

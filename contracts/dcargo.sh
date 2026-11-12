@@ -8,5 +8,5 @@ here="$(cd "$(dirname "$0")" && pwd -W 2>/dev/null || pwd)"
 MSYS_NO_PATHCONV=1 docker run --rm \
   -v "$here:/work" -w "/work/$crate" \
   -v rulecard-cargo-registry:/usr/local/cargo/registry \
-  -v rulecard-target:/target -e CARGO_TARGET_DIR=/target \
+  -v rulecard-target:/target -e CARGO_TARGET_DIR=/target -e RULECARD_FUZZ_SEEDS -e RULECARD_FUZZ_STEPS \
   rulecard-builder bash -c "cargo $*"

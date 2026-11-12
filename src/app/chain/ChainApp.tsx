@@ -8,6 +8,7 @@ import type {
 import { TIER_OF, TIER_NAME, CARD_TEXT, RULE_TEXT, LEVEL_NAME } from './types';
 import PriceChart, { type PricePoint } from './PriceChart';
 import Proof from './Proof';
+import WarMap from './WarMap';
 
 const MIN = 60_000, HOUR = 60 * MIN;
 const dur = (ms: number) => { ms = Math.max(0, ms); const d = Math.floor(ms / (24 * HOUR)), h = Math.floor((ms % (24 * HOUR)) / HOUR), m = Math.floor((ms % HOUR) / MIN); const sec = Math.floor((ms % MIN) / 1000); return d ? `${d}d ${h}h` : h ? (m ? `${h}h ${m}m` : `${h}h`) : sec ? `${m}m ${sec}s` : `${m}m`; };
@@ -20,7 +21,7 @@ const pct = (a: number, b: number) => (b > 0 ? Math.min(100, (a / b) * 100) : 0)
 const TACTIC = ['', 'Rally', 'Curse', 'Ward'];
 const tacticName = (code: number) => (code ? `${TACTIC[Math.floor(code / 10)]} ×${['1', '2', '3'][code % 10]}` : '—');
 
-type Page = { kind: 'discover' } | { kind: 'launch' } | { kind: 'proof' } | { kind: 'coin'; id: string };
+type Page = { kind: 'discover' } | { kind: 'launch' } | { kind: 'proof' } | { kind: 'war' } | { kind: 'coin'; id: string };
 type Tab = 'trade' | 'today' | 'cards' | 'vault' | 'raid' | 'log';
 
 export default function ChainApp() {
@@ -65,6 +66,7 @@ export default function ChainApp() {
         </div>}
         <nav className="seg" aria-label="Pages">
           <button aria-pressed={page.kind === 'discover'} onClick={() => setPage({ kind: 'discover' })}>Discover</button>
+          <button aria-pressed={page.kind === 'war'} onClick={() => setPage({ kind: 'war' })}>War Map</button>
           <button aria-pressed={page.kind === 'proof'} onClick={() => setPage({ kind: 'proof' })}>Proof</button>
           <button aria-pressed={page.kind === 'launch'} onClick={() => setPage({ kind: 'launch' })}>Launch a coin</button>
         </nav>
@@ -89,6 +91,7 @@ export default function ChainApp() {
         {page.kind === 'discover' && <Discover {...ctx} />}
         {page.kind === 'launch' && <Launch {...ctx} />}
         {page.kind === 'proof' && <Proof ch={ch} coins={coins} tick={tick} />}
+        {page.kind === 'war' && <WarMap ch={ch} coins={coins} tick={tick} go={id => setPage({ kind: 'coin', id })} />}
         {page.kind === 'coin' && <CoinPage {...ctx} id={page.id} />}
       </main>
     </>
@@ -202,7 +205,7 @@ interface CoinData { c: CoinView; h: HolderView | null; r: Ritual; lv: LevelView
 function CoinPage(p: Ctx & { id: string }) {
   const { ch, me, act, busy, tick, id } = p;
   const [d, setD] = useState<CoinData | null>(null);
-  const [tab, setTab] = useState<Tab>('trade');
+  const [tab, setTab] = useState<Tab>('today');
   const [lockPrompt, setLockPrompt] = useState<bigint | null>(null);
   useEffect(() => {
     (async () => {
@@ -229,7 +232,7 @@ function CoinPage(p: Ctx & { id: string }) {
   const gmReady = !h || h.last_gm === 0 || now >= h.next_gm;
   const idleBurning = h && h.last_gm > 0 && now >= h.idle_burn_starts;
   const ritualPct = (pct(d.r.gm_count, d.r.gm_target) + pct(toNear(d.r.lock_near), toNear(d.r.lock_target))) / 2;
-  const tabs: [Tab, string][] = [['trade', 'Trade'], ['today', 'Today'], ['cards', 'Cards'], ['vault', 'Vault'], ['raid', 'Raid'], ['log', 'Log']];
+  const tabs: [Tab, string][] = [['today', 'Ritual'], ['trade', 'Trade'], ['vault', 'Vault'], ['raid', 'Raids'], ['cards', 'Cards'], ['log', 'Log']];
   const props = { ...p, d, now, call };
 
   return (
@@ -336,23 +339,44 @@ function TradeTab({ ch, me, id, d, now, busy, act, onBought }: TabProps & { onBo
 }
 
 function TodayTab({ d, now }: TabProps) {
-  const { r, lv } = d;
-  const end = (r.day + 1) * 24 * HOUR;
+  const { r, lv, c } = d;
+  const DAYMS = (24 * HOUR) / TS; // a Ritual day is 24h, or 2h in demo mode
+  const end = (r.day + 1) * DAYMS;
+  const gmOk = r.gm_count >= r.gm_target, lockOk = toNear(r.lock_near) >= toNear(r.lock_target);
+  const first = Math.floor(c.created_ms / DAYMS);
+  const dots = [7, 6, 5, 4, 3, 2, 1].map(i => { const day = r.day - i; return day < first ? 'none' : r.made_days.includes(day) ? 'made' : 'missed'; });
+  const progress = (pct(r.gm_count, r.gm_target) + pct(toNear(r.lock_near), toNear(r.lock_target))) / 2;
   const nm: Record<string, string> = { market_cap: 'Market cap (NEAR)', real_near: 'Real NEAR in curve', volume_24h: 'Volume 24h (NEAR)', checkins_24h: 'Check-ins 24h', net_buying_1h: 'Net buying 1h (buys ≥ sells)', coin_age_ms: 'Coin age' };
   const val = (k: string, v: string) => k === 'checkins_24h' ? v : k === 'coin_age_ms' ? dur(Number(v)) : fmtNear(toNear(v));
   return (
-    <div className="grid2">
+    <div className="stack">
+      <div className={`panel ritual-hero ${gmOk && lockOk ? 'ok' : ''}`}>
+        <div className="row between wrap"><span className="small muted">TODAY'S RITUAL</span><span className="mono">{dur(end - now)} left</span></div>
+        <div className="hero-nums">
+          <div><b>{r.gm_count}/{r.gm_target}</b><span>wallets said gm {gmOk ? '✓' : ''}</span></div>
+          <div><b>{fmtNear(toNear(r.lock_near))}/{fmtNear(toNear(r.lock_target))}</b><span>NEAR locked in the Vault {lockOk ? '✓' : ''}</span></div>
+        </div>
+        <div className="meter hero-meter"><i style={{ width: `${progress}%` }} /></div>
+        <p>{gmOk && lockOk ? <>On track: when the day ends the pot buys and burns <strong>{r.streak >= 2 ? '7%' : '5%'}</strong> of itself.</> : <>The whole coin has to show up. Miss it and sleepers burn twice as fast for {hrs(6)}.</>}</p>
+        <div className="row gap wrap">
+          <span title="days in a row the coin made its Ritual">🔥 streak {r.streak}</span>
+          <span className="dots" role="img" aria-label="last 7 days, oldest first">{dots.map((k, i) => <i key={i} className={`dot ${k}`} title={k === 'made' ? 'made' : k === 'missed' ? 'missed' : 'before launch'} />)}</span>
+          <span className="small muted">last 7 days</span>
+        </div>
+        {r.double_from.some(s => now > s && now <= s + (6 * HOUR) / TS) && <div className="warn">Ritual missed: idle burn ×2 right now.</div>}
+      </div>
+      <div className="grid2">
       <div className="panel stack">
-        <div className="row between"><h2>Today's Ritual</h2><span className="mono small">ends in {dur(end - now)}</span></div>
+        <div className="row between"><h2>The numbers</h2><span className="mono small">ends in {dur(end - now)}</span></div>
         <Bar label="gm" value={r.gm_count} max={r.gm_target} text={`${r.gm_count} / ${r.gm_target} wallets`} />
         <Bar label="Locked" value={toNear(r.lock_near)} max={toNear(r.lock_target)} text={`${fmtNear(toNear(r.lock_near))} / ${fmtNear(toNear(r.lock_target))} NEAR`} />
         <p className="small">Made it: the pot burns <strong>{r.streak >= 2 ? '7%' : '5%'}</strong> Missed: idle burn ×2 for the next {hrs(6)}.</p>
         <p className="small muted">Streak: 🔥 {r.streak} day{r.streak === 1 ? '' : 's'}{r.last_made !== null && ` · yesterday ${r.last_made ? 'made ✓' : 'missed ✗'}`}</p>
-        {r.double_from.some(s => now > s && now <= s + 6 * HOUR) && <div className="warn">Ritual missed: idle burn ×2 right now.</div>}
       </div>
       <div className="panel stack">
         <div className="row between"><h2>{lv.next ? `To L${lv.next} ${LEVEL_NAME[lv.next]}` : 'Top level'}</h2>{lv.all_met_since && <span className="chip hot">hold {dur(lv.all_met_since + lv.hold_ms - now)}</span>}</div>
         {lv.rules.map(x => <div key={x.name} className={`rule-row ${x.met ? 'met' : ''}`}><span>{x.met ? '✓' : '✗'} {nm[x.name] ?? x.name}</span><span className="mono small">{val(x.name, x.current)} / {val(x.name, x.target)}</span></div>)}
+      </div>
       </div>
     </div>
   );
