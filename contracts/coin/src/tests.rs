@@ -99,13 +99,13 @@ fn transfer_to_unregistered_fails() {
 }
 
 #[test]
-fn idle_burn_starts_after_12h_and_respects_the_daily_cap() {
+fn idle_burn_starts_after_24h_and_respects_the_daily_cap() {
     let mut c = launch(vec![]);
     let t = buy(&mut c, 1, n(10), T0);
-    // 12h grace + first 6h tick = 18h
+    // 24h grace + first 6h tick = 30h
     assert_eq!(c.ft_balance_of(acc(1)).0, t, "nothing burns in the grace time");
-    ctx(1, 0, T0 + 18 * HOUR - 1); assert_eq!(bal(&c, 1), t);
-    ctx(1, 0, T0 + 18 * HOUR); assert_eq!(bal(&c, 1), t - t / 100, "1% after 18h");
+    ctx(1, 0, T0 + 30 * HOUR - 1); assert_eq!(bal(&c, 1), t);
+    ctx(1, 0, T0 + 30 * HOUR); assert_eq!(bal(&c, 1), t - t / 100, "1% after 30h");
     // ten days away: at most 8% a day, and roughly 4% a day (4 ticks of 1%)
     ctx(1, 0, T0 + 10 * DAY);
     let left = bal(&c, 1);
@@ -192,7 +192,7 @@ fn ritual_made_burns_from_the_pot() {
 fn ritual_missed_doubles_idle_burn_for_6h() {
     let mut c = launch(vec![]);
     let day0 = T0 / DAY * DAY + DAY;
-    let t = buy(&mut c, 1, n(10), day0 - 13 * HOUR); // grace ends at day0 - 1h; ticks at day0+5h, day0+11h ...
+    let t = buy(&mut c, 1, n(10), day0 - 25 * HOUR); // grace ends at day0 - 1h; ticks at day0+5h, day0+11h ...
     ctx(2, 0, day0 + 1); c.poke(); // settles the previous day: missed
     assert_eq!(c.ritual.last_made, Some(false));
     // tick at day0 + 5h is inside the 6h double window: 2% instead of 1%

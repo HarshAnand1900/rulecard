@@ -1,31 +1,72 @@
 # Rulecard
 
-**Most memecoins die when the community stops showing up. In Rulecard, that is literally the rule, and communities fight each other to stay alive.**
+**Every other entry is one coin. Rulecard is a league of coins whose communities go to war, and the war is on chain.**
+
+Each coin is its own NEP-141 contract with a daily **Ritual** (the whole community has to show up or its bags burn), a **Vault**, rule
+cards and **raids**: one coin attacks another through real cross-contract calls, and the community that shows up in bigger numbers
+takes 15% of the loser's pot. The factory that launches the coins deletes its own key in its deploy transaction, so nobody can change
+a rule or print an admin.
 
 ```
  every day the WHOLE coin has to show up: enough wallets say gm, enough NEAR gets locked in the Vault
-                                   │
-              made ◄───────────────┴───────────────► missed
-   the pot buys & burns 5% of itself            sleepers' bags burn twice as fast
-   (supply drops, the floor rises)              (the cost of not showing up)
-
- coins also RAID each other: the community that shows up in bigger numbers takes 15% of the other coin's pot
+              made ◄──────────────────────┴──────────────────────► missed
+   the pot buys & burns 5% of itself                    sleepers' bags burn twice as fast
+ coins RAID each other: the stronger community takes 15% of the other coin's pot
  lock in the Vault ──► safe from every burn, and you earn what the sleepers lose
 ```
-
-The Ritual is the coin. Rule cards the crowd plays together, levels and raids between coins are how it gets wild. Every
-NEP-141 coin is its own contract, every number is fixed at launch, and nobody holds an admin key: the factory deletes its own key
-in its deploy transaction. The app has a **Proof** page that checks all of this live on the chain, and a **War Map** of coins ranked
-by level and Ritual streak.
 
 **Live on NEAR testnet (demo scale):**
 - Factory: [`demo.harshtest1.testnet`](https://testnet.nearblocks.io/address/demo.harshtest1.testnet) (zero access keys: its only key was deleted in the deploy transaction)
 - Coins: [`frog.demo.harshtest1.testnet`](https://testnet.nearblocks.io/address/frog.demo.harshtest1.testnet) · [`moth.demo.harshtest1.testnet`](https://testnet.nearblocks.io/address/moth.demo.harshtest1.testnet)
 - App: *(hosted link added here once it is deployed; until then `npx vite --mode testnet`, see [docs/deploy.md](docs/deploy.md))*
 
-Track: **Memecoins With Mechanics** (NEAR). Judges score the mechanic, so this README is mostly about the mechanic.
+Track: **Memecoins With Mechanics** (NEAR).
 
----
+## Judges: start here (5 minutes)
+
+| Press this | You will see |
+|---|---|
+| Open the app, press **PLAY** (no wallet, no sign-up) | a practice wallet is made, funded and buys its first bag: real testnet transactions, each with a receipt link |
+| Open **War Map** | every coin ranked by level and Ritual streak, its high score, who is raiding whom right now, and the latest raid results. Bots are marked 🤖 |
+| Open a coin, tab **Ritual** | today's progress, time left, the streak, the coin's best streak ever (its high score) and the last 7 days |
+| Press **gm** | one check-in per 6 hours (30 minutes in demo mode). Press it again and the contract refuses |
+| Open **Judges**, press **Try it** on each row | six forbidden transactions sent live; each is refused with NEAR's own error and a **REJECTED BY NEAR** stamp |
+| Same page, **Live proof** | zero access keys, no admin, one code hash, supply adds up to the token, the curve is fully backed |
+| Look at the coin's icon in a wallet or explorer | it is drawn by the contract from its own state: level, streak, the last 7 Rituals (flame or ash), crossed swords in a raid |
+
+**The track names four kinds of mechanic. Rulecard has all four in one contract:**
+
+| The track asks for | Rulecard's version |
+|---|---|
+| Supply that reacts to the community | idle burn (1% of unlocked tokens per 6h after 24h without a gm), the Vault, the Ritual burn |
+| Treasuries with rules | the pot: 1.5% of every trade feeds it, and only fixed rules (Ritual, Ember, Inferno, Ghost Ember, raid spoils) can spend it, at most 75% a day |
+| Onchain rituals | the Daily Ritual: gm count plus NEAR locked, a streak, a high score, made or missed |
+| Challenges | raids between coins, Prophecy (a 2h crowd bet), Omens |
+
+**What is labelled:** 16 🤖 bots keep the demo world moving (check in, lock, play cards, start raids). Their whole brain is one readable file,
+[`sandbox/bots.mjs`](sandbox/bots.mjs). Nothing else in the world is faked: every number comes from the chain.
+
+**Against the judging criteria**
+
+| Criterion | Where to look |
+|---|---|
+| Technical | 56 coin tests and 7 factory tests at real and demo scale, a randomized fuzz test (12,000 operations, invariants checked after each), CI, a live Proof page |
+| Innovation | coins raiding coins (cross-contract), one-tap check-ins with function-call keys, a coin whose icon is its war record |
+| Track fit | all four mechanic kinds above, a streak with a high score, parameters fixed and readable, a 60-day simulation before choosing them |
+| Execution | no-wallet play, a hosted app, a judge page that tries to break it, honest limits below |
+
+## Attacks we found and fixed (from three real red-team passes)
+
+| Attack | Fix | Test or check |
+|---|---|---|
+| A caller could ask a raid to settle with 100% of the loser's pot | the defender works out the spoils rate itself | raid settlement tests |
+| Someone creates an impostor `coin.<factory>` account | the factory deletes its only key in the deploy transaction | the Proof page shows 0 keys |
+| A function-call key could sell your tokens | sell, lock, leave early and bet need 1 yoctoNEAR; function-call keys can't attach a deposit | "Try to cheat it" row 1, `selling_needs_one_yocto` |
+| Unlock and relock the same tokens to farm the Ritual's lock target | each wallet's tokens count once per day | `relocking_the_same_tokens_counts_once_for_the_ritual` |
+| Register ~0.0075 NEAR of wallets to fake a Prophecy crowd | the Crowd question counts wallets whose buys reach 1 game NEAR | Crowd tests |
+| Idle burn charged on tokens a wallet just won | winners are settled before payouts | `prophecy_caster_share_settles_idle_burn_first` |
+| Pot-card chips stuck if a coin graduates first | chips are refunded at graduation | table tests |
+| Holder growth eating curve NEAR | every holder pays the full storage of their own record | storage tests |
 
 ## The mechanic in one minute
 
@@ -35,7 +76,7 @@ Track: **Memecoins With Mechanics** (NEAR). Judges score the mechanic, so this R
 | **Daily Ritual** | the coin needs X wallets to gm and Y NEAR to be locked today | made: the pot buys and burns 5% (7% on a 3-day streak). Missed: idle burn ×2 for 6h |
 | **Omens** | on coins at level 2+, a one-hour Omen every 3 hours (2h break), rolled from the block's random seed and announced 15 min ahead | Full Moon (Energy ×2), Thunder (sells pay 1% more into the pot), Ghost Ember (the pot burns 3%), Treasure (one lucky gm gets a free pack) |
 | **Vault** | lock tokens for 6h / 24h / 72h | locked tokens are safe from every burn and earn half of what idle burn and early exits take |
-| **Idle burn** | nothing: it is the cost of not showing up | after 12h without a gm, 1% of your *unlocked* tokens every 6h: half burned, half to the Vault |
+| **Idle burn** | nothing: it is the cost of not showing up | after 24h without a gm, 1% of your *unlocked* tokens every 6h: half burned, half to the Vault |
 | **Cards** | claim 2 cards every 6h; play them with other holders | Ember and Inferno burn from the pot; Prophecy is a 2h crowd bet; raid tactics fight other coins |
 | **Raids** | sign, plan 3 hidden tactics, buy, lock and Battle cry in 3 rounds | the loser's pot pays 15% to the winner, which buys and burns its own tokens |
 
@@ -130,7 +171,7 @@ Values below are **Real mode**. Demo mode divides every game NEAR amount by 100 
 | Fees | 2% per trade: 0.3% protocol · 0.2% creator escrow (paid only at graduation) · 1.5% pot. Creator seed 5–100 NEAR, all into the pot |
 | Levels (L2 / L3 / L4) | market cap 2,725 / 5,450 / 9,537 NEAR · real NEAR 625 / 1,461 / 2,382 · volume 24h 900 / 3,600 / 9,500 · check-ins 24h 15 / 40 / 100 · net buying 1h ≥ 0 · age 30m / 3h / 12h · held 15 / 30 / 60 min |
 | gm | once per 6h, wallet worth ≥ 1 NEAR. Qualified holder = ≥ 2 NEAR held for 1h |
-| Idle burn | after 12h without gm: 1% per 6h (2% with the Ruthless rule), half burned, half to the Vault |
+| Idle burn | after 24h without gm: 1% per 6h (2% with the Ruthless rule), half burned, half to the Vault |
 | Daily loss cap | one cap: at most 8% of a wallet's unlocked tokens per UTC day, for everything the coin takes |
 | Vault | 6h / 24h / 72h at weight ×1 / ×1.5 / ×2; a wallet counts for at most 0.5% of supply; leaving early costs 20% (half to lockers, half burned) |
 | Energy | +1 per gm, +1 per 10 NEAR of net buying (a trade counts for at most 20 NEAR); max 100. Cards cost 5 / 20 / 50 |
@@ -175,24 +216,44 @@ at the start) under three communities, and writes the chart below.
 
 | Community | Supply left at day 60 | Idle burn / Ritual / cards (tokens burned) | Ritual made | Faithful (gm ~every 6h) | Regular (every 12h) | Casual (once a day) | Drifter (rarely) |
 |---|---|---|---|---|---|---|---|
-| **Active** (stays engaged, keeps recruiting) | **79.9%** | 148M / 47M / 6M | 100% of days | keeps **161%** of its day-1 tokens | 112% | 48% | 13% |
-| **Fading** (engagement halves every ~12 days) | **67.4%** | 303M / 21M / 3M | 92% of days | 126% | 34% | 15% | 10% |
-| **Dead** (engaged 5 days, then almost nobody) | **65.3%** | 342M / 5M / 0.4M | 19% of days | 80% | 19% | 9% | 6% |
+| **Active** (stays engaged, keeps recruiting) | **84.3%** | 104M / 47M / 6M | 100% of days | keeps **141%** of its day-1 tokens | 116% | 80% | 16% |
+| **Fading** (engagement halves every ~12 days) | **70.5%** | 272M / 21M / 3M | 92% of days | 137% | 41% | 19% | 11% |
+| **Dead** (engaged 5 days, then almost nobody) | **66.2%** | 333M / 5M / 0.4M | 19% of days | 86% | 21% | 9% | 6% |
 
 What it shows:
-- **Supply reacts to the community.** An active coin loses about 20% of its supply in 60 days, a fading one a third, a dead one
-  about 35%, and almost all of that is **idle burn**: the Ritual and pot cards are small next to it.
+- **Supply reacts to the community.** An active coin loses about 16% of its supply in 60 days, a fading one 30%, a dead one
+  a third, and almost all of that is **idle burn**: the Ritual and pot cards are small next to it.
 - **The faithful are paid by the sleepers.** In the active community, wallets that check in every ~6h *gain* tokens (half of every
-  idle burn goes to the Vault), and a 12h routine is roughly break-even: the 12h grace covers it.
-- **A dead coin deflates hard**, and each surviving token ends up backed by about 3.6× the NEAR (the "floor ×" column in the
+  idle burn goes to the Vault), and a once-a-day routine keeps most of its bag (80%): the 24h grace covers it.
+- **A dead coin deflates hard**, and each surviving token ends up backed by about 3.3× the NEAR (the "floor ×" column in the
   script's output). That's the intended pressure: *sell before you sleep, or lock, or show up.*
 - **The Ritual is a relative target** (60% of yesterday's check-ins), so a slowly fading coin keeps making it (92% of days);
   it only breaks on a sudden collapse (19% of days in the dead case).
 
+### Simulate first, then pick: the parameter sweep
+
+`node research/param-sweep.cjs` runs the same model over a grid of the three numbers we had to choose (idle burn per 6h, grace before
+it starts, and the Ritual target as a share of yesterday's check-ins). Selected rows (full grid: 27 rows):
+
+| Idle burn / 6h | Grace | Ritual target | Supply left (active) | Ritual made (fading) | Faithful keeps | Regular (12h) keeps | Once-a-day keeps |
+|---|---|---|---|---|---|---|---|
+| 1% | 6h | 60% | 76.8% | 93% | 174% | 106% | 31% |
+| 1% | 12h | 60% | 79.7% | 93% | 162% | 112% | 48% |
+| **1%** | **24h** | **60%** | **84.1%** | **93%** | **142%** | **117%** | **80%** |
+| 0.5% | 24h | 60% | 87.9% | 93% | 126% | 111% | 90% |
+| 2% | 24h | 60% | 80.3% | 93% | 160% | 123% | 62% |
+| 1% | 24h | 40% | 84.1% | 93% | 142% | 117% | 80% |
+| 1% | 24h | 80% | 84.1% | 82% | 142% | 117% | 80% |
+
+**We picked 1% / 24h / 60% because:** with a 12h grace, a wallet that checks in once a day lost half its tokens over 60 days (48%),
+which punishes exactly the player a "daily Ritual" is for. A 24h grace keeps them at 80% and the coin still sheds 16% of its supply
+when the community is active. Less than 1% barely moves the supply (the sleepers aren't felt); more than 1% takes too much from the
+people who do show up. A Ritual target of 80% breaks a fading coin's streak much more often (82% vs 93% of days) while 40% changes
+nothing, so 60% is the loosest target that still bites.
+
 Honest findings from the model:
-- **"gm once a day" is not enough.** A wallet that checks in daily is idle for 18h+ every cycle and ends the 60 days with about half
-  its tokens (48% in the active community) unless it locks some in the Vault. The 12h grace is there on purpose; the app shows the idle
-  clock on the gm button and the Vault is the answer for people who can't show up.
+- **Checking in less than once a day costs you.** A wallet that checks in every 2 days ends well below its start unless it locks some
+  tokens in the Vault. The app shows the idle clock on the gm button, and the Vault is the answer for people who can't show up.
 - It's a model, not the contract: holders check in by a fixed routine, trading volume is a flat 1.5 NEAR per checked-in wallet per day,
   price is fixed at 3 µNEAR per token, and the Vault is claimed instantly. Real communities are messier; the shape (idle burn dominates,
   the faithful gain, dead coins deflate) is what to take from it.

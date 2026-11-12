@@ -1,5 +1,5 @@
 // 60-day supply simulation for the v7 coin (the track asks: "simulate 60 days, show supply over time under a few scenarios").
-// Rules are the contract's: gm every 6h, idle burn 1% per 6h after 12h without a gm (first burn at 18h) with the one 8%
+// Rules are the contract's: gm every 6h, idle burn 1% per 6h after 24h without a gm (first burn at 30h) with the one 8%
 // daily cap, half of idle burn burned and half paid to the Vault, the Vault protecting locked tokens for 24h at ×1.5 weight,
 // the Daily Ritual (made: pot burns 5%, 7% from a 3-day streak; missed: idle burn ×2 for 6h), Ember when 20+ wallets checked in.
 // Three communities: active (stays engaged and keeps recruiting), fading (engagement decays, recruiting stops after day 10),
@@ -11,7 +11,7 @@ const logn = (m, s) => Math.exp(Math.log(m) + s * Math.sqrt(-2 * Math.log(rnd() 
 
 const SUPPLY = 1e9, PRICE = 3e-6;            // tokens; NEAR per token (≈ 3 µN, as on the demo coins)
 const START_HOLDERS = 120, BAG = 3e6;        // a bag of 3M tokens ≈ 9 NEAR
-// How people check in. faithful: about every 6h. regular: a routine every 12h (the grace time covers it), sometimes skipping a slot.
+// How people check in. faithful: about every 6h. regular: a routine every 12h (inside the grace time), sometimes skipping a slot.
 // casual: once a day, sometimes skipping. drifter: random and rare. `every` is in 6h steps, `skip` the chance to miss a slot.
 const TYPES = {
   faithful: { every: 1, skip: 0.1, lock: 0.5 },
@@ -52,7 +52,7 @@ function run(name, seed) {
     const W = hs.reduce((a, x) => a + x.locked * 1.5, 0); let pool = 0, burnNow = 0;
     const rate = (first && doubled ? 0.02 : 0.01); if (first) doubled = false;
     for (const x of hs) {
-      if (h - x.lastGm < 18 || x.bal <= 0) continue;
+      if (h - x.lastGm < 30 || x.bal <= 0) continue;
       const room = x.lossBase * 0.08 - x.lossUsed; const b = Math.max(0, Math.min(x.bal * rate, room));
       x.bal -= b; x.lossUsed += b; pool += b / 2; burnNow += b / 2;
     }

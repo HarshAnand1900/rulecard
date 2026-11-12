@@ -49,7 +49,7 @@ pub const GM_MIN_VALUE: u128 = GN; // hold >= 1 NEAR worth to gm
 pub const QUALIFIED_VALUE: u128 = 2 * GN; // >= 2 NEAR held for 1h counts for levels
 pub const QUALIFIED_HOLD: u64 = HOUR;
 
-pub const IDLE_GRACE: u64 = 12 * HOUR;
+pub const IDLE_GRACE: u64 = 24 * HOUR;
 pub const IDLE_TICK: u64 = 6 * HOUR;
 pub const IDLE_BPS: u128 = 100; // 1% per tick; Ruthless rule: 2%
 pub const DAILY_LOSS_CAP_BPS: u128 = 800; // one 8% cap on everything the coin takes from a wallet in a UTC day
