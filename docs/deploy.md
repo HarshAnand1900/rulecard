@@ -26,6 +26,7 @@ node sandbox/bots.mjs --mode demo --every 600              # then: a tick every 
 ```
 
 - L2 needs 15 qualified check-ins inside the 2-hour window, ~6.25 NEAR in each curve and ~9 NEAR of volume. The bootstrap supplies all three.
+- Public testnet RPCs rate-limit (HTTP 429). The bot scripts space their requests (250 ms; change with `RULECARD_RPC_GAP_MS`) and back off on 429; the app retries too and polls every 10 s on testnet. For heavier use put a dedicated RPC in `VITE_NODE_URL` and the bots' keys file.
 - Gas is real testnet NEAR: a bot spends roughly 0.02 NEAR an hour at `--every 600`. Bots keep about 0.3 NEAR of gas money after buying in and sell a little of their tokens when they run low; top bots up
   from your account if judging runs longer (or lower the rate with `--every 900`).
 - The bots must keep running through judging. Your laptop is fine while you're awake; for 24/7 use any small always-on machine

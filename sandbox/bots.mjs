@@ -65,8 +65,8 @@ async function playCoin(coin, liveCoins) {
     const me = idOf(bot);
     const bal = BigInt(await view(coin, 'ft_balance_of', { account_id: me }));
     const near = Number(BigInt((await (await acct(bot)).getAccountBalance()).available) / 10n ** 21n) / 1000;
-    if (near < 0.2 && bal > 0n) { await act(bot, coin, 'sell', { amount: (bal * 3n / 10n).toString() }, 1n); continue; } // low on gas money: sell 30%
-    if (near < 0.2) continue;
+    if (near < 0.3 && bal > 0n) { await act(bot, coin, 'sell', { amount: (bal * 3n / 10n).toString() }, 1n); continue; } // low on gas money: sell 30%
+    if (near < 0.3) continue;
     if (bal === 0n || chance(0.45)) await act(bot, coin, 'buy', {}, G(1 + Math.random() * 7));
     else if (chance(0.25)) await act(bot, coin, 'sell', { amount: (bal / 5n).toString() }, 1n);
     else if (chance(0.2)) await act(bot, coin, 'lock', { amount: (bal / 4n).toString(), hours: pick([6, 24, 72]) }, 1n);
@@ -121,11 +121,17 @@ async function bootstrap() {
   const only = arg('only', '').split(',').filter(Boolean).map(x => x.toUpperCase());
   const coins = (await liveCoins()).filter(c => !only.length || only.includes(sym(c.id)));
   log(`bootstrap: ${bots.length} bots buy ${buy} NEAR into each of ${coins.map(c => sym(c.id)).join(', ')}, wait ${holdMin} min, check in, then buy ${extra} more`);
-  for (const c of coins) for (const bot of bots) await act(bot, c.id, 'buy', {}, NEAR(buy.toFixed(6)), true);
+  // safe to re-run: a bot that already holds this coin doesn't buy again
+  for (const c of coins) for (const bot of bots) {
+    if (BigInt(await view(c.id, 'ft_balance_of', { account_id: idOf(bot) })) === 0n) await act(bot, c.id, 'buy', {}, NEAR(buy.toFixed(6)), true);
+  }
   log('bought; waiting for the holding time...');
   if (FWD) await forward(holdMin); else await sleep(holdMin * 60_000);
   for (const c of coins) { await housekeeping(c.id); }
-  for (const c of coins) for (const bot of bots) await act(bot, c.id, 'buy', {}, NEAR(extra.toFixed(6)), true);
+  for (const c of coins) {
+    const lv = await view(c.id, 'get_level_progress');
+    if (lv.rules.some(r => r.name === 'volume_24h' && !r.met)) for (const bot of bots) await act(bot, c.id, 'buy', {}, NEAR(extra.toFixed(6)), true);
+  }
   await sleep(1500);
   for (const c of coins) {
     await act(bots[0], c.id, 'poke', {}, 0n, true);

@@ -37,7 +37,7 @@ export default function ChainApp() {
   useEffect(() => { openNet().then(n => { n.onChange?.(() => setMe(n.me() ?? '')); setMe(n.me() ?? ''); setCh(n); }).catch(e => setErr(e.message)); }, []);
   const refresh = useCallback(() => setTick(t => t + 1), []);
   useEffect(() => { if (!ch) return; ch.view<CoinEntry[]>(ch.factoryId, 'list_coins', {}).then(c => { setCoins(c); setListErr(''); }).catch(e => setListErr(`Can't read the factory ${ch.factoryId}: ${e.message}`)); ch.balance().then(setBal); }, [ch, tick, me]);
-  useEffect(() => { const i = setInterval(refresh, 5000); return () => clearInterval(i); }, [refresh]);
+  useEffect(() => { const i = setInterval(refresh, ch?.mode === 'testnet' ? 10_000 : 5000); return () => clearInterval(i); }, [refresh, ch]);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 5000); return () => clearTimeout(t); }, [toast]);
 
   const act = useCallback(async (label: string, fn: () => Promise<unknown>, done?: string) => {

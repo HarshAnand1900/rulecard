@@ -17,8 +17,12 @@ That loop is the coin. Everything else (rule cards the crowd plays together, rai
 gets wild. Every NEP-141 coin is its own contract, every number is fixed at launch, and nobody holds an admin key: the factory
 deletes its own key in its deploy transaction.
 
-Live demo: *(link added after the testnet deploy)* · Track: **Memecoins With Mechanics** (NEAR). Judges score the mechanic,
-so this README is mostly about the mechanic.
+**Live on NEAR testnet (demo scale):**
+- Factory: [`demo.harshtest1.testnet`](https://testnet.nearblocks.io/address/demo.harshtest1.testnet) (zero access keys: its only key was deleted in the deploy transaction)
+- Coins: [`frog.demo.harshtest1.testnet`](https://testnet.nearblocks.io/address/frog.demo.harshtest1.testnet) · [`moth.demo.harshtest1.testnet`](https://testnet.nearblocks.io/address/moth.demo.harshtest1.testnet)
+- App: *(hosted link added here once it is deployed; until then `npx vite --mode testnet`, see [docs/deploy.md](docs/deploy.md))*
+
+Track: **Memecoins With Mechanics** (NEAR). Judges score the mechanic, so this README is mostly about the mechanic.
 
 ---
 

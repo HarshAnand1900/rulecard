@@ -8,7 +8,23 @@ const here = dirname(fileURLToPath(import.meta.url));
 export const keys = JSON.parse(readFileSync(process.env.RULECARD_KEYS ?? join(here, '.keys', 'keys.json'), 'utf8'));
 export const NEAR = n => BigInt(utils.format.parseNearAmount(String(n)));
 export const TOKEN = 10n ** 18n;
-const GAS = 300_000_000_000_000n;
+// NEAR reserves far more NEAR than the gas costs for a big attach (300 Tgas holds back ~0.3 NEAR on testnet), so attach what a call needs.
+const HEAVY = new Set(['create_coin', 'launch_raid', 'settle_raid', 'raid_accept', 'raid_finish']); // cross-contract calls
+const gasFor = m => (HEAVY.has(m) ? 300n : 100n) * 1_000_000_000_000n;
+
+// Public testnet RPCs rate-limit (HTTP 429) and near-api-js doesn't retry that: space requests out and back off on 429.
+// RULECARD_RPC_GAP_MS overrides the spacing (default 250 ms on testnet, none on the local sandbox).
+const GAP = Number(process.env.RULECARD_RPC_GAP_MS ?? (keys.networkId === 'testnet' ? 250 : 0));
+const realFetch = globalThis.fetch; let lastReq = 0;
+const nap = ms => new Promise(r => setTimeout(r, ms));
+globalThis.fetch = async (...a) => {
+  for (let i = 0; ; i++) {
+    if (GAP) { const wait = Math.max(0, lastReq + GAP - Date.now()); lastReq = Date.now() + wait; if (wait) await nap(wait); }
+    const r = await realFetch(...a);
+    if (r.status !== 429 || i >= 8) return r;
+    await nap(1000 * 1.6 ** i);
+  }
+};
 
 const ks = new keyStores.InMemoryKeyStore();
 for (const a of Object.values(keys.accounts)) await ks.setKey(keys.networkId, a.accountId, KeyPair.fromString(a.secretKey));
@@ -20,7 +36,7 @@ export const coinId = (symbol, mode = 'real') => `${symbol.toLowerCase()}.${keys
 
 export async function call(name, contractId, methodName, args = {}, deposit = 0n) {
   const a = await acct(name);
-  const r = await a.functionCall({ contractId, methodName, args, gas: GAS, attachedDeposit: deposit });
+  const r = await a.functionCall({ contractId, methodName, args, gas: gasFor(methodName), attachedDeposit: deposit });
   const v = r.status?.SuccessValue; return v ? JSON.parse(Buffer.from(v, 'base64').toString()) : null;
 }
 export async function view(contractId, methodName, args = {}) { const a = await acct(keys.accounts.you ? 'you' : Object.keys(keys.accounts)[0]); return a.viewFunction({ contractId, methodName, args }); }

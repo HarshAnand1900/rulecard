@@ -9,7 +9,9 @@ import type { WalletSelectorModal } from '@near-wallet-selector/modal-ui';
 let functionCall: (m: string, a: object, g: bigint, d: bigint) => any;
 let toNajAction: (a: any) => any;
 
-const GAS = 300_000_000_000_000n;
+// NEAR reserves much more than the gas costs for a big attach (300 Tgas holds back ~0.3 NEAR), so attach what a call needs.
+const HEAVY = ['create_coin', 'launch_raid', 'settle_raid']; // cross-contract calls
+const gasFor = (m: string) => (HEAVY.includes(m) ? 300n : 100n) * 1_000_000_000_000n;
 
 export type Scale = 'demo' | 'real';
 const SCALE_KEY = 'rulecard-scale';
@@ -79,7 +81,14 @@ class WalletNet implements Net {
   me() { return this.account; }
   onChange(fn: () => void) { this.listeners.push(fn); }
   private async rpc(method: string, params: any) {
-    const r = await (await fetch(this.nodeUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 'rc', method, params }) })).json();
+    // public RPCs answer 429 when a page asks for a lot at once: back off and retry instead of failing the screen
+    let res: Response | undefined;
+    for (let i = 0; i < 5; i++) {
+      res = await fetch(this.nodeUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 'rc', method, params }) });
+      if (res.status !== 429) break;
+      await new Promise(r => setTimeout(r, 400 * 2 ** i));
+    }
+    const r = await res!.json();
     if (r.error) throw new Error(r.error?.data ?? r.error?.message ?? 'RPC error');
     if (r.result?.error) throw new Error(panicText(r.result.error));
     return r.result;
@@ -103,7 +112,7 @@ class WalletNet implements Net {
     }
     const wallet = await this.selector.wallet();
     try {
-      const out: any = await wallet.signAndSendTransaction({ receiverId: contractId, actions: [functionCall(method, args, GAS, deposit)] });
+      const out: any = await wallet.signAndSendTransaction({ receiverId: contractId, actions: [functionCall(method, args, gasFor(method), deposit)] });
       const v = out?.status?.SuccessValue; return v ? JSON.parse(atob(v)) : (null as T);
     } catch (e) { throw new Error(panicText(e)); }
   }
