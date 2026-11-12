@@ -7,7 +7,7 @@ export interface PricePoint { at: number; price: string; mcap: string; }
 const MIN = 60_000, HOUR = 60 * MIN;
 const RANGES: [string, number][] = [['1h', HOUR], ['6h', 6 * HOUR], ['24h', 24 * HOUR], ['All', Infinity]];
 const EVENT: Record<string, string> = { level_up: '⬆', card: '🃏', raid: '⚔', ritual_made: '🕯', graduated: '🎓' };
-const toMicro = (y: string) => Number(BigInt(y) / 10n ** 12n) / 1e6; // yocto NEAR per token → µNEAR per token
+export const toMicro = (y: string) => Number(BigInt(y) / 10n ** 12n) / 1e6; // yocto NEAR per token → µNEAR per token
 const toN = (y: string) => Number(BigInt(y) / 10n ** 21n) / 1e3;
 const hhmm = (t: number) => new Date(t).toISOString().slice(11, 16);
 

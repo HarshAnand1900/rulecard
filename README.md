@@ -1,6 +1,6 @@
 # Rulecard
 
-**Every other entry is one coin. Rulecard is a league of coins whose communities go to war, and the war is on chain.**
+**Rulecard is a league of memecoins whose communities go to war, and the war is on chain.**
 
 Each coin is its own NEP-141 contract with a daily **Ritual** (the whole community has to show up or its bags burn), a **Vault**, rule
 cards and **raids**: one coin attacks another through real cross-contract calls, and the community that shows up in bigger numbers
@@ -27,7 +27,7 @@ Track: **Memecoins With Mechanics** (NEAR).
 | Press this | You will see |
 |---|---|
 | Open the app, press **PLAY** (no wallet, no sign-up) | a practice wallet is made, funded and buys its first bag: real testnet transactions, each with a receipt link |
-| Open **War Map** | every coin ranked by level and Ritual streak, its high score, who is raiding whom right now, and the latest raid results. Bots are marked 🤖 |
+| Open **War Map** | every coin ranked by level and Ritual streak, its high score, who is raiding whom right now, and the latest raid results. Bots are marked 🤖 wherever their names show (the Log and the raid lists) |
 | Open a coin, tab **Ritual** | today's progress, time left, the streak, the coin's best streak ever (its high score) and the last 7 days |
 | Press **gm** | one check-in per 6 hours (30 minutes in demo mode). Press it again and the contract refuses |
 | Open **Judges**, press **Try it** on each row | six forbidden transactions sent live; each is refused with NEAR's own error and a **REJECTED BY NEAR** stamp |
@@ -50,7 +50,7 @@ Track: **Memecoins With Mechanics** (NEAR).
 
 | Criterion | Where to look |
 |---|---|
-| Technical | 56 coin tests and 7 factory tests at real and demo scale, a randomized fuzz test (12,000 operations, invariants checked after each), CI, a live Proof page |
+| Technical | 56 coin tests and 7 factory tests at real and demo scale, a randomized fuzz test (900 operations by default, 2,500 in CI, and a 12,000-operation run that passes; invariants checked after each), CI, a live Proof page |
 | Innovation | coins raiding coins (cross-contract), one-tap check-ins with function-call keys, a coin whose icon is its war record |
 | Track fit | all four mechanic kinds above, a streak with a high score, parameters fixed and readable, a 60-day simulation before choosing them |
 | Execution | no-wallet play, a hosted app, a judge page that tries to break it, honest limits below |
@@ -328,7 +328,7 @@ npx vite --mode testnet         # Connect wallet: MyNearWallet or Meteor
 - **A randomized test** (`random_operations_keep_every_invariant`): random buys, sells, check-ins, locks, unlocks, early exits,
   transfers and pack claims from 10 wallets while time jumps by minutes, hours and days, under four creator-rule sets. After every
   operation it checks that the curve is backed, the supply identity holds, no wallet lost more than the 8% daily cap, and the Vault's
-  totals match its wallets. It runs 900 operations by default and in CI; a 12,000-operation run (8 coins × 1,500 steps,
+  totals match its wallets. It runs 900 operations by default and 2,500 in CI; a 12,000-operation run (8 coins × 1,500 steps,
   `RULECARD_FUZZ_SEEDS=8 RULECARD_FUZZ_STEPS=1500`) passes. Calls that fail are only the refusals a player can legitimately hit
   (too early to gm, hand full, and so on); any other panic fails the test.
 - **CI** (`.github/workflows/ci.yml`) runs all of the above at both scales, plus the type check and the production build.

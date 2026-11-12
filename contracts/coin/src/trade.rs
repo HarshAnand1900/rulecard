@@ -121,7 +121,8 @@ impl Coin {
         let t = amount.0.min(p.circ); let out = p.sell(t);
         let fee = bps(out, FEE_BPS);
         let now = env::block_timestamp_ms();
-        let tax = match account_id { Some(a) => { let mut h = self.holder(&a); self.sell_tax(&mut h, t, out, now) + self.tag_fee(&mut h, t, out, now) } None => 0 };
+        let mut tax = match account_id { Some(a) => { let mut h = self.holder(&a); self.sell_tax(&mut h, t, out, now) + self.tag_fee(&mut h, t, out, now) } None => 0 };
+        if self.omen_now(now) == 2 { tax += bps(out, THUNDER_BPS); } // Omen: Thunder, so the quote matches what the sale pays
         SellQuote { near_out: U128(out - fee - tax), fee: U128(fee), tax: U128(tax), price_after: U128(p.price()), impact_bps: impact(p0, p.price()) }
     }
 }

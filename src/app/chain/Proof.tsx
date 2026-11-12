@@ -68,7 +68,7 @@ export default function Proof({ ch, coins, tick }: { ch: Net; coins: CoinEntry[]
             <tr><td>Parameters fixed at launch, readable, no admin</td><td>The No admin and No access keys rows below, and <code>get_params</code> on any coin.</td></tr>
             <tr><td>Streak and today's progress</td><td>The Ritual tab on a coin: today's progress, current streak and the coin's best streak (its high score).</td></tr>
             <tr><td>A log of every mint and burn</td><td>The Log tab and the price chart. Every one is also a NEP-297 event, so an indexer can rebuild the history.</td></tr>
-            <tr><td>Sybil limits written plainly</td><td>Check-ins need 1 NEAR of tokens held. Levels count only wallets holding 2 NEAR for an hour. A practice wallet is free but only holds a small bag.</td></tr>
+            <tr><td>Sybil limits written plainly</td><td>Check-ins need 1 NEAR worth of tokens held (0.01 at demo scale). Levels count only wallets holding 2 NEAR worth for an hour. Practice wallets are free, so the demo world is not Sybil-resistant: on a real launch the NEAR a wallet must put in is the cost of each fake one. The README says what this does and doesn't stop.</td></tr>
             <tr><td>A simulation before the parameters</td><td>The 60-day chart further down, and the parameter sweep in the README.</td></tr>
             <tr><td>Raids: coins fighting coins</td><td>The War Map page. Labelled 🤖 bots keep the demo world moving; their whole brain is <code>sandbox/bots.mjs</code>.</td></tr>
           </tbody>

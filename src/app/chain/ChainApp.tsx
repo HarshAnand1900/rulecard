@@ -10,7 +10,7 @@ import type {
   CoinEntry, CoinView, HolderView, Ritual, LevelView, LogEntry, HandView, Proposal, RaidView, Card, Question, Rule, BuyQuote, OmenView,
 } from './types';
 import { TIER_OF, TIER_NAME, CARD_TEXT, RULE_TEXT, LEVEL_NAME } from './types';
-import PriceChart, { type PricePoint } from './PriceChart';
+import PriceChart, { type PricePoint, toMicro } from './PriceChart';
 import Proof from './Proof';
 import WarMap from './WarMap';
 
@@ -308,7 +308,7 @@ function CoinPage(p: Ctx & { id: string }) {
           <div className="chips">{c.rules.map(x => <span key={x} className="chip" title={RULE_TEXT[x]}>{x}</span>)}{d.raid?.phase === 2 && <span className="chip hot">⚔ raid on</span>}{c.hype_until > now && <span className="chip hot">📣 Trending</span>}</div>
         </div>
         <div className="mono head-nums">
-          <div><span className="muted small">price</span> {(toNear(c.price) * 1e6).toFixed(3)} µN</div>
+          <div><span className="muted small">price</span> {toMicro(c.price).toFixed(3)} µN</div>
           <div><span className="muted small">mcap</span> {fmtNear(toNear(c.mcap))} N</div>
           <div><span className="muted small">in curve</span> {fmtNear(toNear(c.real))} N</div>
         </div>
@@ -526,7 +526,7 @@ function TableRow({ t, now, me, busy, call }: { t: Proposal; now: number; me: st
         <strong>{CARD_TEXT[t.card].name}</strong>
         <span className="small muted">by {short(t.proposer)} · {phaseName} · {dur(t.phase_end - now)}</span>
       </div>
-      {t.question && <div className="small">Q: {typeof t.question === 'string' ? 'Will the coin be a net buyer over 2h?' : 'Line' in t.question ? `Price above ${(toNear(t.question.Line.price) * 1e6).toFixed(3)} µN?` : 'Crowd' in t.question ? `${t.question.Crowd.n}+ new buyers (≥ 1 NEAR each)?` : `Vault share +${t.question.Vault.bps / 100} points?`}</div>}
+      {t.question && <div className="small">Q: {typeof t.question === 'string' ? 'Will the coin be a net buyer over 2h?' : 'Line' in t.question ? `Price above ${toMicro(t.question.Line.price).toFixed(3)} µN?` : 'Crowd' in t.question ? `${t.question.Crowd.n}+ new buyers (≥ 1 NEAR each)?` : `Vault share +${t.question.Vault.bps / 100} points?`}</div>}
       {t.phase === 0 && <div className="row gap small"><Bar label={t.card === 'Inferno' ? 'signers' : t.card === 'Ember' ? 'copies' : 'backers'} value={t.backers.length} max={t.needed} text={`${t.backers.length}/${t.needed}`} />
         {!mine && <button className="btn small" disabled={!!busy} onClick={() => call(t.card === 'Inferno' ? 'Sign' : 'Back', t.card === 'Inferno' ? 'sign' : 'back', { id: t.id }, 0n, 'Thanks: your next pack comes 10 min sooner')}>{t.card === 'Inferno' ? 'Sign' : t.card === 'Ember' ? 'Add my Ember' : 'Back'}</button>}</div>}
       {t.card === 'Ember' && t.phase === 0 && <div className="row gap small">Stoke: <input className="tiny" type="number" value={amt} onChange={e => setAmt(Number(e.target.value))} /> NEAR (max {nearAmt(5)}) <button className="btn small" disabled={!!busy} onClick={() => call('Stoke', 'stoke', { id: t.id }, nearToYocto(amt))}>Stoke</button> <span className="muted">stoked {fmtNear(toNear(t.chip_total))}</span></div>}

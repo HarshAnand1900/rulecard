@@ -814,8 +814,9 @@ fn thunder_sells_pay_one_percent_more_into_the_pot() {
     ctx(1, 0, base + 10 * MIN); let q = c.quote_sell(U128(t / 2), Some(acc(1)));
     let pot0 = c.pot;
     ctx(1, 1, base + 10 * MIN); let pay = c.sell(U128(t / 2), None).0;
-    let gross = q.near_out.0 + q.fee.0;
-    assert_eq!(q.near_out.0 - pay, bps(gross, THUNDER_BPS), "Thunder takes 1% of the sale");
+    let gross = q.near_out.0 + q.fee.0 + q.tax.0;
+    assert_eq!(q.near_out.0, pay, "the quote already includes Thunder");
+    assert_eq!(q.tax.0, bps(gross, THUNDER_BPS), "Thunder takes 1% of the sale");
     assert!(c.pot - pot0 >= bps(gross, THUNDER_BPS), "and it goes to the pot");
     assert!(c.pool().solvent());
     check_supply(&mut c, &[1], base + 20 * MIN);

@@ -9,7 +9,19 @@ const ATTEMPTS: Attempt[] = [
   { id: 'admin', title: 'Make myself the admin', why: 'There is no admin method, and no key to sign one.', run: (ch, c) => ch.call(c, 'set_admin', { account_id: ch.me() }, 0n).then(() => {}) },
   { id: 'reinit', title: 'Re-launch the coin to change its rules', why: 'Parameters are frozen at launch.', run: (ch, c) => ch.call(c, 'new', { name: 'Mine now', symbol: 'MINE', icon: null, creator: ch.me(), protocol: ch.me(), rules: [] }, 0n).then(() => {}) },
   { id: 'gm2', title: 'Check in twice in a row (gm, gm)', why: 'One check-in per wallet every 6 hours (30 minutes in demo mode). The first may succeed or be refused; the second never works.', run: async (ch, c) => { try { await ch.call(c, 'gm', {}, 0n); } catch { /* the first one may be refused too: only the second answer matters */ } await ch.call(c, 'gm', {}, 0n); } },
-  { id: 'unlock', title: 'Take Vault tokens out before the lock ends', why: 'Locked tokens can only leave early by paying the 20% penalty.', run: (ch, c) => ch.call(c, 'unlock', { index: 0 }, 0n).then(() => {}) },
+  { id: 'unlock', title: 'Take Vault tokens out before the lock ends', why: 'Locked tokens can only leave early by paying the 20% penalty.', run: async (ch, c) => {
+      // lock a little first (6 hours; 30 minutes in demo mode) so there is a real lock to try to cheat
+      const me = ch.me()!, now = (await ch.view<any>(c, 'get_coin')).now as number;
+      let h = await ch.view<any>(c, 'get_holder', { account_id: me });
+      let idx = (h?.locks ?? []).findIndex((l: any) => l.until > now);
+      if (idx < 0) {
+        const bal = BigInt(await ch.view<string>(c, 'ft_balance_of', { account_id: me }));
+        if (bal < 100n) throw new Error('buy a little of this coin first');
+        await ch.call(c, 'lock', { amount: (bal / 50n).toString(), hours: 6 }, 1n);
+        h = await ch.view<any>(c, 'get_holder', { account_id: me }); idx = h.locks.length - 1;
+      }
+      await ch.call(c, 'unlock', { index: idx }, 0n);
+    } },
   { id: 'escrow', title: 'Claim the creator escrow before graduation', why: 'The creator fee is paid only when the curve sells out.', run: (ch, c) => ch.call(c, 'claim_creator_escrow', {}, 0n).then(() => {}) },
 ];
 
@@ -35,7 +47,7 @@ export default function Cheat({ ch, coins }: { ch: Net; coins: CoinEntry[] }) {
             <div><strong>{a.title}</strong><br /><span className="small muted">{a.why}</span></div>
             <div className="cheat-out">
               <button className="btn small" disabled={!canSend || !coin || r?.state === 'busy'} onClick={() => go(a)}>{r?.state === 'busy' ? 'Sending…' : 'Try it'}</button>
-              {r?.state === 'rejected' && <div><span className="stamp">REJECTED BY NEAR</span><div className="small mono">{r.text}</div></div>}
+              {r?.state === 'rejected' && <div><span className="stamp">REJECTED BY NEAR</span><div className="small mono">{r.text}</div>{ch.explorer && ch.me() && <a className="small" href={`${ch.explorer}/address/${ch.me()}`} target="_blank" rel="noreferrer">your account's transactions ↗</a>}</div>}
               {r?.state === 'accepted' && <div className="warn small">⚠ {r.text} (that is not supposed to happen)</div>}
             </div>
           </div>

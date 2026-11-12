@@ -62,7 +62,7 @@ export default function WarMap({ ch, coins, tick, go }: { ch: Net; coins: CoinEn
         {feed.map((f, i) => (
           <div key={i} className="row between small past-raid">
             <span><strong>${f.from}</strong> raided <strong>${f.to}</strong></span>
-            <span>{f.x.result!.outcome > 0 ? <strong className="up">${f.from} won</strong> : f.x.result!.outcome < 0 ? <strong className="up">${f.to} held</strong> : <strong>tie</strong>} · rounds {f.x.result!.rounds.map(n => (n > 0 ? 'W' : n < 0 ? 'L' : '=')).join('')} · spoils {fmtNear(toNear(f.x.result!.spoils))} N · {new Date(f.at).toISOString().slice(5, 16).replace('T', ' ')} UTC</span>
+            <span>{f.x.result!.outcome > 0 ? <strong className="up">${f.from} won</strong> : f.x.result!.outcome < 0 ? <strong className="up">${f.to} held</strong> : <strong>tie</strong>} · rounds {f.x.result!.rounds.map(n => (n > 0 ? 'W' : n < 0 ? 'L' : 'T')).join('')} (W win, L loss, T tie) · spoils {fmtNear(toNear(f.x.result!.spoils))} N · {new Date(f.at).toISOString().slice(5, 16).replace('T', ' ')} UTC</span>
           </div>
         ))}
       </div>
