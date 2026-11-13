@@ -11,6 +11,7 @@ pub const LAUNCH_GUARD_MS: u64 = 10 * MIN;
 pub const WHALE_CAP_BPS: u128 = 200; // no wallet over 2% of supply before L3
 pub const CREATOR_LOCK_MS: u64 = DAY;
 pub const CREATOR_UNLOCK_MS: u64 = 2 * DAY;
+pub const WHALE_TAX_BPS: u128 = 100; // Whale Tax: +1% on sells for wallets over 2% of supply
 
 #[near(serializers = [json])]
 pub struct BuyQuote { pub tokens: U128, pub fee: U128, pub storage: U128, pub near_used: U128, pub refund: U128, pub price_after: U128, pub impact_bps: u32 }
@@ -41,13 +42,27 @@ impl Coin {
         let p0 = self.pool().price();
         let (t, used) = self.with_pool(|p| p.buy(net));
         require!(t > 0, "nothing bought");
+        let first_buy = h.bought_near == 0;
+        let sb = if now < self.slowburn_until { t / 100 } else { 0 }; // Card: Slow Burn
+        let t = t - sb;
         if let Some(m) = min_tokens { require!(t >= m.0, "slippage: fewer tokens than min_tokens"); }
+        if sb > 0 { let me = env::current_account_id(); self.burn_circ(now, &me, sb, "Slow Burn"); }
         // fees on the part that was used (the rest is refunded with its fee)
         let fee_used = if used == net { fee } else { mul_div(fee, used, net) };
         self.split_fee(fee_used);
         let refund = (net - used) + (fee - fee_used);
         if h.bal == 0 && h.w == 0 { h.since = now; if h.last_gm == 0 { h.idle_from = now; h.idle_applied = now; } }
         h.bal += t;
+        // Card: Recruit. A wallet's first buy of 3 NEAR or more gets +5% bonus tokens from the reward pool, locked 6h.
+        if first_buy && now < self.recruit_until && used >= 3 * GN && h.locks.len() < 10 {
+            let b = bps(t, 500).min(self.recruit_left).min(self.reward_pool);
+            if b > 0 {
+                self.recruit_left -= b; self.reward_pool -= b; self.with_pool(|q| q.release(b));
+                h.locks.push(Lock { amount: U128(b), mult: 10, until: now + 6 * HOUR });
+                self.vault_locked += b; self.reweigh(&mut h);
+                events::rulecard("recruit", json!({ "account_id": a, "bonus": U128(b) }));
+            }
+        }
         if h.bought_near < GN { h.bought_near += used + fee_used; if h.bought_near >= GN { self.buyers += 1; } }
         // tokens bought in the last hour (for Paper / Soft Tax)
         if now >= h.recent_buy_at + HOUR { h.recent_buy = 0; }
@@ -84,9 +99,12 @@ impl Coin {
         require!(h.bal >= t, "not enough unlocked balance");
         require!(now >= h.no_trade_until, "you have a live Prophecy bet: no trading until it resolves");
         self.check_creator_lock(&a, &h, t, now);
+        let mut t = t;
+        if now < self.slowburn_until { let sb = t / 100; if sb > 0 { h.bal -= sb; t -= sb; self.burn_circ(now, &a, sb, "Slow Burn"); } } // Card: Slow Burn
         let out = self.with_pool(|p| p.sell(t));
         let fee = bps(out, FEE_BPS);
         let mut tax = self.sell_tax(&mut h, t, out, now) + self.tag_fee(&mut h, t, out, now) + self.desert_fee(out, now);
+        if now < self.whale_until && h.bal + self.locked_of(&h) > bps(SUPPLY, WHALE_CAP_BPS) { tax += bps(out, WHALE_TAX_BPS); } // Card: Whale Tax
         if self.omen_now(now) == 2 { tax += bps(out, THUNDER_BPS); } // Omen: Thunder
         self.raid_trade(&mut h, now, -(out as i128));
         let pay = out - fee - tax;
@@ -112,13 +130,16 @@ impl Coin {
         dep -= storage;
         let fee = bps(dep, FEE_BPS); let net = dep - fee;
         let mut p = self.pool(); let p0 = p.price(); let (t, used) = p.buy(net);
+        let t = if env::block_timestamp_ms() < self.slowburn_until { t - t / 100 } else { t };
         let fee_used = if used == net { fee } else { mul_div(fee, used, net.max(1)) };
         BuyQuote { tokens: U128(t), fee: U128(fee_used), storage: U128(storage), near_used: U128(used + fee_used), refund: U128(net - used + fee - fee_used), price_after: U128(p.price()), impact_bps: impact(p0, p.price()) }
     }
 
     pub fn quote_sell(&self, amount: U128, account_id: Option<AccountId>) -> SellQuote {
         let mut p = self.pool(); let p0 = p.price();
-        let t = amount.0.min(p.circ); let out = p.sell(t);
+        let t = amount.0.min(p.circ);
+        let t = if env::block_timestamp_ms() < self.slowburn_until { t - t / 100 } else { t };
+        let out = p.sell(t);
         let fee = bps(out, FEE_BPS);
         let now = env::block_timestamp_ms();
         let mut tax = match account_id { Some(a) => { let mut h = self.holder(&a); self.sell_tax(&mut h, t, out, now) + self.tag_fee(&mut h, t, out, now) } None => 0 };

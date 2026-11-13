@@ -302,11 +302,14 @@ fn the_deck_limit_caps_rares_and_fade_frees_them() {
     ctx(1, 0, now);
     let all_rare = [0, 100, 0, 0];
     let mut rares = 0;
-    for i in 1..=20 { let mut h = c.holder(&acc(i)); if c.roll(&mut h, &all_rare, now) == Card::Prophecy { rares += 1; } c.save(&acc(i), h); }
+    for i in 1..=20 { let mut h = c.holder(&acc(i)); if c.roll(&mut h, &all_rare, now).tier() == 1 { rares += 1; } c.save(&acc(i), h); }
     assert_eq!(rares, CAP_MIN[0] as usize, "only the deck limit's worth of Rares exist (8 on a small coin)");
-    assert_eq!(c.stock_out(Card::Prophecy, now), 8);
+    let out: u32 = tier_cards(1).iter().map(|k| c.stock_out(*k, now)).sum();
+    assert_eq!(out, 8);
+    assert!(tier_cards(1).iter().all(|k| c.stock_out(*k, now) <= 1), "with 11 Rares each card has at most one copy out on a small coin");
     ctx(1, 0, now + FADE + 1);
-    assert_eq!(c.stock_out(Card::Prophecy, now + FADE + 1), 0, "unplayed Rares fade back to the deck after 24h");
+    let out: u32 = tier_cards(1).iter().map(|k| c.stock_out(*k, now + FADE + 1)).sum();
+    assert_eq!(out, 0, "unplayed Rares fade back to the deck after 24h");
     assert!(c.get_hand(acc(1)).unwrap().cards.is_empty());
 }
 
@@ -490,7 +493,7 @@ fn attacker_raid_from_signers_to_win_pack() {
     assert_eq!(last.result.as_ref().unwrap().outcome, 1, "{:?}", last.result.as_ref().unwrap().rounds);
     assert_eq!(last.tactic, vec![20, 10, 10], "tactics revealed after the raid");
     // win pack for a wallet that filled 3 slots; not for one that filled 1
-    ctx(1, 0, end + 3); let mut h = c.holder(&acc(1)); h.commons = [0; 6]; c.save(&acc(1), h);
+    ctx(1, 0, end + 3); let mut h = c.holder(&acc(1)); h.commons = [0; N_COMMONS]; c.save(&acc(1), h);
     let got = c.claim_raid_pack(); assert_eq!(got.len(), 3);
     // cards matching the side's tactic were used; wallet 5's Ward (not the side's tactic) came back
     ctx(5, 0, end + 4); let _ = c.claim_vault();
@@ -1064,4 +1067,118 @@ fn fog_hides_the_live_scores_while_a_raid_is_on() {
     ctx_as(moth(), 0, base + 10 * MIN, vec![]);
     let v = c.get_raid().unwrap();
     assert!(v.live_base.iter().all(|x| x.0 == 0), "scores hidden during Fog");
+}
+
+// ------------------------------------------------------------------ new cards, batch 1: Kindle, Slow Burn, Recruit, Diamond Pool, Last Stand
+#[test]
+fn kindle_adds_heat_that_cools_and_is_once_per_wallet_per_6h() {
+    let mut c = launch(vec![]);
+    for i in 1..=2 { buy(&mut c, i, n(10), T0 + i as u64); give(&mut c, i, Card::Kindle, T0); give(&mut c, i, Card::Kindle, T0); }
+    c.energy = 20;
+    ctx(1, 0, T0 + HOUR); c.play_card(Card::Kindle, None);
+    assert_eq!(c.get_coin().heat, 1);
+    ctx(2, 0, T0 + HOUR + 1000); c.play_card(Card::Kindle, None);
+    assert_eq!(c.get_coin().heat, 2, "another wallet can add Heat");
+    assert_eq!(c.energy, 10, "5 Energy each");
+    ctx(1, 0, T0 + 2 * HOUR + 5000); assert_eq!(c.get_coin().heat, 1, "Heat cools 1 an hour");
+    ctx(1, 0, T0 + 4 * HOUR); assert_eq!(c.get_coin().heat, 0);
+}
+
+#[test]
+#[should_panic(expected = "once per wallet per 6h")]
+fn kindle_twice_in_6h_fails() {
+    let mut c = launch(vec![]);
+    buy(&mut c, 1, n(10), T0); give(&mut c, 1, Card::Kindle, T0); give(&mut c, 1, Card::Kindle, T0);
+    c.energy = 20;
+    ctx(1, 0, T0 + HOUR); c.play_card(Card::Kindle, None);
+    ctx(1, 0, T0 + 2 * HOUR); c.play_card(Card::Kindle, None);
+}
+
+#[test]
+fn heat_makes_the_ember_burn_larger() {
+    let run = |heat: bool, o: usize| -> u128 {
+        let mut c = launch(vec![]);
+        for i in 1..=3 { buy(&mut c, o + i, n(10), T0 + i as u64); give(&mut c, o + i, Card::Ember, T0); }
+        c.energy = 10;
+        if heat { c.heat = 3; c.heat_at = T0 + HOUR; }
+        ctx(o + 1, 0, T0 + HOUR); let id = c.play_card(Card::Ember, None);
+        ctx(o + 2, 0, T0 + HOUR + 1000); c.back(id);
+        ctx(o + 3, 0, T0 + HOUR + 2000); c.back(id);
+        let pot = c.pot;
+        ctx(o + 1, 0, T0 + HOUR + EMBER_WINDOW + FIRE_JITTER_MS + 1); c.poke();
+        pot - c.pot
+    };
+    let (cold, hot) = (run(false, 0), run(true, 10));
+    assert!(cold > 0 && hot.abs_diff(cold + cold * 3 / 10) <= cold / 1_000, "{hot} vs {cold} + 30%");
+}
+
+#[test]
+fn slow_burn_burns_one_percent_of_every_trade_for_an_hour() {
+    let mut c = launch(vec![]);
+    buy(&mut c, 1, n(10), T0); give(&mut c, 1, Card::SlowBurn, T0);
+    c.energy = 30;
+    ctx(1, 0, T0 + HOUR); c.play_card(Card::SlowBurn, None);
+    ctx(2, 0, T0 + HOUR + 10); let q = c.quote_buy(U128(n(5)), Some(acc(2)));
+    let burned0 = c.burned;
+    let t = buy(&mut c, 2, n(5), T0 + HOUR + 20);
+    assert_eq!(t, q.tokens.0, "the quote includes the burn");
+    assert!(c.burned > burned0, "1% of the tokens bought were burned");
+    ctx(2, 1, T0 + HOUR + 30); let b1 = c.burned; let held = bal(&c, 2);
+    let _ = c.sell(U128(held / 2), None);
+    assert!(c.burned - b1 >= held / 2 / 100 - 1, "a sale burns 1% of what is sold");
+    check_supply(&mut c, &[1, 2], T0 + HOUR + 40);
+    ctx(2, 0, T0 + 3 * HOUR); let b2 = c.burned; buy(&mut c, 2, n(1), T0 + 3 * HOUR + 1);
+    assert_eq!(c.burned, b2, "no burn after the hour");
+}
+
+#[test]
+fn recruit_gives_a_first_big_buy_five_percent_locked_for_6h() {
+    let mut c = launch(vec![]);
+    buy(&mut c, 1, n(10), T0); give(&mut c, 1, Card::Recruit, T0);
+    c.energy = 30;
+    ctx(1, 0, T0 + HOUR); c.play_card(Card::Recruit, None);
+    let rp = c.reward_pool;
+    let t = buy(&mut c, 2, n(5), T0 + HOUR + 100);
+    let h = c.get_holder(acc(2)).unwrap();
+    assert_eq!(h.locked.0, bps(t, 500) + 0, "5% bonus is locked");
+    assert!(rp - c.reward_pool >= bps(t, 500));
+    buy(&mut c, 2, n(5), T0 + HOUR + 200);
+    assert_eq!(c.get_holder(acc(2)).unwrap().locked.0, bps(t, 500), "only the first buy");
+    let h1 = c.get_holder(acc(1)).unwrap(); assert_eq!(h1.locked.0, 0, "an existing holder is not recruited");
+    buy(&mut c, 3, n(1), T0 + HOUR + 300);
+    assert_eq!(c.get_holder(acc(3)).unwrap().locked.0, 0, "under 3 NEAR gets nothing");
+    check_supply(&mut c, &[1, 2, 3], T0 + 2 * HOUR);
+}
+
+#[test]
+fn diamond_pool_boosts_24h_locks_and_adds_one_percent() {
+    let mut c = launch(vec![]);
+    let t = buy(&mut c, 1, n(10), T0); give(&mut c, 1, Card::DiamondPool, T0);
+    c.energy = 30;
+    ctx(1, 0, T0 + HOUR); c.play_card(Card::DiamondPool, None);
+    ctx(1, 1, T0 + HOUR + 10); c.lock(U128(t / 2), 24);
+    let l = c.holder(&acc(1)).locks[0].clone();
+    assert_eq!(l.mult, 18);
+    assert_eq!(l.amount.0, t / 2 + (t / 2) / 100, "+1% bonus tokens");
+    ctx(1, 1, T0 + HOUR + 20); c.lock(U128(t / 4), 6);
+    assert_eq!(c.holder(&acc(1)).locks[1].mult, 10, "a 6h lock gets nothing");
+    ctx(1, 1, T0 + 26 * HOUR); c.lock(U128(t / 8), 24);
+    assert_eq!(c.holder(&acc(1)).locks[2].mult, 15, "normal after 24h");
+    check_supply(&mut c, &[1], T0 + 27 * HOUR);
+}
+
+#[test]
+fn last_stand_needs_a_25_percent_dip_and_then_burns_from_the_pot() {
+    let mut c = launch(vec![]);
+    let t = buy(&mut c, 1, n(400), T0);
+    buy(&mut c, 2, n(10), T0 + 1000); give(&mut c, 2, Card::LastStand, T0);
+    c.energy = 30;
+    ctx(2, 0, T0 + 2000);
+    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| { c.play_card(Card::LastStand, None); }));
+    assert!(r.is_err(), "no dip yet");
+    ctx(1, 1, T0 + 3000); let _ = c.sell(U128(t), None); // the whale dumps: the price falls well below its hourly high
+    let (pot, burned) = (c.pot, c.burned);
+    ctx(2, 0, T0 + 4000); c.play_card(Card::LastStand, None);
+    assert!(c.pot < pot && c.burned > burned, "the pot bought and burned the dip");
+    assert!(pot - c.pot <= bps(pot, LAST_STAND_BPS) + 1);
 }

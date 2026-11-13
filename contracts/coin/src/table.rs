@@ -27,6 +27,9 @@ pub const MAX_BETTORS: usize = 100;
 pub const TAG_FEE_BPS: u128 = 1_000;
 pub const FAIL_COOLDOWN: u64 = HOUR;
 pub const EPICS_PER_DAY: u32 = 3;
+pub const HEAT_MAX: u8 = 3;
+pub const RECRUIT_CAP: u128 = SUPPLY / 1_000; // 0.1% of supply of bonus tokens per Recruit
+pub const LAST_STAND_BPS: u128 = 1_000; // the pot spends 10% of itself
 
 #[near(serializers = [borsh, json])]
 #[derive(Clone, PartialEq, Debug)]
@@ -73,7 +76,50 @@ impl Coin {
         require!(now >= h.cooldown_until, "your last card failed: wait 1h");
         require!(self.energy >= card.energy(), "not enough Energy");
         match card {
-            Card::Rally | Card::Curse | Card::Ward => env::panic_str("raid tactics are played in a raid plan"),
+            Card::Rally | Card::Curse | Card::Ward | Card::Mirror | Card::Counterspell | Card::Decoy => env::panic_str("raid tactics are played in a raid plan"),
+            Card::Kindle => {
+                require!(h.kindle_at == 0 || now >= h.kindle_at + 6 * HOUR, "Kindle: once per wallet per 6h");
+                self.take_card(&mut h, card, now); h.kindle_at = now; self.save(&a, h);
+                self.energy -= card.energy();
+                self.heat = (self.heat_now(now) + 1).min(HEAT_MAX); self.heat_at = now;
+                let what = format!("Heat +1 (now {}): pot cards spend 10% more per Heat, and Heat cools 1 an hour", self.heat);
+                self.fired(now, &a, card, what);
+                return 0;
+            }
+            Card::SlowBurn => {
+                require!(now >= self.slowburn_until, "Slow Burn is already running");
+                let exp = self.take_card(&mut h, card, now); self.save(&a, h); self.free_stock(card, exp);
+                self.energy -= card.energy(); self.slowburn_until = now + HOUR;
+                self.fired(now, &a, card, "1% of the tokens in every trade burn for 1h".into());
+                return 0;
+            }
+            Card::Recruit => {
+                require!(now >= self.recruit_until, "Recruit is already running");
+                let exp = self.take_card(&mut h, card, now); self.save(&a, h); self.free_stock(card, exp);
+                self.energy -= card.energy(); self.recruit_until = now + HOUR; self.recruit_left = RECRUIT_CAP;
+                self.fired(now, &a, card, "1h: a wallet's first buy of 3 NEAR or more gets +5% bonus tokens, locked 6h".into());
+                return 0;
+            }
+            Card::DiamondPool => {
+                require!(now >= self.diamond_until, "Diamond Pool is already open");
+                let exp = self.take_card(&mut h, card, now); self.save(&a, h); self.free_stock(card, exp);
+                self.energy -= card.energy(); self.diamond_until = now + DAY;
+                self.fired(now, &a, card, "24h: new locks of 24h or more get x1.25 weight and +1% bonus tokens".into());
+                return 0;
+            }
+            Card::LastStand => {
+                require!(now >= self.last_stand_at + DAY, "Last Stand: once per coin per day");
+                let high = self.hi.iter().filter(|x| x.0 + 24 > now / HOUR).map(|x| x.1).max().unwrap_or(0);
+                let price = self.pool().price();
+                require!(high > 0 && price * 100 <= high * 75, "Last Stand needs the price to be 25% or more below its 24h high");
+                let exp = self.take_card(&mut h, card, now); self.save(&a, h); self.free_stock(card, exp);
+                self.energy -= card.energy(); self.last_stand_at = now;
+                let spent = self.pot_burn(now, bps(self.pot, LAST_STAND_BPS), "Last Stand");
+                self.tag_until = self.tag_until.max(now + HOUR);
+                self.fired(now, &a, card, format!("the pot bought and burned {} yoctoNEAR of the dip", spent));
+                return 0;
+            }
+            Card::Scout | Card::Hedge | Card::Duel | Card::Bounty | Card::FriendlyRaid | Card::HardRaid | Card::Alliance => env::panic_str("this card has its own action: see the card's text"),
             Card::RollCall => {
                 self.take_card(&mut h, card, now); self.save(&a, h);
                 self.energy -= card.energy(); self.rollcall_until = now + HOUR; self.rollcall_mult = 2;
@@ -105,7 +151,7 @@ impl Coin {
                 (if self.level <= 2 { 2 } else { 3 }, BACK_WINDOW, vec![])
             }
             Card::Inferno => (INFERNO_SIGNERS[self.level as usize - 1], BACK_WINDOW, vec![]),
-            _ => unreachable!(),
+            _ => env::panic_str("this card can't be played that way"),
         };
         let window = if self.omen_now(now) == 11 { window / 2 } else { window }; // Omen: Low Tide
         let id = self.next_prop; self.next_prop += 1;
@@ -202,6 +248,8 @@ impl Coin {
 }
 
 impl Coin {
+    /// Heat cools by 1 every hour.
+    pub(crate) fn heat_now(&self, now: u64) -> u8 { self.heat.saturating_sub((now.saturating_sub(self.heat_at) / HOUR).min(10) as u8) }
     fn find(&self, id: u32) -> usize { self.table.iter().position(|p| p.id == id).unwrap_or_else(|| env::panic_str("no such card on the table")) }
     fn roll_epic_day(&mut self, now: u64) { if self.epics_day != now / DAY { self.epics_day = now / DAY; self.epics_today = 0; } }
 
@@ -359,6 +407,7 @@ impl Coin {
             }
             _ => { let max = if self.level >= 4 { 7_500 } else { 5_000 }; (bps(pot, 1_000) + total / 2).min(bps(pot, max)) }
         };
+        let spend = spend + spend * self.heat_now(now) as u128 / 10; // Kindle's Heat: +10% per Heat
         let spend = if self.omen_now(now) == 8 { spend + spend / 4 } else { spend }; // Omen: Windfall
         let spent = self.pot_burn(now, spend, &format!("{:?}", p.card));
         if p.card == Card::Ember { self.last_ember = now; }

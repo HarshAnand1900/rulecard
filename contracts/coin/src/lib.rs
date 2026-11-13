@@ -128,7 +128,7 @@ pub struct Holder {
     pub counted_checkin_at: u64,
     pub ritual_day: u64,
     // cards
-    pub commons: [u8; 6],
+    pub commons: [u8; N_COMMONS],
     pub cards: Vec<HandCard>,
     pub next_pack: u64,
     pub cut_used: u64,
@@ -146,6 +146,8 @@ pub struct Holder {
     pub slots: [u8; 3],
     pub slots_filled: u8,
     pub slots_done: bool,
+    /// expiry of a Rare tactic card (Mirror, Counterspell) sitting in a raid plan slot, so it can go back to the hand
+    pub slot_exp: [u64; 3],
     pub r_round: u8,
     pub r_net: i128,
     pub cry: u8,
@@ -158,6 +160,8 @@ pub struct Holder {
     pub bought_near: u128,
     // omens
     pub squall_applied: u64,
+    // cards
+    pub kindle_at: u64,
 }
 
 /// 24 hourly buckets (rolling day).
@@ -265,6 +269,12 @@ pub struct Coin {
     pub(crate) squalls: Vec<u64>,
     pub(crate) droughts: Vec<u64>,
     pub(crate) blood_until: u64,
+    // timed card effects (each is 'until' a time)
+    pub(crate) heat: u8, pub(crate) heat_at: u64,
+    pub(crate) slowburn_until: u64, pub(crate) recruit_until: u64, pub(crate) recruit_left: u128,
+    pub(crate) diamond_until: u64, pub(crate) whale_until: u64, pub(crate) last_stand_at: u64,
+    /// highest price in each of the last 24 hours (hour number, price), for Last Stand
+    pub(crate) hi: Vec<(u64, u128)>,
     // chart
     pub(crate) prices: Vector<PricePoint>,
     pub(crate) price_seq: u64,
@@ -296,6 +306,7 @@ pub struct CoinView {
     pub vault_locked: U128, pub vault_weight: U128, pub energy: u32, pub level: u8, pub level_at: Vec<u64>,
     pub holders: u32, pub graduated: bool, pub solvent: bool, pub curve_room: U128,
     pub hype_until: u64, pub rollcall_until: u64, pub tag_until: u64, pub deck: Vec<DeckView>,
+    pub heat: u8, pub slowburn_until: u64, pub recruit_until: u64, pub diamond_until: u64, pub whale_until: u64,
 }
 
 #[near(serializers = [json])]
@@ -341,6 +352,7 @@ impl Coin {
             epics_day: 0, epics_today: 0, last_ember: 0, hype_until: 0, hype_last: 0, rollcall_until: 0, rollcall_mult: 1, tag_until: 0,
             bets_held: 0, total_bought: 0, total_sold: 0,
             raid: None, raids: vec![], raid_seq: 0, last_raid_end: 0, last_raid_start: 0, last_attack: 0, omen: Omen::default(), squalls: vec![], droughts: vec![], blood_until: 0,
+            heat: 0, heat_at: 0, slowburn_until: 0, recruit_until: 0, recruit_left: 0, diamond_until: 0, whale_until: 0, last_stand_at: 0, hi: vec![],
             prices: Vector::new(b"p"), price_seq: 0,
         };
         let me = env::current_account_id();
@@ -386,6 +398,7 @@ impl Coin {
             vault_locked: U128(self.vault_locked), vault_weight: U128(self.vault_w), energy: self.energy, level: self.level, level_at: self.level_at.clone(),
             holders: self.holder_count, graduated: self.graduated, solvent: pool.solvent(), curve_room: U128(pool.room()),
             hype_until: self.hype_until, rollcall_until: self.rollcall_until, tag_until: self.tag_until, deck: self.deck_view(now),
+            heat: self.heat_now(now), slowburn_until: self.slowburn_until, recruit_until: self.recruit_until, diamond_until: self.diamond_until, whale_until: self.whale_until,
         }
     }
 
@@ -441,6 +454,8 @@ impl Coin {
     pub(crate) fn record_price(&mut self, at: u64) {
         let pool = self.pool();
         let pt = PricePoint { at, price: U128(pool.price()), mcap: U128(pool.mcap()) };
+        let hr = at / HOUR; let pr = pool.price();
+        match self.hi.last_mut() { Some(l) if l.0 == hr => { if pr > l.1 { l.1 = pr; } } _ => { self.hi.push((hr, pr)); if self.hi.len() > 24 { self.hi.remove(0); } } }
         if self.price_seq > 0 {
             let last = ((self.price_seq - 1) % PRICE_KEEP) as u32;
             if let Some(prev) = self.prices.get(last) { if prev.at / MIN == at / MIN { self.prices.set(last, pt); return; } }

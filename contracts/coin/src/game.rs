@@ -49,15 +49,18 @@ impl Coin {
         let a = env::predecessor_account_id();
         let mut mult: u8 = match hours { 6 => 10, 24 => 15, 72 => 20, _ => env::panic_str("lock for 6, 24 or 72 hours") };
         let ok = self.omen_now(now);
-        if ok == 7 || (ok == 13 && self.raid.is_none()) { mult = (mult as u32 * 5 / 4) as u8; } // Omen: Iron Vault (and Fog with no raid on)
+        let diamond = now < self.diamond_until && hours >= 24; // Card: Diamond Pool
+        if ok == 7 || (ok == 13 && self.raid.is_none()) || diamond { mult = (mult as u32 * 5 / 4) as u8; } // Omen: Iron Vault (and Fog with no raid on)
         require!(amount.0 > 0, "amount must be positive");
         self.touch(now);
         let mut h = self.settle(&a, now);
         require!(h.bal >= amount.0, "not enough unlocked balance");
         h.bal -= amount.0;
-        h.locks.push(Lock { amount, mult, until: now + hours as u64 * HOUR });
+        let mut bonus = 0u128;
+        if diamond { bonus = (amount.0 / 100).min(self.reward_pool).min(100_000 * TOKEN); if bonus > 0 { self.reward_pool -= bonus; self.with_pool(|q| q.release(bonus)); } }
+        h.locks.push(Lock { amount: U128(amount.0 + bonus), mult, until: now + hours as u64 * HOUR });
         require!(h.locks.len() <= 10, "at most 10 locks per wallet");
-        self.vault_locked += amount.0;
+        self.vault_locked += amount.0 + bonus;
         self.reweigh(&mut h);
         self.raid_lock(&mut h, now, amount.0);
         let value = self.pool().value(amount.0);

@@ -1,6 +1,8 @@
 //! The deck: packs, level drops, the hand, deck limits that grow with eligible holders, Fade and "make room first".
-//! Demo deck: Commons Rally, Curse, Ward, Ember, Roll Call, Hype Siren; Rare Prophecy; Epic Inferno.
-//! A roll for a tier with no card (or no stock) falls to the tier below.
+//! The deck: 10 Commons, 11 Rares, 7 Epics and 1 Mythic (29 cards). A roll for a tier with no card (or no stock) falls to the tier below.
+//! Commons: Rally, Curse, Ward, Ember, Roll Call, Hype Siren, Kindle, Scout, Decoy, Hedge.
+//! Rares: Prophecy, Mirror, Counterspell, Last Stand, Slow Burn, Duel, Diamond Pool, Bounty, Friendly Raid, Recruit, Stampede.
+//! Epics: Inferno, Black Hole, Harvest, Hard Raid, Whale Tax, Alliance, Squeeze. Mythic: Supernova.
 use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::json;
@@ -8,11 +10,17 @@ use near_sdk::{env, near, require, AccountId};
 
 #[near(serializers = [borsh, json])]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Card { Rally, Curse, Ward, Ember, RollCall, HypeSiren, Prophecy, Inferno }
+pub enum Card {
+    Rally, Curse, Ward, Ember, RollCall, HypeSiren, Kindle, Scout, Decoy, Hedge,
+    Prophecy, Mirror, Counterspell, LastStand, SlowBurn, Duel, DiamondPool, Bounty, FriendlyRaid, Recruit, Stampede,
+    Inferno, BlackHole, Harvest, HardRaid, WhaleTax, Alliance, Squeeze,
+    Supernova,
+}
 
-pub const COMMONS: [Card; 6] = [Card::Rally, Card::Curse, Card::Ward, Card::Ember, Card::RollCall, Card::HypeSiren];
-/// 60% raid tactics, 40% the others (Ember gets the share of the unbuilt Hedge).
-pub const COMMON_W: [u32; 6] = [20, 20, 20, 20, 10, 10];
+pub const N_COMMONS: usize = 10;
+pub const COMMONS: [Card; N_COMMONS] = [Card::Rally, Card::Curse, Card::Ward, Card::Ember, Card::RollCall, Card::HypeSiren, Card::Kindle, Card::Scout, Card::Decoy, Card::Hedge];
+/// Out of 100: the three raid tactics stay the most common, the rest share the other half.
+pub const COMMON_W: [u32; N_COMMONS] = [15, 15, 15, 12, 8, 8, 8, 7, 6, 6];
 pub const HAND_COMMONS: u8 = 12;
 pub const HAND: [usize; 3] = [3, 3, 1]; // Rare, Epic, Mythic
 pub const FADE: u64 = DAY;
@@ -33,12 +41,26 @@ pub const DROP_ODDS: [[u32; 4]; 4] = [[65, 20, 10, 5], [65, 20, 10, 5], [40, 25,
 
 impl Card {
     /// 0 = Common, 1 = Rare, 2 = Epic, 3 = Mythic
-    pub fn tier(self) -> usize { match self { Card::Prophecy => 1, Card::Inferno => 2, _ => 0 } }
+    pub fn tier(self) -> usize {
+        match self {
+            Card::Prophecy | Card::Mirror | Card::Counterspell | Card::LastStand | Card::SlowBurn | Card::Duel | Card::DiamondPool | Card::Bounty | Card::FriendlyRaid | Card::Recruit | Card::Stampede => 1,
+            Card::Inferno | Card::BlackHole | Card::Harvest | Card::HardRaid | Card::WhaleTax | Card::Alliance | Card::Squeeze => 2,
+            Card::Supernova => 3,
+            _ => 0,
+        }
+    }
     pub fn common_index(self) -> Option<usize> { COMMONS.iter().position(|c| *c == self) }
     pub fn energy(self) -> u32 { [5, 20, 50, 100][self.tier()] }
 }
-/// Rare+ cards in the demo deck for a tier (Mythics: none yet, so Mythic rolls fall to Epic).
-pub fn tier_cards(t: usize) -> &'static [Card] { match t { 1 => &[Card::Prophecy], 2 => &[Card::Inferno], _ => &[] } }
+/// Rare+ cards in the deck for a tier.
+pub fn tier_cards(t: usize) -> &'static [Card] {
+    match t {
+        1 => &[Card::Prophecy, Card::Mirror, Card::Counterspell, Card::LastStand, Card::SlowBurn, Card::Duel, Card::DiamondPool, Card::Bounty, Card::FriendlyRaid, Card::Recruit, Card::Stampede],
+        2 => &[Card::Inferno, Card::BlackHole, Card::Harvest, Card::HardRaid, Card::WhaleTax, Card::Alliance, Card::Squeeze],
+        3 => &[Card::Supernova],
+        _ => &[],
+    }
+}
 
 #[near(serializers = [borsh, json])]
 #[derive(Clone)]
