@@ -21,6 +21,13 @@ pub const PENDING_MAX: usize = 200;
 pub const BOUNTY_BONUS_BPS: u128 = 1_000;
 pub const BOUNTY_MISS_BURN_BPS: u128 = 1_000;
 
+#[near(serializers = [json])]
+pub struct Stats {
+    pub minted: U128, pub burned: U128,
+    pub burned_idle: U128, pub burned_vault: U128, pub burned_cards: U128, pub burned_raids: U128, pub burned_expired: U128,
+    pub raids_won: u32, pub raids_lost: u32, pub raids_tied: u32, pub gms: u64,
+}
+
 /// phase: 0 waiting for the opponent, 1 on, 2 done
 #[near(serializers = [borsh, json])]
 #[derive(Clone)]
@@ -170,6 +177,12 @@ impl Coin {
     }
 
     pub fn get_pending(&self, account_id: AccountId) -> Vec<Payout> { self.pending.iter().filter(|p| p.account == account_id).cloned().collect() }
+
+    /// All-time counters for anyone checking the books: minted - burned must equal ft_total_supply, and the burns by kind must add up to burned.
+    pub fn get_stats(&self) -> Stats {
+        Stats { minted: U128(SUPPLY), burned: U128(self.burned), burned_idle: U128(self.burned_by[0]), burned_vault: U128(self.burned_by[1]), burned_cards: U128(self.burned_by[2]),
+            burned_raids: U128(self.burned_by[3]), burned_expired: U128(self.burned_by[4]), raids_won: self.raids_wlt[0], raids_lost: self.raids_wlt[1], raids_tied: self.raids_wlt[2], gms: self.gms }
+    }
 
     pub fn get_duels(&self) -> Vec<Duel> { self.duels.clone() }
     pub fn get_bounties(&self) -> Vec<Bounty> { self.bounties.clone() }

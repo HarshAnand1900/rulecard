@@ -19,6 +19,7 @@ impl Coin {
         self.touch(now);
         let mut h = self.settle(&a, now);
         require!(h.last_gm == 0 || now >= h.last_gm + GM_EVERY, "gm once every 6h");
+        self.gms += 1;
         let value = self.pool().value(h.bal + self.locked_of(&h));
         require!(value >= GM_MIN_VALUE, "hold at least 1 NEAR worth to gm");
         h.last_gm = now; h.idle_from = now; h.idle_applied = now;

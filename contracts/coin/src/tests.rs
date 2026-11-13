@@ -40,6 +40,8 @@ fn check_supply(c: &mut Coin, holders: &[usize], ms: u64) {
     let supply = c.ft_total_supply().0;
     assert!(total.abs_diff(supply) <= holders.len() as u128 * 10, "supply {supply} vs found {total}");
     assert!(c.pool().solvent(), "curve not fully backed");
+    assert_eq!(c.burned, c.burned_by.iter().sum::<u128>(), "burns by kind must add up to the total burned");
+    let st = c.get_stats(); assert_eq!(st.minted.0 - st.burned.0, c.ft_total_supply().0, "minted - burned = total supply");
 }
 
 #[test]

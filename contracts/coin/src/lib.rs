@@ -226,6 +226,8 @@ pub struct Coin {
     pub(crate) p: Params,
     pub(crate) x: u128, pub(crate) y: u128, pub(crate) k: [u64; 4], pub(crate) real: u128, pub(crate) circ: u128,
     pub(crate) burned: u128,
+    /// all-time counters, so anyone can check the books from chain state alone: burns by kind (idle, Vault exits, cards and omens, raid spoils, unclaimed payouts), raids won/lost/tied, check-ins
+    pub(crate) burned_by: [u128; 5], pub(crate) raids_wlt: [u32; 3], pub(crate) gms: u64,
     pub(crate) pot: u128,
     pub(crate) pot_day: u64, pub(crate) pot_spent_today: u128,
     pub(crate) protocol_owed: u128,
@@ -355,7 +357,7 @@ impl Coin {
         let pool = Pool::new();
         let mut c = Self {
             p: Params { name, symbol, icon, creator, protocol, rules, seed: U128(seed), created_ms: now },
-            x: pool.x, y: pool.y, k: pool.k.0, real: 0, circ: 0, burned: 0,
+            x: pool.x, y: pool.y, k: pool.k.0, real: 0, circ: 0, burned: 0, burned_by: [0; 5], raids_wlt: [0; 3], gms: 0,
             pot: seed, pot_day: now / DAY, pot_spent_today: 0, protocol_owed: 0, escrow: 0, reward_pool: REWARD_POOL,
             holders: LookupMap::new(b"h"), holder_count: 0, buyers: 0,
             vault_locked: 0, vault_w: 0, vault_acc: 0, vault_rewards: 0,
@@ -486,7 +488,7 @@ impl Coin {
     /// Burns circulating tokens (raises the price) and records it.
     pub(crate) fn burn_circ(&mut self, now: u64, owner: &AccountId, t: u128, memo: &str) -> u128 {
         let b = self.with_pool(|p| p.burn(t));
-        if b > 0 { self.burned += b; events::ft_burn(owner, b, memo); self.push_log(now, "burn", Some(owner.clone()), b, 0, memo); }
+        if b > 0 { self.burned += b; self.burned_by[burn_kind(memo)] += b; events::ft_burn(owner, b, memo); self.push_log(now, "burn", Some(owner.clone()), b, 0, memo); }
         b
     }
 
@@ -498,7 +500,7 @@ impl Coin {
         let near = near.min(self.pot).min(room); if near == 0 { return 0; }
         let (t, used) = self.with_pool(|p| p.buy(near));
         self.pot -= used; self.pot_spent_today += used;
-        let b = self.with_pool(|p| p.burn(t)); self.burned += b;
+        let b = self.with_pool(|p| p.burn(t)); self.burned += b; self.burned_by[burn_kind(memo)] += b;
         let me = env::current_account_id();
         events::ft_burn(&me, b, memo);
         self.push_log(now, "burn", Some(me), b, used, memo);
@@ -516,4 +518,10 @@ impl Coin {
     pub(crate) fn holder(&self, a: &AccountId) -> Holder { self.holders.get(a).cloned().unwrap_or_default() }
     pub(crate) fn is_registered(&self, a: &AccountId) -> bool { self.holders.contains_key(a) }
     pub(crate) fn save(&mut self, a: &AccountId, h: Holder) { self.holders.insert(a.clone(), h); }
+}
+
+/// Which counter a burn belongs to: 0 idle burn, 1 Vault exits, 2 cards and omens, 3 raid spoils, 4 payouts nobody claimed.
+pub(crate) fn burn_kind(memo: &str) -> usize {
+    let m = memo.to_lowercase();
+    if m.contains("idle") { 0 } else if m.contains("vault") { 1 } else if m.contains("raid") { 3 } else if m.contains("unclaimed") { 4 } else { 2 }
 }

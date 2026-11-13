@@ -482,6 +482,7 @@ impl Coin {
 
     fn record_result(&mut self, now: u64, res: RaidResult) {
         let outcome = res.outcome;
+        self.raids_wlt[match outcome { 1 => 0, -1 => 1, _ => 2 }] += 1;
         if let Some(mut r) = self.raid.take() {
             r.phase = 4; r.result = Some(res);
             events::rulecard("raid_result", json!({ "id": r.id, "attacker": r.attacker, "defender": r.defender, "me": env::current_account_id(), "outcome": outcome }));
@@ -498,7 +499,7 @@ impl Coin {
         if self.graduated { self.pot += near; return; }
         let (t, used) = self.with_pool(|p| p.buy(near));
         if used < near { self.pot += near - used; }
-        let b = self.with_pool(|p| p.burn(t)); self.burned += b;
+        let b = self.with_pool(|p| p.burn(t)); self.burned += b; self.burned_by[3] += b;
         let me = env::current_account_id();
         events::ft_burn(&me, b, "raid spoils");
         self.push_log(now, "burn", Some(me), b, used, "raid spoils");

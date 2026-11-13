@@ -26,7 +26,7 @@ export default function Proof({ ch, coins, tick }: { ch: Net; coins: CoinEntry[]
         const [info, params] = await Promise.all([ch.accountInfo(ch.factoryId), ch.view<any>(ch.factoryId, 'get_params')]);
         const out: CoinProof[] = [];
         for (const e of coins) {
-          const [a, c, p, table] = await Promise.all([ch.accountInfo(e.account_id), ch.view<CoinView>(e.account_id, 'get_coin'), ch.view<any>(e.account_id, 'get_params'), ch.view<Proposal[]>(e.account_id, 'get_table')]);
+          const [a, c, p, table, st] = await Promise.all([ch.accountInfo(e.account_id), ch.view<CoinView>(e.account_id, 'get_coin'), ch.view<any>(e.account_id, 'get_params'), ch.view<Proposal[]>(e.account_id, 'get_table'), ch.view<any>(e.account_id, 'get_stats').catch(() => null)]);
           const held = BigInt(c.circulating) + BigInt(c.curve_room) + BigInt(c.reward_pool) + BigInt(p.dex_reserve);
           const supply = BigInt(c.total_supply);
           const chips = table.reduce((s, t) => s + BigInt(t.chip_total), 0n);
@@ -38,6 +38,10 @@ export default function Proof({ ch, coins, tick }: { ch: Net; coins: CoinEntry[]
               { label: 'No access keys', ok: a.keys === 0, detail: `${a.keys} keys on the coin account: nobody can sign for it` },
               { label: 'No admin', ok: p.admin === null, detail: `get_params().admin = ${p.admin === null ? 'null' : p.admin}` },
               { label: 'Supply adds up', ok: held === supply, detail: `tokens held ${held.toString()} + unsold curve + reward pool + DEX reserve vs total supply ${supply.toString()} (difference ${(held - supply).toString()})` },
+              st
+                ? { label: 'The burn books add up', ok: BigInt(st.minted) - BigInt(st.burned) === supply && [st.burned_idle, st.burned_vault, st.burned_cards, st.burned_raids, st.burned_expired].reduce((x: bigint, y: string) => x + BigInt(y), 0n) === BigInt(st.burned),
+                    detail: `minted ${(Number(BigInt(st.minted) / 10n ** 18n) / 1e6).toFixed(0)}M - burned ${(Number(BigInt(st.burned) / 10n ** 18n) / 1e6).toFixed(2)}M = total supply, and the burns by kind (idle ${(Number(BigInt(st.burned_idle) / 10n ** 18n) / 1e6).toFixed(2)}M, Vault exits ${(Number(BigInt(st.burned_vault) / 10n ** 18n) / 1e6).toFixed(2)}M, cards and omens ${(Number(BigInt(st.burned_cards) / 10n ** 18n) / 1e6).toFixed(2)}M, raid spoils ${(Number(BigInt(st.burned_raids) / 10n ** 18n) / 1e6).toFixed(2)}M, unclaimed ${(Number(BigInt(st.burned_expired) / 10n ** 18n) / 1e6).toFixed(2)}M) add up to the total. All-time: ${st.gms} check-ins, ${st.raids_won} raids won, ${st.raids_lost} lost, ${st.raids_tied} tied.` }
+                : { label: 'The burn books add up', ok: null, detail: 'this coin was launched before the all-time counters existed (get_stats is not there)' },
               { label: 'Curve fully backed', ok: c.solvent, detail: 'selling every circulating token would pay out no more than the real NEAR in the curve' },
               { label: 'Holds the NEAR it owes', ok: free >= owed, detail: `${fmt(free)} NEAR free on the contract vs ${fmt(owed)} owed (curve ${fmt(BigInt(c.real))} + pot ${fmt(BigInt(c.pot))} + escrow, fees and open card NEAR); margin ${fmt(free - owed)}` },
             ],
