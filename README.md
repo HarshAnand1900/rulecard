@@ -50,7 +50,7 @@ Track: **Memecoins With Mechanics** (NEAR).
 
 | Criterion | Where to look |
 |---|---|
-| Technical | 56 coin tests and 7 factory tests at real and demo scale, a randomized fuzz test (900 operations by default, 2,500 in CI, and a 12,000-operation run that passes; invariants checked after each), CI, a live Proof page |
+| Technical | 109 coin tests and 7 factory tests at real and demo scale, a randomized fuzz test (900 operations by default, 2,500 in CI, and a 12,000-operation run that passes; invariants checked after each), CI, a live Proof page |
 | Innovation | coins raiding coins (cross-contract), one-tap check-ins with function-call keys, a coin whose icon is its war record |
 | Track fit | all four mechanic kinds above, a streak with a high score, parameters fixed and readable, a 60-day simulation before choosing them |
 | Execution | no-wallet play, a hosted app, a judge page that tries to break it, honest limits below |
@@ -200,12 +200,14 @@ Values below are **Real mode**. Demo mode divides every game NEAR amount by 100 
 - **Contracts can't gm.** Tokens held by another contract (an escrow, a future DEX pool, NEAR Intents) are a normal holder here and would idle-burn. The coin's own reserves (curve stock, reward pool, DEX reserve, Vault, bets) are never burned. Exempting pool accounts is part of the Ref Finance graduation work.
 - A whale can split a bag across many wallets. Per-wallet caps then apply per wallet; it costs gas and storage, not much more.
 - A bot can gm every 6h forever and never be idle. That is allowed: being there is the ritual. The Vault exists so humans can be safe without being online.
-- **A coin with its own open raid proposal can't be raided** ("already in a raid") until that proposal launches or expires. A community could keep a proposal open to shield its coin. The contracts are final, so this is disclosed, not fixed; the demo bots now propose one raid at a time, only when no coin has an open proposal.
+- **A coin's own open raid proposal no longer shields it**: if it is raided first, the proposal is cancelled (v2 deck; the live demo2 world still has the old rule).
 - **The on-chain log is a rolling window** (the latest 200 entries per coin). Every entry is also a NEP-297 event, so an indexer can rebuild the full history, but the app only shows the window.
 - Raid plans are hidden from the app, but contract state is public: a determined player can read the other side's plan. Commit-reveal is on the roadmap.
 - **Raids trust sibling coins**, i.e. accounts directly under the factory. That's safe only because the factory has no key and deploys one fixed code; the defender also works out the spoils rate itself and never takes it from the caller.
 - A bettor can fake a Prophecy **Crowd** answer with fresh wallets that each buy 1 NEAR worth and sell it back: about 0.05 NEAR per fake wallet (fees + storage), against a payout of 30% of the losing side. Registering alone no longer counts, but small Crowd markets are still gameable.
 - A bettor can push a Prophecy **Line** or **Vault** answer with a second wallet (buying or locking). It costs real fees, slippage and a 6h+ lock, and bettors' own wallets can't trade, but it isn't impossible.
+- **Duels and Bounties can be gamed with a second wallet** (a friend or alt takes the other side, so the loser's tokens just move between two wallets you own). The 10% burn and 25 NEAR stake cap make it costly, not impossible. Bounties can't ask the Tide question for the same reason, and a met Bounty adds a capped bonus at most once a day.
+- **Prophecy, Black Hole and Bounty payouts are claimed, not pushed**: closing one never loops over wallets, so it can't freeze a coin. Each wallet collects with `claim_payouts`, and anything unclaimed for 3 days is burned. The waiting list is capped (a new card can't open while it is nearly full). Measured on the real wasm with a full house (40 Prophecy bettors, 40 Black Hole throws, 20 Bounty pledges), the call that closes one burns under 6 Tgas of the 300 available (`node sandbox/gas-test.mjs`).
 - Randomness (card rolls, fire times) uses NEAR's block random seed. Good enough for a demo, not for large stakes.
 - "Eligible holders" for deck limits are counted as wallets that checked in within 24h while eligible (to avoid loops), so they can lag reality by up to a day.
 
@@ -275,13 +277,22 @@ Every parameter above came out of a simulator in [`research/`](research) (Node, 
 
 ## What's in this build vs the roadmap
 
-**Built and tested** (`npm test`: 55 coin tests and 7 factory tests, each run at real and demo scale): factory, NEP-141 coins, curve and fees, gm, Energy, Daily Ritual,
-Omens (four of the thirteen designed: Full Moon, Thunder, Ghost Ember, Treasure), levels and level drops, Vault, idle burn, the daily cap, packs, deck limits, Fade, make-room-first, Ember, Roll Call, Hype Siren,
-Prophecy (Bold bets), Inferno, tags and bet locks, raids with plans, Battle cry, scoring, spoils and win packs, price history, the log.
+**Built and tested** (`npm test`: 109 coin tests and 7 factory tests, each run at real and demo scale, plus two fuzz runs): factory, NEP-141 coins, curve and fees,
+gm, Energy, Daily Ritual, levels and level drops, Vault, idle burn, the daily cap, packs, deck limits, Fade, make-room-first, tags and bet locks, raids with plans,
+Battle cry, scoring, spoils and win packs, price history, the log, and the full game design:
 
-**Roadmap (designed in [`docs/v6-redesign.md`](docs/v6-redesign.md))**: Fire-vs-Stop contests and the contested cards (Storm,
-Black Hole, Whale Tax, Heist, Supernova), Plunder, the other nine Omens, Prophecy Safe bets and pack Duels, more Rares and Epics, Mythics, Card
-NFTs and a market, Hold the Line, commit-reveal raid plans, graduation into a DEX pool.
+- **29 cards.** Commons: Rally, Curse, Ward, Ember, Roll Call, Hype Siren, Kindle, Scout, Decoy, Hedge. Rares: Prophecy, Mirror, Counterspell, Last Stand, Slow Burn,
+  Duel, Diamond Pool, Bounty, Friendly Raid, Recruit, Stampede. Epics: Inferno, Black Hole, Harvest, Hard Raid, Whale Tax, Alliance, Squeeze. Mythic: Supernova.
+- **13 Omens.** Wild: Ghost Ember, Squall, Treasure, Oracle. Weather: Full Moon, Iron Vault, Windfall, Thunder, Gold Rush, Drought, Low Tide, Blood Moon, Fog.
+  The Wild Coin rule makes Wild Omens 60% of rolls.
+
+**Simplified against the design.** The cards and omens above follow the v5 and v6 designs in `docs/`, but several are the simplest version that runs inside the
+contract's no-loops rule: Last Stand is one pot buy instead of a 30 minute dip buyer, Harvest pays 25 fixed shares instead of tickets and draws, Black Hole
+returns tokens pro rata and gives the top 3 throwers a pack instead of a Rare, Duel and Scout use plain picks instead of sealed ones, Low Tide halves card
+windows because contests were not built, and Blood Moon doubles the spoils a coin pays instead of adding Plunder. Each one is described exactly in the in-app Docs.
+
+**Roadmap**: Fire-vs-Stop contests and sealed votes, Plunder, Prophecy Safe bets and the Draft, Card NFTs and a market, Hold the Line, commit-reveal raid plans,
+graduation into a DEX pool.
 
 ## Run it locally
 

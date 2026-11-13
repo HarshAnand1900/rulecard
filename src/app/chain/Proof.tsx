@@ -110,7 +110,8 @@ export default function Proof({ ch, coins, tick }: { ch: Net; coins: CoinEntry[]
         <ul className="small">
           <li>It shows the numbers the contract reports; it doesn't audit the Rust code. The source and the tests are in the repo.</li>
           <li>"Holds the NEAR it owes" compares the contract's free balance with what its own books say it owes; it can't see off-chain promises (there are none).</li>
-          <li>A coin with its own open raid proposal can't be raided until that proposal launches or expires, so a community could shield its coin this way. The contracts are final, so it is disclosed here.</li>
+          <li>Duels and Bounties can be gamed with a second wallet (a friend or alt takes the other side). The 10% burn and the stake caps make it costly, not impossible.</li>
+          <li>Prophecy, Black Hole and Bounty payouts are claimed by each wallet, not pushed. Anything unclaimed for 3 days is burned.</li>
           <li>The log shown in the app is a rolling window of the latest 200 entries per coin. Every entry is also a public event, so full history can be rebuilt by an indexer.</li>
           <li>Randomness (card rolls, fire times) uses the block random seed. Raid plans are readable from contract state. See the README's honest limits.</li>
         </ul>

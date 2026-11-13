@@ -1705,6 +1705,8 @@ fn escrow_matches(c: &Coin, what: &str) {
     let table: u128 = c.table.iter().filter(|p| p.phase < 3).flat_map(|p| p.bets.iter()).map(|b| b.amount.0).sum();
     let duels: u128 = c.duels.iter().map(|d| match d.phase { 0 => d.stake.0, 1 => 2 * d.stake.0, _ => 0 }).sum();
     let bounties: u128 = c.bounties.iter().filter(|b| b.phase == 0).map(|b| b.total.0).sum();
+    assert_eq!(c.pending_held, c.pending.iter().map(|p| p.tokens.0).sum::<u128>(), "{what}: pending payouts don't add up");
+    assert!(c.pending.len() <= crate::stakes::PENDING_MAX, "{what}: the payout list grew past its cap");
     assert_eq!(c.bets_held, table + duels + bounties, "{what}: tokens set aside don't match the open bets, duels and bounties");
 }
 
@@ -1733,6 +1735,7 @@ fn random_card_operations_keep_every_invariant() {
             match rng.below(100) {
                 0..=9 => { give(&mut c, u, card, ms); }
                 10..=14 => { c.energy = 40 + rng.below(61) as u32; }
+                95..=99 if !c.get_pending(acc(u)).is_empty() => { ctx(u, 0, ms); quiet(|| { c.claim_payouts(); }); }
                 15..=34 => {
                     ctx(u, 0, ms);
                     let q = match rng.below(4) { 0 => Question::Tide, 1 => Question::Crowd { n: 3 + rng.below(10) as u32 }, 2 => Question::Vault { bps: 100 + rng.below(500) as u32 }, _ => Question::Tide };

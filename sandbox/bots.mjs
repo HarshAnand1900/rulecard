@@ -31,6 +31,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const log = (...a) => process.stdout.write(`[${new Date().toISOString().slice(11, 19)}] ${a.join(' ')}\n`);
 console.log = () => {}; console.warn = () => {}; // near-api-js receipt logs
 const sym = id => id.split('.')[0].toUpperCase();
+// cards that need signers, and the ones a bot can play with a plain play_card call
+const SIGNED = ['Inferno', 'BlackHole', 'Harvest', 'WhaleTax', 'Alliance', 'Supernova'];
+const PLAYABLE = ['Inferno', 'Prophecy', 'Ember', 'RollCall', 'HypeSiren', 'Kindle', 'SlowBurn', 'Recruit', 'DiamondPool', 'Harvest', 'WhaleTax', 'Stampede', 'BlackHole'];
 
 async function act(bot, coin, method, args = {}, deposit = 0n, quiet = false) {
   try { const r = await call(bot, coin, method, args, deposit); if (!quiet) log(`${bot} ${sym(coin)} ${method}`); return r ?? true; }
@@ -45,6 +48,9 @@ async function housekeeping(coin) {
     const me = idOf(bot);
     const h = await view(coin, 'get_holder', { account_id: me });
     if (!h) continue;
+    // payouts from Prophecies, Black Holes and Bounties wait to be claimed (and burn if nobody does)
+    const owed = await view(coin, 'get_pending', { account_id: me }).catch(() => []);
+    if (owed && owed.length) await act(bot, coin, 'claim_payouts', {}, 0n, true);
     let gmOk = false;
     if ((h.last_gm === 0 || (c.now >= h.next_gm && c.now - h.last_gm >= GM_GAP)) && (await act(bot, coin, 'gm', {}, 0n, true))) { gms++; gmOk = true; }
     const hand = await view(coin, 'get_hand', { account_id: me });
@@ -103,17 +109,20 @@ async function playCoin(coin, liveCoins) {
     else if (chance(0.2)) await act(bot, coin, 'lock', { amount: (bal / 4n).toString(), hours: pick([6, 24, 72]) }, 1n);
     // the table
     for (const t of await view(coin, 'get_table')) {
-      if (t.phase === 0 && t.proposer !== me && !t.backers.includes(me)) await act(bot, coin, t.card === 'Inferno' ? 'sign' : 'back', { id: t.id });
+      if (t.phase === 0 && t.proposer !== me && !t.backers.includes(me)) await act(bot, coin, SIGNED.includes(t.card) ? 'sign' : 'back', { id: t.id });
       if (t.card === 'Ember' && t.phase === 0 && chance(0.3)) await act(bot, coin, 'stoke', { id: t.id }, G(1 + Math.random() * 3));
       if (t.card === 'Inferno' && t.phase === 1 && chance(0.6)) await act(bot, coin, 'fuel', { id: t.id }, G(2 + Math.random() * 8));
+      if ((t.card === 'Stampede' || t.card === 'Squeeze') && t.phase === 1 && chance(0.7)) await act(bot, coin, 'rush', { id: t.id }, G(1 + Math.random() * 3));
+      if (t.card === 'BlackHole' && t.phase === 1 && bal > 0n && chance(0.6)) await act(bot, coin, 'throw_in', { id: t.id, amount: (bal / 30n).toString() }, 1n);
       if (t.card === 'Prophecy' && t.phase === 1 && !t.bets.some(b => b.account === me) && bal > 0n) await act(bot, coin, 'bet', { id: t.id, yes: chance(0.55), amount: (bal / 20n).toString() }, 1n);
     }
     // play a card now and then
     const hand = await view(coin, 'get_hand', { account_id: me });
     if (hand && chance(0.35)) {
       const has = k => hand.commons.some(([n, x]) => n === k && x > 0) || hand.cards.some(x => x.card === k);
-      const card = ['Inferno', 'Prophecy', 'Ember', 'RollCall', 'HypeSiren'].find(has);
+      const card = PLAYABLE.filter(has).sort(() => Math.random() - 0.5)[0];
       if (card) await act(bot, coin, 'play_card', { card, question: card === 'Prophecy' ? 'Tide' : null });
+      if (c.harvest_until > c.now) await act(bot, coin, 'harvest_claim', {}, 0n, true);
     }
     // raids
     const raid = await view(coin, 'get_raid');
