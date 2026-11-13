@@ -5,7 +5,9 @@ import type { Net } from './net';
 import type { CoinEntry, LogEntry, RaidView } from './types';
 import { toNear, fmtNear } from './near';
 
-interface Item { key: string; at: number; text: string; coin: string; hot?: boolean }
+type Tone = 'good' | 'bad' | 'gold' | 'card' | 'omen' | 'raid';
+interface Item { key: string; at: number; text: string; coin: string; hot?: boolean; tone?: Tone }
+const TONE: Record<string, Tone> = { ritual_made: 'good', ritual_missed: 'bad', level_up: 'gold', graduated: 'gold', card: 'card', omen: 'omen', raid: 'raid' };
 const sym = (id: string) => id.split('.')[0].toUpperCase();
 
 function describe(e: LogEntry, s: string): string | null {
@@ -31,7 +33,7 @@ export default function Ticker({ ch, coins, tick, go }: { ch: Net; coins: CoinEn
         const s = sym(e.account_id);
         try {
           const [log, raid] = await Promise.all([ch.view<LogEntry[]>(e.account_id, 'get_log', { limit: 14 }), ch.view<RaidView | null>(e.account_id, 'get_raid')]);
-          for (const l of log) { const t = describe(l, s); if (t) out.push({ key: `${e.account_id}:${l.seq}`, at: l.at, text: t, coin: e.account_id }); }
+          for (const l of log) { const t = describe(l, s); if (t) out.push({ key: `${e.account_id}:${l.seq}`, at: l.at, text: t, coin: e.account_id, tone: TONE[l.kind] }); }
           if (raid && raid.phase === 2 && raid.attacking) out.push({ key: `${e.account_id}:raid:${raid.seq}`, at: Number.MAX_SAFE_INTEGER, text: `$${sym(raid.attacker)} raiding $${sym(raid.defender)}${raid.round !== null ? `: Round ${raid.round + 1}` : ''}`, coin: e.account_id, hot: true });
         } catch { /* skip a coin that can't be read */ }
       }));
@@ -41,7 +43,7 @@ export default function Ticker({ ch, coins, tick, go }: { ch: Net; coins: CoinEn
     return () => { live = false; };
   }, [ch, coins, tick]);
   if (!items.length) return null;
-  const row = (suffix: string) => items.map(it => <button key={it.key + suffix} className={`tick-item ${it.hot ? 'hot' : ''}`} onClick={() => go(it.coin)} tabIndex={suffix ? -1 : 0} aria-hidden={suffix ? true : undefined}>{it.text}</button>);
+  const row = (suffix: string) => items.map(it => <button key={it.key + suffix} className={`tick-item ${it.hot ? 'hot' : ''} ${it.tone ? `tn-${it.tone}` : ''}`} onClick={() => go(it.coin)} tabIndex={suffix ? -1 : 0} aria-hidden={suffix ? true : undefined}>{it.text}</button>);
   return (
     <div className="ticker" role="marquee" aria-label="Latest events across all coins">
       <div className="ticker-track" style={{ ['--n' as any]: items.length }}>{row('')}{row('-b')}</div>

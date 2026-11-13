@@ -908,3 +908,20 @@ button.cl-row:hover { transform: translateX(4px); border-color: var(--accent); }
 .coin-ico, .mini-av.img { border-radius: 50%; object-fit: cover; flex: none; border: 1px solid rgba(255, 255, 255, .16); background: #15151b; }
 .mini-av.img { width: 34px; height: 34px; }
 @media (prefers-reduced-motion: reduce) { .reveal-card { animation: none; opacity: 1; transform: none; } }
+
+/* ---------------- list view without the price column; coloured ticker chips ---------------- */
+.cl-row { grid-template-columns: 34px minmax(190px, 2.4fr) minmax(110px, 1fr) 80px minmax(100px, 1fr) 70px 80px minmax(120px, 1fr) 80px; min-width: 900px; }
+
+.ticker { border-color: rgba(255, 255, 255, .12); background: #07070a !important; }
+.tick-item { position: relative; padding-left: 26px; font-weight: 500; }
+.tick-item::before { content: ""; position: absolute; left: 11px; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%; background: var(--tc, #777); box-shadow: 0 0 8px var(--tc, transparent); }
+.tick-item.tn-good { --tc: #3dd68c; color: #8cf0bd; border-color: rgba(61, 214, 140, .55); background-color: #0a1a12 !important; }
+.tick-item.tn-bad { --tc: #ff5c5c; color: #ff9a9a; border-color: rgba(255, 92, 92, .55); background-color: #1c0b0b !important; }
+.tick-item.tn-gold { --tc: #f5b729; color: #ffd978; border-color: rgba(245, 183, 41, .6); background-color: #1a1406 !important; }
+.tick-item.tn-card { --tc: #b57bff; color: #d3b0ff; border-color: rgba(181, 123, 255, .55); background-color: #150e22 !important; }
+.tick-item.tn-omen { --tc: #5aa9ff; color: #a6cfff; border-color: rgba(90, 169, 255, .55); background-color: #0a1424 !important; }
+.tick-item.tn-raid { --tc: #ff7a1a; color: #ffb070; border-color: rgba(255, 122, 26, .6); background-color: #1c0f05 !important; }
+.tick-item.hot { padding-left: 26px; background-color: var(--gold) !important; color: #111; border-color: var(--gold); }
+.tick-item.hot::before { background: #111; box-shadow: none; animation: pulse 1.2s infinite; }
+.tick-item[class*="tn-"]:hover { filter: brightness(1.25); }
+@media (prefers-reduced-motion: reduce) { .tick-item.hot::before { animation: none; } }

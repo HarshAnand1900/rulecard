@@ -233,16 +233,15 @@ function Discover({ ch, coins, tick, go }: Ctx) {
       {coins.length > 0 && !list.length && loaded.length === coins.length && <div className="panel muted">{show === 'live' ? 'Every coin has graduated.' : 'No coin has graduated yet: a curve sells out at ~' + nearAmt(3946) + ' NEAR.'}</div>}
 
       {view === 'list' && !!list.length && <div className="coin-list" role="table" aria-label="Coins">
-        <div className="cl-row cl-head mono" role="row"><span>#</span><span>COIN</span><span>PRICE</span><span>24H</span><span>MARKET CAP</span><span>VOL 24H</span><span>TRADES</span><span>HOLDERS</span><span>RITUAL</span><span>AGE</span></div>
+        <div className="cl-row cl-head mono" role="row"><span>#</span><span>COIN</span><span>MARKET CAP</span><span>24H</span><span>VOL 24H</span><span>TRADES</span><span>HOLDERS</span><span>RITUAL</span><span>AGE</span></div>
         {list.map((e, i) => {
           const x = rows[e.account_id], m = metrics(x), c = x.c;
           return (
             <button key={e.account_id} role="row" className="cl-row" style={{ ['--m' as any]: jokerOf(c.symbol) }} onClick={() => go({ kind: 'coin', id: e.account_id })}>
               <span className="mono muted">{i + 1}</span>
               <span className="cl-coin">{x.icon ? <img className="mini-av img" src={x.icon} alt="" width={34} height={34} /> : <span className="mini-av" aria-hidden="true" />}<span><strong>${c.symbol}</strong><small className="muted">{c.name}</small></span><span className={`lvl l${c.level}`}>L{c.level}</span>{x.raid?.phase === 2 && <span className="chip hot">raid</span>}{c.graduated && <span className="chip gold">graduated</span>}</span>
-              <span className="mono" title="NEAR per 1 million tokens">{m.price.toFixed(3)} N/1M</span>
-              <span className={`mono ${m.chg >= 0 ? 'up' : 'down'}`}>{sgn(m.chg)}</span>
               <span className="mono">{fmtNear(toNear(c.mcap))} N</span>
+              <span className={`mono ${m.chg >= 0 ? 'up' : 'down'}`}>{sgn(m.chg)}</span>
               <span className="mono">{fmtNear(m.vol)} N</span>
               <span className="mono">{m.trades}{m.capped ? '+' : ''}</span>
               <span className="mono">{c.holders}</span>
