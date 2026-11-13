@@ -356,3 +356,13 @@ section[style*="rgba(19,18,9"]::before {
 }
 .btn-lg:not(.btn-ghost) { padding-right: 12px !important; gap: 12px; }
 .btn-lg:not(.btn-ghost) > i { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: rgba(26, 11, 0, .86); color: #FFC15A; font-size: 15px; }
+
+/* ---------------------------------------------------------------- the same floating orange on selected toggles in the app (Live / Graduated, Grid / List, and the like) */
+:root:root .seg { padding: 4px !important; border-radius: 14px !important; }
+:root:root .seg button { border-radius: 10px !important; font-weight: 500; transition: box-shadow 300ms var(--ease), transform 300ms var(--ease), color 300ms var(--ease), background-color 300ms var(--ease); }
+:root:root .seg button[aria-pressed="true"] {
+  background: linear-gradient(180deg, #FFC15A 0%, #FF8A1C 42%, #F25400 100%) !important; color: #1A0B00 !important; font-weight: 600; text-shadow: none !important;
+  border: 1px solid rgba(255, 214, 150, .65) !important;
+  box-shadow: 0 8px 22px -8px rgba(255, 75, 0, .65), inset 0 1px 0 rgba(255, 255, 255, .5), inset 0 -2px 0 rgba(150, 38, 0, .35) !important; transform: translateY(-1px);
+}
+:root:root .seg button[aria-pressed="false"]:hover, :root:root .seg button:not([aria-pressed]):hover { color: #FFD9B0; }
