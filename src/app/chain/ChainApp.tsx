@@ -841,7 +841,7 @@ function LogTab({ d }: TabProps) {
       <div className="row between wrap"><h2>Every mint and burn</h2><div className="seg small" role="group"><button aria-pressed={f === 'mb'} onClick={() => setF('mb')}>Mints & burns</button><button aria-pressed={f === 'all'} onClick={() => setF('all')}>Everything</button></div></div>
       <p className="mono small">Total supply 1,000,000,000 → {Math.round(toTok(c.total_supply)).toLocaleString()} (−{(toTok(c.burned) / 1e7).toFixed(3)}%)</p>
       <table className="log"><thead><tr><th>Time (UTC)</th><th>What</th><th>Tokens</th><th>NEAR</th><th>Who / why</th></tr></thead>
-        <tbody>{rows.map(e => <tr key={e.seq} className={e.kind}>
+        <tbody>{rows.map(e => <tr key={e.seq} className={`k-${e.kind}`}>
           <td className="mono">{new Date(e.at).toISOString().slice(5, 16).replace('T', ' ')}</td>
           <td>{({ mint: '🌱 mint', burn: '🔥 burn', to_vault: '🔒 to Vault', buy: 'buy', sell: 'sell', lock: 'lock', unlock: 'unlock', card: '🃏 card', raid: '⚔ raid', ritual_made: '🕯 ritual made', ritual_missed: 'ritual missed', level_up: '⬆ level', seed: 'seed', graduated: '🎓 graduated' } as Record<string, string>)[e.kind] ?? e.kind}</td>
           <td className="mono">{toTok(e.amount) ? fmtTok(toTok(e.amount)) : ''}</td>

@@ -205,7 +205,10 @@ input.tiny { width: 64px; padding: 3px 6px; }
 .past-raid { padding: 6px 0; border-bottom: 1px dashed var(--line); flex-wrap: wrap; }
 table.log { width: 100%; border-collapse: collapse; font-size: 13px; }
 table.log th, table.log td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); }
-table.log tr.burn td:nth-child(2) { color: var(--down); } table.log tr.mint td:nth-child(2) { color: var(--up); }
+table.log tr.k-burn td:nth-child(2) { color: var(--down); } table.log tr.k-mint td:nth-child(2) { color: var(--up); }
+/* the log's row kinds (card, raid, buy ...) are prefixed so they can never pick up the game-card or other component styles */
+table.log td { vertical-align: top; }
+table.log td:nth-child(5) { overflow-wrap: anywhere; word-break: break-word; }
 @media (max-width: 600px) { table.log th:nth-child(5), table.log td:nth-child(5) { display: none; } .rounds { grid-template-columns: 1fr; } }
 /* price chart */
 .chart .chart-wrap { position: relative; margin-top: 8px; }
