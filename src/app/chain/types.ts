@@ -39,6 +39,11 @@ export interface Proposal {
 export interface Duel { id: number; a: string; b: string; stake: string; a_yes: boolean; phase: number; created: number; start: number; end: number; snapshot: string; result: string; }
 export interface Pledge { account: string; amount: string; }
 export interface Payout { account: string; tokens: string; pack: boolean; at: number; what: string; }
+/** One colour per omen. While an omen is active the background mesh turns this colour. */
+export const OMEN_COLOR: Record<string, string> = {
+  'Full Moon': '#C9D6FF', Thunder: '#6C8CFF', 'Ghost Ember': '#FF7A3D', Treasure: '#FFC83D', Squall: '#35E0CC', Oracle: '#B57BFF', 'Iron Vault': '#9FB0C8',
+  Windfall: '#5BE6A4', 'Gold Rush': '#FFD24A', Drought: '#E0A640', 'Low Tide': '#3FA7FF', 'Blood Moon': '#FF3B3B', Fog: '#B4BAC4',
+};
 export interface Bounty { id: number; sponsor: string; question: Question; snapshot: string; created: number; end: number; pledges: Pledge[]; total: string; phase: number; result: string; }
 export interface RaidResult { outcome: number; rounds: number[]; mine: string[]; theirs: string[]; spoils: string; }
 export interface RaidView {

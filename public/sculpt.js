@@ -40,3 +40,14 @@
   new IntersectionObserver(function (es) { heroSeen = es[0].isIntersecting; set(); }).observe(hero);
   new IntersectionObserver(function (es) { endSeen = es[0].isIntersecting; set(); }, { rootMargin: '0px 0px -10% 0px' }).observe(end);
 })();
+
+/* Each omen has its own colour (the same ones the app uses to tint the background while an omen is active). */
+(function () {
+  var C = { 'Full Moon': '#C9D6FF', 'Thunder': '#6C8CFF', 'Ghost Ember': '#FF7A3D', 'Treasure': '#FFC83D', 'Squall': '#35E0CC', 'Oracle': '#B57BFF', 'Iron Vault': '#9FB0C8', 'Windfall': '#5BE6A4', 'Gold Rush': '#FFD24A', 'Drought': '#E0A640', 'Low Tide': '#3FA7FF', 'Blood Moon': '#FF3B3B', 'Fog': '#B4BAC4' };
+  document.querySelectorAll('.omen').forEach(function (o) {
+    var t = o.querySelector('.title-2'), c = t && C[t.textContent.trim()];
+    if (!c) return;
+    o.style.setProperty('--tc', c);
+    var i = o.querySelector('.i'); if (i) { i.style.color = c; i.style.filter = 'drop-shadow(0 0 10px ' + c + '99)'; }
+  });
+})();

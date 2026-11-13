@@ -1,4 +1,4 @@
-// War Map: every coin as a block sized by its war points, the standings, the latest raids and each coin's chronicle.
+// War Map: every coin as a block of tiles that other coins take as they win raids, the standings, the latest raids and each coin's chronicle.
 // Communities fighting communities. Everything is computed here from what the coins report (get_coin, get_raids, get_log): no extra contract state.
 //
 // Points: joining 10 · +3 for each level above L1 · a raid win +L and a loss -L (L = the raid's level: 2, 3 or 4) · never below 4.
@@ -8,6 +8,7 @@ import type { Net } from './net';
 import type { CoinEntry, CoinView, Ritual, RaidView, LogEntry } from './types';
 import { toNear, fmtNear } from './near';
 import { LEVEL_NAME } from './types';
+import Tiles from './Tiles';
 
 const JOIN_POINTS = 10, LEVEL_POINTS = 3, FLOOR_POINTS = 4;
 const TAG_MS = 12 * 3_600_000; // "Conquered by" and "+N" tags last 12h (game time; 1h in demo mode)
@@ -17,10 +18,13 @@ interface Block { id: string; sym: string; v: number; x: number; y: number; w: n
 interface Event { at: number; winner: string; loser: string; level: number; x: RaidView }
 
 const sym = (id: string) => id.split('.')[0].toUpperCase();
-const PALETTE = ['#ff7a1a', '#4c8dff', '#f0518c', '#f5b729', '#2dd4bf', '#a78bfa'];
+const PALETTE = ['#ff7a1a', '#4c8dff', '#2dd4bf', '#f0518c', '#a78bfa', '#f5b729'];
+/** Coins get their colours in a stable order (by account), so two coins never share one while there are colours left. */
+const assigned = new Map<string, string>();
+const assignColors = (ids: string[]) => { assigned.clear(); [...ids].sort().forEach((id, i) => assigned.set(id, PALETTE[i % PALETTE.length])); };
 const JOKERS = ['1-common-grin', '2-rare-laugh', '3-epic-wink', '4-mythic-starry', '5-wild-shades'];
 const hsh = (id: string) => { let h = 0; for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; };
-const accent = (id: string) => PALETTE[hsh(id) % PALETTE.length];
+const accent = (id: string) => assigned.get(id) ?? PALETTE[hsh(id) % PALETTE.length];
 const joker = (id: string) => `url(/bg/jokers/${JOKERS[hsh(id) % JOKERS.length]}.png)`;
 const art = (id: string) => ({ ['--ac' as any]: accent(id), ['--m' as any]: joker(id) });
 const levelAt = (c: CoinView, t: number) => Math.max(1, c.level_at.filter(a => a <= t).length);
@@ -43,7 +47,7 @@ const ago = (ms: number) => { const m = Math.max(0, Math.round(ms / 60_000)); re
 
 export default function WarMap({ ch, coins, tick, go }: { ch: Net; coins: CoinEntry[]; tick: number; go: (id: string) => void }) {
   const [rows, setRows] = useState<Row[]>([]);
-  const [view, setView] = useState<'arena' | 'blocks'>('arena');
+  const [view, setView] = useState<'arena' | 'tiles'>('tiles');
   useEffect(() => {
     let live = true;
     (async () => {
@@ -88,10 +92,10 @@ export default function WarMap({ ch, coins, tick, go }: { ch: Net; coins: CoinEn
     return { events, points, blocks };
   }, [rows]);
 
+  assignColors(rows.map(r => r.id));
   const now = rows[0]?.c.now ?? 0;
   const tag = ch.scale === 'demo' ? TAG_MS / 12 : TAG_MS;
   const lastWin = (id: string) => [...events].reverse().find(e => e.winner === id && now - e.at < tag);
-  const lastLoss = (id: string) => [...events].reverse().find(e => e.loser === id && now - e.at < tag);
   const champion = blocks.length > 1 && blocks[0].v > blocks[1].v ? blocks[0].id : blocks.length === 1 ? blocks[0].id : undefined; // only a strict leader is crowned
   const feed = [...events].reverse().slice(0, 12);
   const liveRaids = rows.filter(r => r.raid?.phase === 2 && r.raid.attacking);
@@ -99,7 +103,7 @@ export default function WarMap({ ch, coins, tick, go }: { ch: Net; coins: CoinEn
   return (
     <section>
       <div className="row between wrap"><h1>War Map</h1>
-        <div className="seg" role="group" aria-label="Map style"><button aria-pressed={view === 'arena'} onClick={() => setView('arena')}>Arena</button><button aria-pressed={view === 'blocks'} onClick={() => setView('blocks')}>Blocks</button></div>
+        <div className="seg" role="group" aria-label="Map style"><button aria-pressed={view === 'arena'} onClick={() => setView('arena')}>Arena</button><button aria-pressed={view === 'tiles'} onClick={() => setView('tiles')}>Tiles</button></div>
       </div>
       <p className="muted">Coins fight coins. Points: 10 to join, +3 for every level above L1, and each raid moves its level in points (L2 = 2, L3 = 3, L4 = 4) from the loser to the winner. Nobody drops below 4.</p>
       {!!rows.length && <div className="panel strip war-strip">
@@ -123,34 +127,8 @@ export default function WarMap({ ch, coins, tick, go }: { ch: Net; coins: CoinEn
       })}</div>}
       {!rows.length && <div className="panel muted">No coins to rank yet.</div>}
 
-      {!!rows.length && view === 'blocks' && <div className="treemap" role="img" aria-label="War Map: each coin's block is sized by its points">
-        {blocks.map(b => {
-          const r = rows.find(x => x.id === b.id)!, win = lastWin(b.id), loss = lastLoss(b.id), raiding = r.raid?.phase === 2;
-          const big = b.w > 22 && b.h > 28;
-          return (
-            <button key={b.id} className={`tm-block ${raiding ? 'raiding' : ''} ${b.id === champion ? 'champ' : ''}`} onClick={() => go(b.id)}
-              style={{ left: `${b.x}%`, top: `${b.y}%`, width: `${b.w}%`, height: `${b.h}%`, ...art(b.id) }}
-              title={`$${b.sym}: ${b.v} points. ${r.won}–${r.lost} in raids.`}>
-              <span className="tm-in">
-                <span className="tm-art" aria-hidden="true" />
-                <span className="tm-head">
-                  {r.icon ? <img className="tm-icon" src={r.icon} alt="" width={big ? 36 : 22} height={big ? 36 : 22} /> : null}
-                  <strong className="tm-sym">${b.sym}</strong>
-                  {b.id === champion && <span className="tm-crown">Leader</span>}
-                </span>
-                <span className="tm-pts mono">{b.v}<small>pts</small></span>
-                {big && <span className="tm-chips"><span className="tm-chip">L{r.c.level} {LEVEL_NAME[r.c.level]}</span><span className="tm-chip">streak {r.r.streak}</span><span className="tm-chip">{r.won}W {r.lost}L</span></span>}
-                <span className="tm-tags">
-                  {raiding && <span className="tm-tag hot">{r.raid!.attacking ? 'Attacking' : 'Defending'} ${sym(r.raid!.attacking ? r.raid!.defender : r.raid!.attacker)}</span>}
-                  {win && <span className="tm-tag up">+{win.level} from ${sym(win.loser)}</span>}
-                  {loss && <span className="tm-tag down">Conquered by ${sym(loss.winner)} · {ago(now - loss.at)}</span>}
-                  {r.c.graduated && <span className="tm-tag">Graduated</span>}
-                </span>
-              </span>
-            </button>
-          );
-        })}
-      </div>}
+      {!!rows.length && view === 'tiles' && <Tiles coins={rows.map(r => ({ id: r.id, sym: r.sym, mcap: r.c.mcap, color: accent(r.id) }))}
+        events={events.map(e => ({ at: e.at, winner: e.winner, loser: e.loser, level: e.level }))} champion={champion} go={go} recent={id => !!lastWin(id)} />}
 
       {!!rows.length && view === 'arena' && <Arena blocks={blocks} rows={rows} events={events} liveRaids={liveRaids} champion={champion} go={go} />}
 

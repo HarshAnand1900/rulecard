@@ -160,7 +160,8 @@ export const DOCS: DocPage[] = [
       { id: 'tactics', title: 'Tactics', blocks: [{ p: 'Plan your tactic cards in the Raids tab before a round starts. Rally beats Ward, Ward beats Curse and Curse beats Rally. Mirror copies the enemy tactic from the round before, Counterspell cancels the enemy tactic that round, and Decoy does nothing but looks real to a Scout. Scout asks the enemy coin what it planned for the next round. Rally, Curse, Ward and Decoy cost no Energy; Mirror and Counterspell are Rares.' }] },
       { id: 'kinds', title: 'Friendly, Hard and allied raids', blocks: [{ ul: ['Friendly Raid: no spoils either way. Winners still earn their win pack.', 'Hard Raid: spoils are doubled both ways and the loser flies the winning coin banner for 12 hours.', 'Alliance: a 6 hour pact with another coin. Neither coin can raid the other until it ends.', 'Blood Moon (an Omen) doubles the spoils a coin pays if it loses a raid that starts within 8 hours.'] }] },
       { id: 'warmap', title: 'The War Map', blocks: [
-        { p: 'The War Map ranks coins by war points. A coin gets 10 points to join and 3 for every level above L1. Each raid moves its level in points from the loser to the winner (L2 is 2, L3 is 3, L4 is 4). Nobody drops below 4. Anyone can recompute the map from the chain.' } ] },
+        { p: 'The War Map ranks coins by war points. A coin gets 10 points to join and 3 for every level above L1. Each raid moves its level in points from the loser to the winner (L2 is 2, L3 is 3, L4 is 4). Nobody drops below 4. Anyone can recompute the map from the chain.' },
+        { p: 'Tiles view: every coin owns a block of tiles sized by its market cap, about one tile per NEAR of market cap. The more the coins grow, the more tiles there are, so each tile gets smaller and the map still fits. When a coin wins a raid it takes tiles from the loser (5% of the loser’s tiles per raid level, at least one) and they turn the winner’s colour, with a thin ring of the colour they were taken from. The map is rebuilt from market caps and the raids each coin reports, so it only knows the latest few raids per coin.' } ] },
       { id: 'coins', title: 'War rules', blocks: [{ ul: ['WarCoin: a 6 hour raid shield after a raid and spoils of 20% both ways.', 'PeaceCoin: no raids before level 3.'] }] },
     ],
   },
@@ -185,6 +186,7 @@ export const DOCS: DocPage[] = [
           ['Low Tide', 'Weather', '6%', 'Cards played this hour get half the backing and fuel time, so the crowd has to be quick.'],
           ['Blood Moon', 'Weather', '6%', 'If this coin loses a raid that starts within 8 hours, the spoils it pays are doubled.'],
           ['Fog', 'Weather', '6%', 'Live raid scores are hidden this hour. With no raid on, locks get ×1.25 weight like Iron Vault.'] ] } } ] },
+      { id: 'colours', title: 'Colours', blocks: [{ p: 'Each Omen has its own colour: Full Moon silver, Thunder electric blue, Ghost Ember ember orange, Treasure and Gold Rush gold, Squall teal, Oracle violet, Iron Vault steel, Windfall green, Drought sand, Low Tide ocean blue, Blood Moon red and Fog grey. While an Omen is active on the coin you are viewing, the animated background turns that colour.' }] },
       { id: 'limits', title: 'Limits', blocks: [
         { ul: ['An Omen never stacks with itself.', 'Omens that spend the pot count toward the 75% daily cap.', 'Squall counts toward each wallet\'s one 8% a day loss cap.', 'Omens only run on coins at level 2 or higher.'] } ] },
     ],

@@ -11,7 +11,7 @@ import { play, sfxForCall, isMuted, setMuted, onMuteChange, getVolume, setVolume
 import type {
   CoinEntry, CoinView, HolderView, Ritual, LevelView, LogEntry, HandView, Proposal, RaidView, Card, Question, BuyQuote, OmenView, Duel, Bounty, Payout,
 } from './types';
-import { TIER_OF, TIER_NAME, CARD_TEXT, CARD_SYMBOL, RULE_TEXT, LEVEL_NAME } from './types';
+import { TIER_OF, TIER_NAME, CARD_TEXT, CARD_SYMBOL, RULE_TEXT, LEVEL_NAME, OMEN_COLOR } from './types';
 import PriceChart, { type PricePoint, toMicro } from './PriceChart';
 import Proof from './Proof';
 import WarMap from './WarMap';
@@ -336,6 +336,13 @@ function CoinPage(p: Ctx & { id: string }) {
     }
     prev.current = d;
   }, [d, id]);
+  // an active omen turns the background mesh its own colour
+  const omenName = d?.omen?.phase === 'active' && d.omen.kind > 0 ? d.omen.name : '';
+  useEffect(() => {
+    const bg = (window as any).__rcbg;
+    bg?.tint?.(omenName ? OMEN_COLOR[omenName] ?? null : null);
+    return () => { bg?.tint?.(null); };
+  }, [omenName]);
   if (!d) return <div className="panel skel">Loading…</div>;
   const { c, h } = d;
   const now = c.now;
@@ -369,11 +376,14 @@ function CoinPage(p: Ctx & { id: string }) {
         </div>
         <div className="ch-side">
           {d.omen && d.omen.phase !== 'none' && d.omen.kind > 0
-            ? <div className={`omencard ${d.omen.phase}`} role="status" title={d.omen.text}><span className="oc-top mono"><span>{d.omen.phase === 'active' ? 'OMEN ACTIVE' : 'OMEN INCOMING'}</span><InfoDot title={d.omen.name} align="left"><OmenInfo name={d.omen.name} text={d.omen.text} phase={d.omen.phase} /></InfoDot></span><strong>{d.omen.name}</strong><small className="mono">{d.omen.phase === 'active' ? `ends in ${dur(d.omen.ends_at - now)}` : `starts in ${dur(d.omen.starts_at - now)}`}</small></div>
+            ? <div className={`omencard ${d.omen.phase}`} role="status" title={d.omen.text} style={{ ['--oc' as any]: OMEN_COLOR[d.omen.name] }}><span className="oc-top mono"><span>{d.omen.phase === 'active' ? 'OMEN ACTIVE' : 'OMEN INCOMING'}</span><InfoDot title={d.omen.name} align="left"><OmenInfo name={d.omen.name} text={d.omen.text} phase={d.omen.phase} /></InfoDot></span><strong>{d.omen.name}</strong><small className="mono">{d.omen.phase === 'active' ? `ends in ${dur(d.omen.ends_at - now)}` : `starts in ${dur(d.omen.starts_at - now)}`}</small></div>
             : <div className="omencard none" title="Omens are short luck events every few hours"><span className="oc-top mono"><span>OMENS</span><InfoDot title="Omens" align="left"><OmenInfo name="" text="" phase="none" /></InfoDot></span><strong>{c.level < 2 ? 'From level 2' : 'None right now'}</strong><small className="mono">luck events</small></div>}
-          <button className={`btn gm ${idleBurning ? 'burning' : ''}`} disabled={!h || !gmReady || !!busy} onClick={() => call('gm', 'gm', {}, 0n, 'gm! +Energy, idle clock reset')}>
-            gm{h && !gmReady ? ` in ${dur(h.next_gm - now)}` : ''}
-            <small>{!h ? 'Buy to join' : idleBurning ? 'idle burn running' : h.last_gm ? `idle burn in ${dur(h.idle_burn_starts - now)}` : `every ${hrs(6)}`}</small>
+          <button className={`gmbtn ${!h ? 'off' : gmReady ? 'ready' : 'wait'} ${idleBurning ? 'burning' : ''}`} disabled={!h || !gmReady || !!busy} onClick={() => call('gm', 'gm', {}, 0n, 'gm! +Energy, idle clock reset')}
+            aria-label={!h ? 'gm: buy to join first' : gmReady ? 'Say gm' : `gm available in ${dur(h.next_gm - now)}`}>
+            <span className="gm-sun" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" /><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.9 1.9M16.8 16.8l1.9 1.9M18.7 5.3l-1.9 1.9M7.2 16.8l-1.9 1.9" /></svg></span>
+            <span className="gm-main"><strong>{!h ? 'gm' : gmReady ? 'Say gm' : 'gm'}</strong><small className="mono">{!h ? 'Buy to join' : gmReady ? (idleBurning ? 'idle burn is running' : 'check in now') : `next in ${dur(h.next_gm - now)}`}</small></span>
+            <span className="gm-bar" aria-hidden="true"><i style={{ width: `${h && h.last_gm && !gmReady ? Math.min(100, Math.max(0, 100 - ((h.next_gm - now) / ((6 * HOUR) / TS)) * 100)) : 100}%` }} /></span>
+            <span className="gm-meta mono">{h && h.last_gm ? (idleBurning ? 'idle burn running now' : `idle burn starts in ${dur(h.idle_burn_starts - now)}`) : ''}</span>
           </button>
           <button className="ritualcard" onClick={() => setTab('today')}><Ring value={ritualPct} label="" small /><span><strong>Ritual</strong><small className="muted mono">{dur(((d.r.day + 1) * (24 * HOUR) / TS) - now)}</small></span></button>
         </div>
@@ -477,31 +487,31 @@ function TradeTab({ ch, me, id, d, now, busy, act, onBought, setTab, below }: Ta
 
       <div className="tg-right">
         <div className="panel trade-panel">
-          <div className="tp-head"><span className="mono muted small">MARKET ORDER</span><span className="tp-bal mono">{bal !== null ? `Balance ${fmtNear(bal)} N` : ''}</span></div>
-          <div className="side-tabs" role="group" aria-label="Buy or sell"><button className="buy" aria-pressed={side === 'buy'} onClick={() => { setSide('buy'); setAmt(5 / NS); }}>Buy</button><button className="sell" aria-pressed={side === 'sell'} onClick={() => { setSide('sell'); setAmt(Math.floor(myTok / 2)); }}>Sell</button></div>
-          <div className="amt-box">
-            <div className="amt-top"><span className="mono muted small">{side === 'buy' ? 'YOU PAY' : `YOU SELL · HOLD ${fmtTok(myTok)}`}</span><button className="maxbtn" onClick={() => setAmt(maxAmt())} disabled={maxAmt() <= 0}>MAX</button></div>
-            <label className="amt"><input type="number" min={0} value={amt} onChange={e => setAmt(Number(e.target.value))} aria-label={side === 'buy' ? 'NEAR to spend' : 'Tokens to sell'} /><span className="unit">{unit}</span></label>
-            <div className="amt-sub mono"><span className="muted">You receive</span><b>{recv}</b></div>
+          <div className="tp-top">
+            <div className="side-tabs" role="group" aria-label="Buy or sell"><button className="buy" aria-pressed={side === 'buy'} onClick={() => { setSide('buy'); setAmt(5 / NS); }}>Buy</button><button className="sell" aria-pressed={side === 'sell'} onClick={() => { setSide('sell'); setAmt(Math.floor(myTok / 2)); }}>Sell</button></div>
+            <span className="tp-bal mono" title="Your NEAR balance">{bal !== null ? `${fmtNear(bal)} N` : ''}</span>
           </div>
-          {side === 'buy' ? <div className="presets">{presets.map(x => <button key={x} className={amt === x ? 'on' : ''} onClick={() => setAmt(x)}>{x} N</button>)}</div>
-            : <div className="presets">{[25, 50, 75, 100].map(x => <button key={x} onClick={() => setAmt(Math.floor(myTok * x / 100))}>{x}%</button>)}</div>}
-          <div className="xrows details">
+          <div className="amt-box compact">
+            <label className="amt"><input type="number" min={0} value={amt} onChange={e => setAmt(Number(e.target.value))} aria-label={side === 'buy' ? 'NEAR to spend' : 'Tokens to sell'} /><span className="unit">{unit}</span><button type="button" className="maxbtn" onClick={() => setAmt(maxAmt())} disabled={maxAmt() <= 0}>MAX</button></label>
+            {side === 'buy' ? <div className="presets">{presets.map(x => <button key={x} className={amt === x ? 'on' : ''} onClick={() => setAmt(x)}>{x} N</button>)}</div>
+              : <div className="presets">{[25, 50, 75, 100].map(x => <button key={x} onClick={() => setAmt(Math.floor(myTok * x / 100))}>{x}%</button>)}</div>}
+            <div className="amt-sub mono"><span className="muted">{side === 'buy' ? 'You receive' : `You get · hold ${fmtTok(myTok)}`}</span><b>{recv}</b></div>
+          </div>
+          <div className="xgrid mono" title="Trade fee is 2%. 1.5% goes to the pot, which later buys and burns supply.">
             {side === 'buy' && q && <>
-              <Row k="Average price" v={`${((toNear(q.near_used) / Math.max(1e-9, toTok(q.tokens))) * 1e6).toFixed(3)} N/1M`} />
-              <Row k="Price after" v={`${toMicro(q.price_after).toFixed(3)} N/1M`} />
-              <Row k="Fee" v={`${fmtNear(toNear(q.fee))} N`} />
-              {toNear(q.storage) > 0 && <Row k="First buy storage" v={`${toNear(q.storage)} N`} />}
-              <Row k="Price impact" v={<span className={q.impact_bps > 300 ? 'down' : 'up'}>+{(q.impact_bps / 100).toFixed(2)}%</span>} />
+              <Cell k="Avg price" v={`${((toNear(q.near_used) / Math.max(1e-9, toTok(q.tokens))) * 1e6).toFixed(3)}`} />
+              <Cell k="Price after" v={`${toMicro(q.price_after).toFixed(3)}`} />
+              <Cell k="Fee" v={`${fmtNear(toNear(q.fee))} N`} />
+              <Cell k="Impact" v={<span className={q.impact_bps > 300 ? 'down' : 'up'}>+{(q.impact_bps / 100).toFixed(2)}%</span>} />
+              {toNear(q.storage) > 0 && <Cell k="First buy storage" v={`${toNear(q.storage)} N`} />}
             </>}
             {side === 'sell' && sq && <>
-              <Row k="Average price" v={`${amt > 0 ? ((toNear(sq.near_out) / amt) * 1e6).toFixed(3) : '·'} N/1M`} />
-              <Row k="Price after" v={`${toMicro(sq.price_after).toFixed(3)} N/1M`} />
-              <Row k="Fee" v={`${fmtNear(toNear(sq.fee))} N`} />
-              {toNear(sq.tax) > 0 && <Row k="Taxes" v={<span className="down">{fmtNear(toNear(sq.tax))} N</span>} />}
-              <Row k="Price impact" v={<span className="down">−{(sq.impact_bps / 100).toFixed(2)}%</span>} />
+              <Cell k="Avg price" v={`${amt > 0 ? ((toNear(sq.near_out) / amt) * 1e6).toFixed(3) : '·'}`} />
+              <Cell k="Price after" v={`${toMicro(sq.price_after).toFixed(3)}`} />
+              <Cell k="Fee" v={`${fmtNear(toNear(sq.fee))} N`} />
+              <Cell k="Impact" v={<span className="down">−{(sq.impact_bps / 100).toFixed(2)}%</span>} />
+              {toNear(sq.tax) > 0 && <Cell k="Taxes" v={<span className="down">{fmtNear(toNear(sq.tax))} N</span>} />}
             </>}
-            <p className="fine">Trade fee is 2%. 1.5% goes to the pot, which later buys and burns supply.</p>
           </div>
           {locked && <div className="warn">You have a live Prophecy bet: no trading until {new Date(hand!.no_trade_until).toISOString().slice(11, 16)}.</div>}
           {hand && toTok(hand.tagged) > 0 && <div className="warn">Tagged: {fmtTok(toTok(hand.tagged))} tokens bought while a pot card was on the table. Selling them before {dur(hand.tag_until - now)} pays 10% to the pot.</div>}
@@ -662,6 +672,11 @@ function CardsTab({ ch, me, id, d, now, busy, call, coins }: TabProps) {
             {hand && now < hand.next_pack ? `Next pack in ${dur(hand.next_pack - now)}` : 'Claim pack'}
           </button>
         </div>
+      </div>
+      <div className="panel cardmarket">
+        <div className="row between wrap"><h2>Card market</h2><span className="pill">Coming soon</span></div>
+        <p className="small muted">A place to list a spare card, swap one for another, or pick up what other holders offer. It is not built yet, so for now cards move only through packs, drops and the Table.</p>
+        <div className="cm-tiles" aria-hidden="true"><span>List a card</span><span>Swap cards</span><span>Browse offers</span></div>
       </div>
       {hand && hand.cut_used > 0 && <p className="small muted">Helping cut {dur(hand.cut_used)} off this pack's wait (max {hrs(1)}).</p>}
       <div className="panel">
@@ -869,4 +884,5 @@ function Ring({ value, label, small }: { value: number; label: string; small?: b
 function Bar({ label, value, max, text }: { label: string; value: number; max: number; text: string }) {
   return <div className="bar"><span className="small">{label}</span><div className="meter"><i style={{ width: `${pct(value, max)}%` }} /></div><span className="mono small">{text}</span></div>;
 }
+function Cell({ k, v }: { k: string; v: ReactNode }) { return <div><small>{k}</small><b>{v}</b></div>; }
 function Row({ k, v }: { k: string; v: ReactNode }) { return <div className="row between small"><span className="muted">{k}</span><span className="mono">{v}</span></div>; }

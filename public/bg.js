@@ -1,12 +1,19 @@
 /* Rulecard background: a grid that bends toward the pointer (it wanders by itself when there is none), ripples, and card, joker and
    symbol outlines at the nodes that glow as the grid bends near them. The field scrolls with the page at a slower speed. */
 (() => {
-  if (window.__rcbg) return; window.__rcbg = 1;
+  if (window.__rcbg) return; window.__rcbg = {};
   const J = ['1-common-grin', '2-rare-laugh', '3-epic-wink', '4-mythic-starry', '5-wild-shades'];
   const SY = ['rally', 'curse', 'ward', 'ember', 'rollcall', 'siren', 'hedge', 'prophecy', 'recruit', 'diamond', 'laststand', 'counter', 'slowburn', 'inferno', 'storm', 'blackhole', 'heist', 'war', 'whale', 'alliance', 'harvest', 'supernova', 'conquest', 'wildcard', 'way-solo', 'way-backed', 'way-signed', 'way-contested', 'way-raid'];
   const CD = ['01-common-rally', '02-common-curse', '03-common-ward', '04-common-ember', '05-common-rollcall', '06-common-siren', '07-common-hedge', '08-rare-prophecy', '09-rare-recruit', '10-rare-diamond', '11-rare-laststand', '12-rare-counter', '13-rare-slowburn', '14-epic-inferno', '15-epic-storm', '16-epic-blackhole', '17-epic-heist', '18-epic-war', '19-epic-whale', '20-epic-alliance', '21-epic-harvest', '22-mythic-supernova', '23-mythic-conquest'];
   const JT = ['#F3E6CC', '#FF9A5C', '#5AA9FF', '#B57BFF', '#FF7AC6'], CT = { common: '#CFC6B4', rare: '#5AA9FF', epic: '#B57BFF', mythic: '#FFC24B' };
   const LILAC = '#B9ABFF', GOLD = '#FFD68C', BASE = [160, 140, 245];
+  // omen tint: the whole mesh (lines, pulses, icons, drifting jokers) eases toward one colour while an omen is active, and back when it ends
+  const hex2rgb = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  const mixc = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+  const toHex = c => '#' + c.map(v => v.toString(16).padStart(2, '0')).join('');
+  let TG = null, TA = 0, TT = 0, TQ = 0; // target colour, current amount, target amount, amount in steps of 0.2 (keeps the sprite cache small)
+  const mixHex = (hex, k) => (TG && TQ > 0 ? toHex(mixc(hex2rgb(hex), TG, TQ * k)) : hex);
+  window.__rcbg.tint = hex => { if (hex) { TG = hex2rgb(hex); TT = 1; } else TT = 0; if (reduce) { TA = TT; TQ = Math.round(TA * 5) / 5; draw(performance.now()); } };
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const cv = document.createElement('canvas'); cv.id = 'bg'; cv.setAttribute('aria-hidden', 'true');
@@ -44,6 +51,7 @@
 
   function draw(now) {
     const t = (now - t0) / 1000;
+    TA += (TT - TA) * 0.045; if (TT === 0 && TA < 0.01) { TA = 0; if (!TQ) TG = null; } TQ = Math.round(TA * 5) / 5;
     if (!m.active) { m.tx = w * (0.7 + 0.14 * Math.sin(t * 0.21)); m.ty = h * (0.36 + 0.16 * Math.cos(t * 0.17)); }
     const kk = m.x < -999 ? 1 : 0.08; m.x += (m.tx - m.x) * kk; m.y += (m.ty - m.y) * kk;
     if (!reduce && now - t0 > nextBurn) { ripples.push({ x: Math.random() * w, y: Math.random() * h * 0.85, t: now, gold: true }); nextBurn = now - t0 + 4200 + Math.random() * 3000; }
@@ -52,7 +60,7 @@
 
     // big faint jokers drifting far behind
     for (const f of far) {
-      const im = tint('j' + J[f.j], JT[f.j], 14, 110); if (!im) continue;
+      const im = tint('j' + J[f.j], mixHex(JT[f.j], 0.8), 14, 110); if (!im) continue;
       const yy = ((f.y - t * f.sp * (reduce ? 0 : 1)) % 1.3 + 1.3) % 1.3 - 0.15, px = f.x * w + (m.x - w / 2) * -0.03, py = yy * h - sy * 0.3, sc = f.s / 110;
       ctx.save(); ctx.translate(px, py); ctx.rotate(f.rot + Math.sin(t * 0.2 + f.ph) * 0.08); ctx.globalAlpha = 0.07; ctx.drawImage(im, -im.width * sc / 2, -im.height * sc / 2, im.width * sc, im.height * sc); ctx.restore();
     }
@@ -76,19 +84,19 @@
     }
 
     // grid lines: quiet ones in one stroke, lit ones one by one
-    const tcs = BASE.join(','), hot = [];
+    const tcs = (TG ? mixc(BASE, TG, TA * 0.9) : BASE).join(','), gcs = (TG ? mixc([232, 194, 122], TG, TA * 0.8) : [232, 194, 122]).join(','), hot = [];
     ctx.lineWidth = 1; ctx.beginPath();
     const edge = (a, b) => { const gl = (a.glow + b.glow) / 2, gd = Math.max(a.gold, b.gold), al = 0.08 + gl * 0.4 + gd * 0.35; if (al < 0.14 && gd < 0.1) { ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); } else hot.push([a, b, al, gd]); };
     for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) { const p = P[j * cols + i]; if (i < cols - 1) edge(p, P[j * cols + i + 1]); if (j < rows - 1) edge(p, P[(j + 1) * cols + i]); }
     ctx.strokeStyle = 'rgba(' + tcs + ',0.11)'; ctx.stroke();
-    for (const [a, b, al, gd] of hot) { ctx.strokeStyle = gd > 0.15 ? 'rgba(232,194,122,' + Math.min(0.7, al) + ')' : 'rgba(' + tcs + ',' + Math.min(0.6, al) + ')'; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+    for (const [a, b, al, gd] of hot) { ctx.strokeStyle = gd > 0.15 ? 'rgba(' + gcs + ',' + Math.min(0.7, al) + ')' : 'rgba(' + tcs + ',' + Math.min(0.6, al) + ')'; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
 
     // icons at the nodes
     for (const p of P) {
       if (p.kind === 3) { ctx.fillStyle = 'rgba(' + tcs + ',' + (0.12 + p.glow * 0.6) + ')'; ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3); continue; }
       if (!p.kind) continue;
       const isJ = p.kind === 1, isC = p.kind === 4;
-      const col = p.gold > 0.15 ? GOLD : isJ ? JT[p.ti] : isC ? p.ct : (p.glow > 0.45 ? '#E9E3FF' : LILAC);
+      const col = p.gold > 0.15 ? mixHex(GOLD, 0.8) : isJ ? mixHex(JT[p.ti], 0.8) : isC ? mixHex(p.ct, 0.8) : (p.glow > 0.45 ? mixHex('#E9E3FF', 0.85) : mixHex(LILAC, 0.9));
       const im = tint(p.key, col, 0, isC ? 100 : 110); if (!im) continue;
       const base = isJ ? 40 : isC ? 34 : 22, sc = (1 + p.glow * 0.7 + p.gold * 0.35) * base / im.width * (isJ || isC ? 1 : 1.2), al = Math.min(0.95, (isJ ? 0.34 : isC ? 0.3 : 0.26) + p.glow * 0.8 + p.gold * 0.6);
       const bob = reduce ? 0 : Math.sin(t * 0.9 + p.ph) * 3, flip = p.gold > 0.05 ? Math.cos(p.gold * Math.PI * 2) : 1, rot = (reduce ? 0 : Math.sin(t * 0.5 + p.ph) * 0.1) + (m.x - p.x) / w * p.glow * 0.8;
@@ -97,7 +105,7 @@
       ctx.drawImage(im, -im.width * sc / 2, -im.height * sc / 2, im.width * sc, im.height * sc); ctx.restore();
     }
 
-    for (const rp of ripples) { const age = Math.max(0, (now - rp.t) / 1000); ctx.strokeStyle = rp.gold ? 'rgba(232,194,122,' + (0.22 * (1 - age / 3.4)) + ')' : 'rgba(' + tcs + ',' + (0.2 * (1 - age / 3.4)) + ')'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(rp.x, rp.y, age * 430, 0, 6.29); ctx.stroke(); }
+    for (const rp of ripples) { const age = Math.max(0, (now - rp.t) / 1000); ctx.strokeStyle = rp.gold ? 'rgba(' + gcs + ',' + (0.22 * (1 - age / 3.4)) + ')' : 'rgba(' + tcs + ',' + (0.2 * (1 - age / 3.4)) + ')'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(rp.x, rp.y, age * 430, 0, 6.29); ctx.stroke(); }
     if (m.x > -999) { const gr = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, sig); gr.addColorStop(0, 'rgba(' + tcs + ',0.11)'); gr.addColorStop(1, 'rgba(' + tcs + ',0)'); ctx.fillStyle = gr; ctx.fillRect(m.x - sig, m.y - sig, sig * 2, sig * 2); }
     const v = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.8); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.5)'); ctx.fillStyle = v; ctx.fillRect(0, 0, w, h);
   }
