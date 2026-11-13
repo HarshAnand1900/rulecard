@@ -17,8 +17,7 @@ pub const BOUNTY_BONUS_CAP: u128 = SUPPLY / 2_000; // a met Bounty adds at most 
 pub const PAYOUT_KEEP: u64 = 3 * DAY;
 /// The pending list is loaded with the coin's state on every call, so it stays small. A card that will queue payouts can only be
 /// opened while there is room for a full house; if it still overflows, the extra payout is credited straight away (one wallet, one write).
-pub const PENDING_MAX: usize = 160;
-pub const PENDING_PER_CARD: usize = 45;
+pub const PENDING_MAX: usize = 200;
 pub const BOUNTY_BONUS_BPS: u128 = 1_000;
 pub const BOUNTY_MISS_BURN_BPS: u128 = 1_000;
 
@@ -109,7 +108,7 @@ impl Coin {
         let a = env::predecessor_account_id();
         require!(!self.graduated, "the game ended at graduation");
         self.touch(now);
-        self.require_payout_room();
+        self.require_payout_room(BOUNTY_MAX_PLEDGES);
         self.check_question(&question);
         require!(question != Question::Tide, "a Bounty can't ask the Tide question: a single buy would make it true");
         require!(self.energy >= Card::Bounty.energy(), "not enough Energy");
@@ -188,10 +187,17 @@ impl Coin {
     }
 
     /// Cards that queue payouts when they close can only be opened while the list has room for them.
-    pub(crate) fn require_payout_room(&mut self) {
+    pub(crate) fn require_payout_room(&mut self, new_cap: usize) {
         let now = env::block_timestamp_ms();
         self.purge_payouts(now);
-        require!(self.pending.len() + PENDING_PER_CARD <= PENDING_MAX, "too many payouts are waiting to be claimed: try again once wallets have claimed");
+        require!(self.payout_room(new_cap), "too many payouts are waiting to be claimed: try again once wallets have claimed");
+    }
+
+    /// Room is reserved for every open card that will queue payouts (at its largest), plus the new one, on top of what is already waiting.
+    pub(crate) fn payout_room(&self, new_cap: usize) -> bool {
+        let open_tbl: usize = self.table.iter().filter(|p| p.phase < 3).map(|p| match p.card { Card::Prophecy => crate::table::MAX_BETTORS + 1, Card::BlackHole => crate::table::HOLE_MAX_THROWS, _ => 0 }).sum();
+        let open_bnt = self.bounties.iter().filter(|b| b.phase == 0).count() * BOUNTY_MAX_PLEDGES;
+        self.pending.len() + open_tbl + open_bnt + new_cap <= PENDING_MAX
     }
 
     /// Queue a payout for a wallet to collect with `claim_payouts`. O(1). If the list is somehow full the payout is credited directly instead.

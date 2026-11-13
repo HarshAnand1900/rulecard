@@ -178,7 +178,7 @@ impl Coin {
             let hot = self.table.iter().any(|p| p.card == Card::Prophecy && p.phase == 1 && { let y: u128 = p.bets.iter().filter(|b| b.yes).map(|b| b.amount.0).sum(); let n: u128 = p.bets.iter().filter(|b| !b.yes).map(|b| b.amount.0).sum(); n * 10 > y * 15 && n > 0 });
             require!(hot, "Squeeze needs an open Prophecy where the No side is more than 1.5 times the Yes side");
         }
-        if matches!(card, Card::Prophecy | Card::BlackHole) { self.require_payout_room(); }
+        if card == Card::Prophecy { self.require_payout_room(MAX_BETTORS + 1); } else if card == Card::BlackHole { self.require_payout_room(HOLE_MAX_THROWS); }
         let card_exp = self.take_card(&mut h, card, now);
         let (needed, window, backers) = match card {
             Card::Ember => (3, EMBER_WINDOW, vec![a.clone()]),

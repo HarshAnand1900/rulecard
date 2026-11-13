@@ -50,7 +50,7 @@ Track: **Memecoins With Mechanics** (NEAR).
 
 | Criterion | Where to look |
 |---|---|
-| Technical | 109 coin tests and 7 factory tests at real and demo scale, a randomized fuzz test (900 operations by default, 2,500 in CI, and a 12,000-operation run that passes; invariants checked after each), CI, a live Proof page |
+| Technical | 110 coin tests and 7 factory tests at real and demo scale, a randomized fuzz test (900 operations by default, 2,500 in CI, and a 12,000-operation run that passes; invariants checked after each), CI, a live Proof page |
 | Innovation | coins raiding coins (cross-contract), one-tap check-ins with function-call keys, a coin whose icon is its war record |
 | Track fit | all four mechanic kinds above, a streak with a high score, parameters fixed and readable, a 60-day simulation before choosing them |
 | Execution | no-wallet play, a hosted app, a judge page that tries to break it, honest limits below |
@@ -277,7 +277,9 @@ Every parameter above came out of a simulator in [`research/`](research) (Node, 
 
 ## What's in this build vs the roadmap
 
-**Built and tested** (`npm test`: 109 coin tests and 7 factory tests, each run at real and demo scale, plus two fuzz runs): factory, NEP-141 coins, curve and fees,
+> **Status:** the live world (`demo2`) runs the earlier 9-card / 4-Omen build. The 29-card / 13-Omen build described below is on branch `cards-v2` and is not deployed until its own factory exists; the live demo2 coins still settle a Prophecy for all bettors in one transaction (up to 100) and still block raiding a coin with its own open raid proposal.
+
+**Built and tested** (`npm test`: 110 coin tests and 7 factory tests, each run at real and demo scale, plus two fuzz runs): factory, NEP-141 coins, curve and fees,
 gm, Energy, Daily Ritual, levels and level drops, Vault, idle burn, the daily cap, packs, deck limits, Fade, make-room-first, tags and bet locks, raids with plans,
 Battle cry, scoring, spoils and win packs, price history, the log, and the full game design:
 

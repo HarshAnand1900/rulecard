@@ -1682,6 +1682,17 @@ fn raiding_a_coin_cancels_its_own_unfinished_raid_plan() {
 }
 
 #[test]
+#[should_panic(expected = "too many payouts are waiting")]
+fn a_card_that_queues_payouts_needs_room_for_a_full_house() {
+    let mut c = launch(vec![]);
+    for i in 1..=3 { buy(&mut c, i, n(20), T0 + i as u64); }
+    // 170 entries already waiting leave no room for a 41-bettor Prophecy (cap 200)
+    for _ in 0..170 { c.pending.push(crate::stakes::Payout { account: acc(9), tokens: U128(0), pack: false, at: T0 + 2 * HOUR, what: "x".into() }); }
+    give(&mut c, 1, Card::Prophecy, T0 + HOUR); c.energy = 30;
+    ctx(1, 0, T0 + 2 * HOUR); c.play_card(Card::Prophecy, Some(Question::Tide));
+}
+
+#[test]
 fn an_unanswered_duel_gives_back_the_trade_lock() {
     let mut c = launch(vec![]);
     for i in 1..=2 { buy(&mut c, i, n(20), T0 + i as u64); }

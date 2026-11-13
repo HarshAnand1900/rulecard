@@ -38,6 +38,12 @@ const fmt = y => (Number(BigInt(y) / 10n ** 21n) / 1000).toFixed(3);
 
 if (!ACCOUNT) { console.error('Pass --account YOU.testnet'); process.exit(1); }
 const credPath = arg('credentials', join(homedir(), '.near-credentials', 'testnet', `${ACCOUNT}.json`));
+// refuse to ship a build that is older than its source: rebuild with `npm run contracts:build` first
+import { statSync, readdirSync } from 'node:fs';
+const newest = d => Math.max(...readdirSync(d).filter(f => f.endsWith('.rs')).map(f => statSync(join(d, f)).mtimeMs));
+for (const [w, src] of [['rulecard_coin_demo.wasm', join(here, '..', 'contracts', 'coin', 'src')], ['rulecard_factory_demo.wasm', join(here, '..', 'contracts', 'factory', 'src')]]) {
+  if (statSync(join(out, w)).mtimeMs < newest(src)) { console.error(`${w} is older than the source in ${src}: run npm run contracts:build first`); process.exit(1); }
+}
 const factoryWasm = readFileSync(join(out, 'rulecard_factory_demo.wasm'));
 const coinWasm = readFileSync(join(out, 'rulecard_coin_demo.wasm'));
 

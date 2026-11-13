@@ -136,6 +136,7 @@ impl Coin {
     /// The caster's usual 10% is burned, since the coin is the caster. With fewer than 8 wallets every bet is refunded.
     pub(crate) fn omen_oracle(&mut self, now: u64) {
         if self.table.iter().any(|p| p.phase < 3 && p.card == Card::Prophecy) { return; }
+        if !self.payout_room(crate::table::MAX_BETTORS + 1) { return; } // no room to queue the payouts: the Oracle stays quiet this time
         let id = self.next_prop; self.next_prop += 1;
         let q = Question::Tide;
         let snap = self.snapshot(&q);

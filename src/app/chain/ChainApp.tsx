@@ -352,6 +352,7 @@ function CoinPage(p: Ctx & { id: string }) {
 
   return (
     <section>
+      {d.pending.length > 0 && <div className="panel feature row between wrap" role="status"><strong>You have {fmtTok(toTok(d.pending.reduce((s, x) => s + BigInt(x.tokens), 0n).toString()))} waiting to claim{d.pending.some(x => x.pack) ? ' and a ready pack' : ''}. It burns if you wait 3 days.</strong><button className="btn small primary" disabled={!!busy} onClick={() => call('Claim payouts', 'claim_payouts', {}, 0n, 'Payouts claimed')}>Claim now</button></div>}
       <div className="panel coin-hero">
         <div className="ch-main">
           <span className="avatar" style={{ ['--m' as any]: jokerOf(c.symbol) }} aria-hidden="true"><b>{c.symbol.slice(0, 4)}</b></span>
