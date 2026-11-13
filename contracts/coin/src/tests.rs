@@ -532,25 +532,25 @@ fn raid_needs_enough_signers() {
 fn defender_accepts_then_is_shielded_and_pays_spoils_when_it_loses() {
     let (mut c, t) = raid_ready();
     ctx_as(moth(), 0, t, vec![]);
-    assert!(c.raid_accept(7, 2, t, false));
+    assert!(c.raid_accept(7, 2, t, false, 0));
     assert!(c.get_raid().is_some());
     ctx_as("toad.rulecard.testnet".parse().unwrap(), 0, t + 1, vec![]);
-    assert!(!c.raid_accept(3, 2, t + 1, false), "already in a raid");
+    assert!(!c.raid_accept(3, 2, t + 1, false, 0), "already in a raid");
     let pot = c.pot;
     ctx_as(moth(), 0, t + RAID_LEN + 5, vec![]);
     c.raid_finish(7, -1, 1_500, vec![U128(9_000); 3], vec![U128(10_000); 3]);
     assert_eq!(c.pot, pot - bps(pot, 1_500), "15% of the pot goes to the winner");
     assert_eq!(c.get_raids().pop().unwrap().result.unwrap().outcome, -1);
     ctx_as("toad.rulecard.testnet".parse().unwrap(), 0, t + RAID_LEN + 6 * HOUR, vec![]);
-    assert!(!c.raid_accept(4, 2, t + RAID_LEN + 6 * HOUR, false), "shielded for 12h after a raid");
+    assert!(!c.raid_accept(4, 2, t + RAID_LEN + 6 * HOUR, false, 0), "shielded for 12h after a raid");
     ctx_as("toad.rulecard.testnet".parse().unwrap(), 0, t + RAID_LEN + 13 * HOUR, vec![]);
-    assert!(c.raid_accept(5, 2, t + RAID_LEN + 13 * HOUR, false), "shield over");
+    assert!(c.raid_accept(5, 2, t + RAID_LEN + 13 * HOUR, false, 0), "shield over");
 }
 
 #[test]
 fn defender_that_wins_burns_the_spoils() {
     let (mut c, t) = raid_ready();
-    ctx_as(moth(), 0, t, vec![]); c.raid_accept(7, 2, t, false);
+    ctx_as(moth(), 0, t, vec![]); c.raid_accept(7, 2, t, false, 0);
     let burned = c.burned;
     ctx_as(moth(), n(3), t + RAID_LEN + 5, vec![]);
     c.raid_finish(7, 1, 1_500, vec![U128(10_000); 3], vec![U128(9_000); 3]);
@@ -562,14 +562,14 @@ fn defender_that_wins_burns_the_spoils() {
 #[should_panic(expected = "only Rulecard coins")]
 fn only_sibling_coins_can_raid() {
     let (mut c, t) = raid_ready();
-    ctx_as("evil.testnet".parse().unwrap(), 0, t, vec![]); c.raid_accept(1, 2, t, false);
+    ctx_as("evil.testnet".parse().unwrap(), 0, t, vec![]); c.raid_accept(1, 2, t, false, 0);
 }
 
 #[test]
 fn a_lower_level_coin_cant_be_raided_by_a_higher_one() {
     let (mut c, t) = raid_ready();
     ctx_as(moth(), 0, t, vec![]);
-    assert!(!c.raid_accept(1, 3, t, false));
+    assert!(!c.raid_accept(1, 3, t, false, 0));
 }
 
 #[test]
@@ -607,7 +607,7 @@ fn relocking_the_same_tokens_counts_once_for_the_ritual() {
 #[test]
 fn a_losing_defender_pays_the_fixed_rate_whatever_the_caller_says() {
     let (mut c, t) = raid_ready();
-    ctx_as(moth(), 0, t, vec![]); c.raid_accept(7, 2, t, false);
+    ctx_as(moth(), 0, t, vec![]); c.raid_accept(7, 2, t, false, 0);
     let pot = c.pot;
     ctx_as(moth(), 0, t + RAID_LEN + 5, vec![]);
     c.raid_finish(7, -1, 10_000, vec![U128(9_000); 3], vec![U128(10_000); 3]);
@@ -1049,7 +1049,7 @@ fn blood_moon_arms_the_next_raid_and_doubles_the_spoils_this_coin_pays() {
     let (mut d, t) = raid_ready();
     d.blood_until = t + HOUR;
     ctx_as(moth(), 0, t, vec![]);
-    assert!(d.raid_accept(7, 2, t, false));
+    assert!(d.raid_accept(7, 2, t, false, 0));
     assert!(d.raid.as_ref().unwrap().blood && d.blood_until == 0, "the raid took the Blood Moon");
     let pot = d.pot;
     ctx_as(moth(), 0, t + RAID_LEN + 5, vec![]);
@@ -1061,7 +1061,7 @@ fn blood_moon_arms_the_next_raid_and_doubles_the_spoils_this_coin_pays() {
 fn fog_hides_the_live_scores_while_a_raid_is_on() {
     let (mut c, t) = raid_ready();
     ctx_as(moth(), 0, t, vec![]);
-    assert!(c.raid_accept(7, 2, t, false));
+    assert!(c.raid_accept(7, 2, t, false, 0));
     let base = (t / OMEN_CYCLE + 1) * OMEN_CYCLE;
     force_omen(&mut c, base, 13);
     ctx_as(moth(), 0, base + 10 * MIN, vec![]);
@@ -1372,7 +1372,7 @@ fn alliance_blocks_raids_between_the_two_coins_for_6h() {
     let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| { c.start_raid(moth()); }));
     assert!(r.is_err(), "allied: no raid on the ally");
     ctx_as(moth(), 0, at, vec![]);
-    assert!(!c.raid_accept(7, 2, at, false), "and the ally can't raid us");
+    assert!(!c.raid_accept(7, 2, at, false, 0), "and the ally can't raid us");
     ctx(5, 0, at + 7 * HOUR); assert_eq!(c.get_coin().ally, None, "the pact ends after 6h");
 }
 
@@ -1391,4 +1391,116 @@ fn only_siblings_can_make_a_pact() {
     let mut c = launch(vec![]);
     ctx_as("mallory.testnet".parse().unwrap(), 0, T0 + 10, vec![]);
     c.ally_accept(T0 + 10 + ALLIANCE_LEN);
+}
+
+// ------------------------------------------------------------------ new cards, batch 3: raid cards (Mirror, Counterspell, Decoy, Scout, Friendly Raid, Hard Raid)
+#[test]
+fn mirror_copies_the_enemys_last_tactic_counterspell_cancels_and_decoy_does_nothing() {
+    let base = [10_000u128; 3];
+    // Mirror in round 2 copies their Curse from round 1, so they get cursed back
+    let (a, b, _) = score_rounds(&base, &[0, 40, 0], &base, &[20, 0, 0]);
+    assert_eq!((a[0], b[0]), (9_500, 10_000), "their round 1 Curse hits me");
+    assert_eq!((a[1], b[1]), (10_000, 9_500), "my Mirror copies it: I curse them in round 2");
+    assert_eq!(a[2], 10_000);
+    // Mirror in round 1 has nothing to copy
+    let (a, b, _) = score_rounds(&base, &[40, 0, 0], &base, &[0, 0, 0]);
+    assert_eq!((a[0], b[0]), (10_000, 10_000));
+    // Counterspell cancels their Rally
+    let (_, b, _) = score_rounds(&base, &[50, 0, 0], &base, &[10, 0, 0]);
+    assert_eq!(b[0], 10_000, "their Rally was cancelled");
+    let (_, b, _) = score_rounds(&base, &[0, 0, 0], &base, &[10, 0, 0]);
+    assert_eq!(b[0], RALLY_TIER0, "without it the Rally counts");
+    // Counterspell against a Curse protects me
+    let (a, _, _) = score_rounds(&base, &[50, 0, 0], &base, &[20, 0, 0]);
+    assert_eq!(a[0], 10_000, "their Curse was cancelled");
+    // two Counterspells cancel each other
+    let (a, b, _) = score_rounds(&base, &[50, 0, 0], &base, &[50, 0, 0]);
+    assert_eq!((a[0], b[0]), (10_000, 10_000));
+    // a Decoy does nothing and does not protect against a Curse
+    let (a, _, _) = score_rounds(&base, &[60, 0, 0], &base, &[20, 0, 0]);
+    assert_eq!(a[0], 9_500, "a Decoy is not a Ward");
+}
+const RALLY_TIER0: u128 = 10_500;
+
+#[test]
+fn rare_tactic_cards_go_into_a_plan_and_come_back_out() {
+    let (mut c, t) = raid_ready();
+    give(&mut c, 1, Card::Mirror, T0); give(&mut c, 1, Card::Decoy, T0);
+    ctx_as(moth(), 0, t, vec![]);
+    assert!(c.raid_accept(7, 2, t, false, 0));
+    ctx(1, 0, t + 1000); c.set_plan(vec![Some(Card::Mirror), Some(Card::Decoy), None]);
+    assert_eq!(c.holder(&acc(1)).slots[..2], [4, 6]);
+    assert!(c.get_hand(acc(1)).unwrap().cards.iter().all(|x| x.card != Card::Mirror), "the Mirror is in the plan");
+    ctx(1, 0, t + 2000); c.set_plan(vec![None, Some(Card::Decoy), None]);
+    assert!(c.get_hand(acc(1)).unwrap().cards.iter().any(|x| x.card == Card::Mirror), "taken out of the plan, it is back in the hand");
+}
+
+#[test]
+#[should_panic(expected = "only Rally, Curse, Ward, Mirror, Counterspell or Decoy")]
+fn a_plan_only_takes_tactic_cards() {
+    let (mut c, t) = raid_ready();
+    ctx_as(moth(), 0, t, vec![]);
+    assert!(c.raid_accept(7, 2, t, false, 0));
+    ctx(1, 0, t + 1000); c.set_plan(vec![Some(Card::Ember), None, None]);
+}
+
+#[test]
+fn a_friendly_raid_takes_no_spoils_and_a_hard_raid_takes_double_and_hangs_a_banner() {
+    for (kind, expect) in [(0u8, 1_500u128), (1, 0), (2, 3_000)] {
+        let (mut c, t) = raid_ready();
+        ctx_as(moth(), 0, t, vec![]);
+        assert!(c.raid_accept(7, 2, t, false, kind));
+        assert_eq!(c.raid.as_ref().unwrap().kind, kind);
+        let pot = c.pot;
+        ctx_as(moth(), 0, t + RAID_LEN + 5, vec![]);
+        c.raid_finish(7, -1, 1_500, vec![U128(9_000); 3], vec![U128(10_000); 3]);
+        assert_eq!(c.pot, pot - bps(pot, expect), "kind {kind}: spoils {expect} bps");
+        assert_eq!(c.get_coin().banner_by, if kind == 2 { Some(moth()) } else { None }, "only a Hard Raid flies a banner");
+    }
+}
+
+#[test]
+fn starting_a_friendly_raid_spends_the_card_and_20_energy() {
+    let (mut c, t) = raid_ready();
+    give(&mut c, 1, Card::FriendlyRaid, T0); c.energy = 30;
+    ctx(1, 0, t); c.start_friendly_raid(moth());
+    assert_eq!(c.raid.as_ref().unwrap().kind, 1);
+    assert_eq!(c.energy, 10);
+    assert!(c.get_hand(acc(1)).unwrap().cards.iter().all(|x| x.card != Card::FriendlyRaid));
+}
+
+#[test]
+#[should_panic(expected = "you don't have that card")]
+fn a_hard_raid_needs_the_card() {
+    let (mut c, t) = raid_ready(); c.energy = 60;
+    ctx(1, 0, t); c.start_hard_raid(moth());
+}
+
+#[test]
+fn scout_asks_the_enemy_for_its_next_tactic_and_a_decoy_looks_real() {
+    let (mut c, t) = raid_ready();
+    for i in 1..=4 { give(&mut c, i, Card::Decoy, T0); }
+    give(&mut c, 1, Card::Scout, T0); c.energy = 20;
+    ctx_as(moth(), 0, t, vec![]);
+    assert!(c.raid_accept(7, 2, t, false, 0));
+    for i in 1..=4 { ctx(i, 0, t + 1000 + i as u64); c.set_plan(vec![Some(Card::Decoy), None, None]); }
+    // the other side's scout asks us what we planned for round 1
+    ctx_as(moth(), 0, t + 5000, vec![]);
+    let code = c.raid_peek(7, 0);
+    assert!((1..=3).contains(&(code / 10)), "a Decoy is shown as a real tactic: {code}");
+    // our own scout writes the answer into the raid
+    ctx(1, 0, t + 6000); let _ = c.scout();
+    assert_eq!(c.energy, 15, "Scout costs 5 Energy");
+    ctx_as(me(), 0, t + 7000, vec![ok_json("30")]); c.on_scout(7, 0);
+    assert_eq!(c.get_raid().unwrap().scout[0], 30);
+}
+
+#[test]
+#[should_panic(expected = "not your raid")]
+fn only_the_enemy_coin_may_peek_at_a_plan() {
+    let (mut c, t) = raid_ready();
+    ctx_as(moth(), 0, t, vec![]);
+    assert!(c.raid_accept(7, 2, t, false, 0));
+    ctx_as("toad.rulecard.testnet".parse().unwrap(), 0, t + 10, vec![]);
+    c.raid_peek(7, 0);
 }

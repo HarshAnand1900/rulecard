@@ -41,6 +41,10 @@ pub struct Raid {
     pub seq: u32, pub id: u32, pub attacker: AccountId, pub defender: AccountId, pub attacking: bool,
     pub phase: u8, pub created: u64, pub backers: Vec<AccountId>, pub needed: u32,
     pub start: u64, pub real_start: U128, pub circ_start: U128, pub qualified: u32, pub level: u8, pub war: bool, pub blood: bool,
+    /// 0 normal, 1 Friendly Raid (no spoils), 2 Hard Raid (double spoils and a banner)
+    pub kind: u8,
+    /// Scout: the enemy tactic revealed for each round (0 = unknown, 255 = none)
+    pub scout: Vec<u8>,
     pub net_pos: Vec<U128>, pub net_neg: Vec<U128>, pub taps: Vec<u32>, pub lock: Vec<U128>,
     pub votes: Vec<Vec<u32>>, pub planners: u32,
     pub result: Option<RaidResult>, pub note: String,
@@ -56,12 +60,21 @@ pub struct RaidView {
     pub live_base: Vec<U128>, pub buy: Vec<i64>, pub crowd: Vec<u32>, pub lock: Vec<u32>,
     /// revealed only for finished rounds: 0 none, else tactic*10 + tier (1 Rally, 2 Curse, 3 Ward; tier 0-2)
     pub tactic: Vec<u8>, pub planners: u32, pub result: Option<RaidResult>, pub note: String,
+    pub kind: u8, pub scout: Vec<u8>,
 }
 
 #[near]
 impl Coin {
     /// Propose a raid on another coin from the same factory. Needs signers (3 / 5 / 8 at L2 / L3 / L4); no card, no Energy.
-    pub fn start_raid(&mut self, target: AccountId) -> u32 {
+    pub fn start_raid(&mut self, target: AccountId) -> u32 { self.start_raid_kind(target, 0) }
+
+    /// Friendly Raid (a Rare card, 20 Energy): a raid with no spoils either way. Winners still earn their win pack.
+    pub fn start_friendly_raid(&mut self, target: AccountId) -> u32 { self.start_raid_kind(target, 1) }
+
+    /// Hard Raid (an Epic card, 50 Energy): spoils are doubled both ways and the loser flies the winner's banner for 12h.
+    pub fn start_hard_raid(&mut self, target: AccountId) -> u32 { self.start_raid_kind(target, 2) }
+
+    fn start_raid_kind(&mut self, target: AccountId, kind: u8) -> u32 {
         let now = env::block_timestamp_ms();
         let a = env::predecessor_account_id();
         self.touch(now);
@@ -72,9 +85,16 @@ impl Coin {
         let mut h = self.settle(&a, now);
         require!(self.is_qualified(&h, now), "raiders must hold >= 2 NEAR for 1h");
         require!(h.last_sign == 0 || now >= h.last_sign + crate::table::SIGN_EVERY, "one signature per 30 min");
+        if kind != 0 {
+            let card = if kind == 1 { Card::FriendlyRaid } else { Card::HardRaid };
+            require!(self.energy >= card.energy(), "not enough Energy");
+            let exp = self.take_card(&mut h, card, now); self.free_stock(card, exp);
+            self.energy -= card.energy();
+        }
         h.last_sign = now; self.save(&a, h);
         self.raid_seq += 1;
-        let r = self.new_raid(self.raid_seq, self.raid_seq, env::current_account_id(), target.clone(), true, now, vec![a.clone()], RAID_SIGNERS[self.level as usize - 1]);
+        let mut r = self.new_raid(self.raid_seq, self.raid_seq, env::current_account_id(), target.clone(), true, now, vec![a.clone()], RAID_SIGNERS[self.level as usize - 1]);
+        r.kind = kind;
         self.raid = Some(r);
         events::rulecard("raid_proposed", json!({ "id": self.raid_seq, "target": target, "by": a }));
         self.raid_seq
@@ -104,14 +124,14 @@ impl Coin {
         }
         self.require_can_raid(now, true);
         self.raid.as_mut().unwrap().phase = 1;
-        let args = json!({ "id": r.id, "level": self.level, "start": now, "war": self.has(Rule::WarCoin) }).to_string().into_bytes();
+        let args = json!({ "id": r.id, "level": self.level, "start": now, "war": self.has(Rule::WarCoin), "kind": r.kind }).to_string().into_bytes();
         Promise::new(r.defender.clone()).function_call("raid_accept".to_string(), args, NearToken::from_yoctonear(0), GAS_CALL)
             .then(Promise::new(env::current_account_id()).function_call("on_raid_accept".to_string(), json!({ "id": r.id, "start": now }).to_string().into_bytes(), NearToken::from_yoctonear(0), GAS_CALL))
             .into()
     }
 
     /// Called by the attacking coin. Returns whether this coin takes the raid (it can't decline if its limits allow).
-    pub fn raid_accept(&mut self, id: u32, level: u8, start: u64, war: bool) -> bool {
+    pub fn raid_accept(&mut self, id: u32, level: u8, start: u64, war: bool, kind: u8) -> bool {
         let now = env::block_timestamp_ms();
         let att = env::predecessor_account_id();
         require!(self.is_sibling(&att), "only Rulecard coins");
@@ -121,6 +141,7 @@ impl Coin {
         self.raid_seq += 1;
         let mut r = self.new_raid(self.raid_seq, id, att.clone(), env::current_account_id(), false, now, vec![], 0);
         r.war = war || self.has(Rule::WarCoin);
+        r.kind = kind.min(2);
         self.begin(&mut r, start);
         self.raid = Some(r);
         events::rulecard("raid_started", json!({ "attacker": att, "id": id, "start": start }));
@@ -157,11 +178,11 @@ impl Coin {
         let mut votes = r.votes.clone();
         let was_planner = h.slots.iter().any(|s| *s != 0);
         for (i, s) in slots.iter().enumerate() {
-            let code = match s { None => 0u8, Some(Card::Rally) => 1, Some(Card::Curse) => 2, Some(Card::Ward) => 3, _ => env::panic_str("only Rally, Curse or Ward") };
+            let code = match s { None => 0u8, Some(Card::Rally) => 1, Some(Card::Curse) => 2, Some(Card::Ward) => 3, Some(Card::Mirror) => 4, Some(Card::Counterspell) => 5, Some(Card::Decoy) => 6, _ => env::panic_str("only Rally, Curse, Ward, Mirror, Counterspell or Decoy") };
             if code == h.slots[i] { continue; }
             require!(now < round_start(&r, i), "that round has started");
-            if h.slots[i] != 0 { votes[i][(h.slots[i] - 1) as usize] -= 1; let c = tactic_card(h.slots[i]); self.return_card(&mut h, c, 0); }
-            if code != 0 { let c = tactic_card(code); self.take_card(&mut h, c, now); votes[i][(code - 1) as usize] += 1; }
+            if h.slots[i] != 0 { votes[i][(h.slots[i] - 1) as usize] -= 1; let c = tactic_card(h.slots[i]); let exp = h.slot_exp[i]; self.return_card(&mut h, c, exp); h.slot_exp[i] = 0; }
+            if code != 0 { let c = tactic_card(code); let exp = self.take_card(&mut h, c, now); h.slot_exp[i] = exp; votes[i][(code - 1) as usize] += 1; }
             h.slots[i] = code;
         }
         let is_planner = h.slots.iter().any(|s| *s != 0);
@@ -219,7 +240,7 @@ impl Coin {
         let mut spoils = 0u128;
         let mut p = Promise::new(r.defender.clone());
         let args = json!({ "id": id, "outcome": -outcome, "rate": rate as u32, "mine": theirs.iter().map(|x| U128(*x)).collect::<Vec<_>>(), "theirs": mine.iter().map(|x| U128(*x)).collect::<Vec<_>>() }).to_string().into_bytes();
-        if outcome < 0 { spoils = bps(self.pot, if r.blood { rate * 2 } else { rate }); self.pot -= spoils; }
+        if outcome < 0 && r.kind != 1 { spoils = bps(self.pot, (rate * spoils_mult(&r)).min(10_000)); self.pot -= spoils; }
         p = p.function_call("raid_finish".to_string(), args, NearToken::from_yoctonear(spoils), GAS_BACK)
             .then(Promise::new(env::current_account_id()).function_call("on_spoils_sent".to_string(), json!({ "amount": U128(spoils) }).to_string().into_bytes(), NearToken::from_yoctonear(0), GAS_CALL));
         self.record_result(now, RaidResult { outcome, rounds, mine: mine.into_iter().map(U128).collect(), theirs: theirs.into_iter().map(U128).collect(), spoils: U128(spoils) });
@@ -236,9 +257,9 @@ impl Coin {
         require!(!r.attacking && r.id == id && env::predecessor_account_id() == r.attacker && r.phase == 2, "not your raid");
         let got = env::attached_deposit().as_yoctonear();
         let mut spoils = 0;
-        if outcome < 0 {
+        if outcome < 0 && r.kind != 1 {
             let rate = SPOILS_BPS + if r.war { WAR_COIN_BONUS_BPS } else { 0 };
-            spoils = bps(self.pot, if r.blood { rate * 2 } else { rate }); self.pot -= spoils;
+            spoils = bps(self.pot, (rate * spoils_mult(&r)).min(10_000)); self.pot -= spoils;
             let _ = Promise::new(r.attacker.clone()).function_call("raid_spoils".to_string(), json!({ "id": id }).to_string().into_bytes(), NearToken::from_yoctonear(spoils), GAS_CALL)
                 .then(Promise::new(env::current_account_id()).function_call("on_spoils_sent".to_string(), json!({ "amount": U128(spoils) }).to_string().into_bytes(), NearToken::from_yoctonear(0), GAS_CALL));
         } else if got > 0 { self.spoils_burn(now, got); }
@@ -283,6 +304,46 @@ impl Coin {
         got
     }
 
+    /// Scout (a Common, 5 Energy): during a raid, ask the enemy coin what tactic it has planned for the next round that
+    /// hasn't started. A Decoy shows up as a random real tactic. The answer is written into the raid for everyone on your side.
+    pub fn scout(&mut self) -> Promise {
+        let now = env::block_timestamp_ms();
+        let a = env::predecessor_account_id();
+        self.touch(now);
+        let r = self.raid.clone().unwrap_or_else(|| env::panic_str("no raid on"));
+        require!(r.phase == 2 && now < r.start + RAID_LEN, "no raid on");
+        let round = (0..3).find(|&i| now < round_start(&r, i)).unwrap_or_else(|| env::panic_str("every round has started"));
+        require!(r.scout[round] == 0, "that round is already scouted");
+        let mut h = self.settle(&a, now);
+        require!(self.is_qualified(&h, now), "hold >= 2 NEAR for 1h to scout");
+        require!(self.energy >= Card::Scout.energy(), "not enough Energy");
+        self.take_card(&mut h, Card::Scout, now); self.save(&a, h);
+        self.energy -= Card::Scout.energy();
+        let opp = if r.attacking { r.defender.clone() } else { r.attacker.clone() };
+        Promise::new(opp).function_call("raid_peek".to_string(), json!({ "id": r.id, "round": round }).to_string().into_bytes(), NearToken::from_yoctonear(0), GAS_CALL)
+            .then(Promise::new(env::current_account_id()).function_call("on_scout".to_string(), json!({ "id": r.id, "round": round }).to_string().into_bytes(), NearToken::from_yoctonear(0), GAS_CALL))
+    }
+
+    /// The enemy's planned tactic for a round that hasn't started, asked by the other side's Scout.
+    pub fn raid_peek(&self, id: u32, round: u8) -> u8 {
+        let r = self.raid.as_ref().unwrap_or_else(|| env::panic_str("no raid"));
+        let opp = if r.attacking { &r.defender } else { &r.attacker };
+        require!(r.id == id && r.phase == 2 && env::predecessor_account_id() == *opp, "not your raid");
+        let i = round as usize;
+        require!(i < 3 && env::block_timestamp_ms() < round_start(r, i), "that round has started");
+        let code = tactic_code(&r.votes[i]);
+        if code / 10 == 6 { let s = env::random_seed(); (1 + s[i] % 3) * 10 + code % 10 } else { code }
+    }
+
+    #[private]
+    pub fn on_scout(&mut self, id: u32, round: u8) {
+        if let PromiseResult::Successful(v) = env::promise_result(0) {
+            if let Ok(code) = near_sdk::serde_json::from_slice::<u8>(&v) {
+                if let Some(r) = self.raid.as_mut() { if r.id == id && (round as usize) < 3 { r.scout[round as usize] = if code == 0 { 255 } else { code }; } }
+            }
+        }
+    }
+
     pub fn get_raid(&self) -> Option<RaidView> { self.raid.as_ref().map(|r| self.raid_view(r)) }
     pub fn get_raids(&self) -> Vec<RaidView> { self.raids.iter().map(|r| self.raid_view(r)).collect() }
     /// Your own plan (hidden from views of other wallets).
@@ -294,7 +355,10 @@ pub fn current_round(r: &Raid, now: u64) -> Option<usize> {
     if r.phase != 2 { return None; }
     (0..3).find(|&i| now >= round_start(r, i) && now < round_start(r, i) + ROUND)
 }
-fn tactic_card(code: u8) -> Card { [Card::Rally, Card::Curse, Card::Ward][(code - 1) as usize] }
+fn tactic_card(code: u8) -> Card { [Card::Rally, Card::Curse, Card::Ward, Card::Mirror, Card::Counterspell, Card::Decoy][(code - 1) as usize] }
+
+/// Hard Raid doubles the spoils rate, and so does a Blood Moon; they stack.
+fn spoils_mult(r: &Raid) -> u128 { (if r.kind == 2 { 2 } else { 1 }) * (if r.blood { 2 } else { 1 }) }
 
 /// The side's tactic for a round: the card most wallets put there (min 3, ties = none). Returns tactic*10 + tier.
 pub fn tactic_code(v: &[u32]) -> u8 {
@@ -316,13 +380,20 @@ pub fn base_score(r: &Raid, i: usize) -> i64 {
     (10_000 + buy + crowd + lock).max(0)
 }
 
-/// Apply both sides' tactics. Rally ×1.05-1.10 (cancelled by a Curse); Curse ×0.95-0.90 on the enemy, turned back by a Ward.
+/// Apply both sides' tactics. Rally x1.05-1.10 (cancelled by a Curse); Curse x0.95-0.90 on the enemy, turned back by a Ward.
+/// Mirror (4) copies the enemy's tactic from the round before (nothing in round 1). Counterspell (5) cancels the enemy's tactic
+/// this round. Decoy (6) does nothing: it only looks like a real card to a Scout.
 pub fn score_rounds(my_base: &[u128], my_t: &[u8], their_base: &[u128], their_t: &[u8]) -> (Vec<u128>, Vec<u128>, Vec<i8>) {
     let mut a = vec![]; let mut b = vec![]; let mut rounds = vec![];
     for i in 0..3 {
         let (mut x, mut y) = (my_base[i], their_base[i]);
-        let (mt, mtier) = (my_t[i] / 10, (my_t[i] % 10) as usize);
-        let (tt, ttier) = (their_t[i] / 10, (their_t[i] % 10) as usize);
+        let (mraw, mtier) = (my_t[i] / 10, (my_t[i] % 10) as usize);
+        let (traw, ttier) = (their_t[i] / 10, (their_t[i] % 10) as usize);
+        let real = |t: u8| if (1..=3).contains(&t) { t } else { 0 };
+        let mut mt = if mraw == 4 { if i > 0 { real(their_t[i - 1] / 10) } else { 0 } } else { real(mraw) };
+        let mut tt = if traw == 4 { if i > 0 { real(my_t[i - 1] / 10) } else { 0 } } else { real(traw) };
+        if mraw == 5 { tt = 0; }
+        if traw == 5 { mt = 0; }
         if mt == 2 { if tt == 3 { x = bps(x, CURSE[mtier]); } else { y = bps(y, CURSE[mtier]); } }
         if tt == 2 { if mt == 3 { y = bps(y, CURSE[ttier]); } else { x = bps(x, CURSE[ttier]); } }
         if mt == 1 && tt != 2 { x = bps(x, RALLY[mtier]); }
@@ -336,8 +407,8 @@ pub fn score_rounds(my_base: &[u128], my_t: &[u8], their_base: &[u128], their_t:
 impl Coin {
     fn new_raid(&self, seq: u32, id: u32, attacker: AccountId, defender: AccountId, attacking: bool, now: u64, backers: Vec<AccountId>, needed: u32) -> Raid {
         Raid { seq, id, attacker, defender, attacking, phase: if attacking { 0 } else { 2 }, created: now, backers, needed, start: 0,
-            real_start: U128(0), circ_start: U128(0), qualified: 0, level: self.level, war: self.has(Rule::WarCoin), blood: false,
-            net_pos: vec![U128(0); 3], net_neg: vec![U128(0); 3], taps: vec![0; 3], lock: vec![U128(0); 3], votes: vec![vec![0; 3]; 3], planners: 0, result: None, note: String::new() }
+            real_start: U128(0), circ_start: U128(0), qualified: 0, level: self.level, war: self.has(Rule::WarCoin), blood: false, kind: 0, scout: vec![0; 3],
+            net_pos: vec![U128(0); 3], net_neg: vec![U128(0); 3], taps: vec![0; 3], lock: vec![U128(0); 3], votes: vec![vec![0; 6]; 3], planners: 0, result: None, note: String::new() }
     }
 
     /// Settings freeze when the raid starts.
@@ -397,7 +468,9 @@ impl Coin {
         if let Some(mut r) = self.raid.take() {
             r.phase = 4; r.result = Some(res);
             events::rulecard("raid_result", json!({ "id": r.id, "attacker": r.attacker, "defender": r.defender, "me": env::current_account_id(), "outcome": outcome }));
-            self.push_log(now, "raid", Some(if r.attacking { r.defender.clone() } else { r.attacker.clone() }), 0, 0, match outcome { 1 => "won", -1 => "lost", _ => "tie" });
+            let other = if r.attacking { r.defender.clone() } else { r.attacker.clone() };
+            if r.kind == 2 && outcome < 0 { self.banner = Some((other.clone(), now + 12 * HOUR)); } // Hard Raid: the loser flies the winner's banner
+            self.push_log(now, "raid", Some(other), 0, 0, match outcome { 1 => "won", -1 => "lost", _ => "tie" });
             self.raids.push(r); while self.raids.len() > 5 { self.raids.remove(0); }
         }
         self.last_raid_end = now;
@@ -430,7 +503,7 @@ impl Coin {
         for i in 0..3 {
             let s = h.slots[i]; if s == 0 { continue; }
             let used = r.map(|r| r.phase == 4 && tactic_code(&r.votes[i]) / 10 == s).unwrap_or(false);
-            if !used { self.return_card(h, tactic_card(s), 0); }
+            if !used { let exp = h.slot_exp[i]; self.return_card(h, tactic_card(s), exp); }
         }
         h.slots_done = true;
     }
@@ -476,7 +549,7 @@ impl Coin {
             buy: (0..3).map(|i| { let real = r.real_start.0.max(GN) as i128; ((r.net_pos[i].0 as i128 - r.net_neg[i].0 as i128) * 20_000 / real).clamp(-1_200, 1_200) as i64 }).collect(),
             crowd: r.taps.clone(), lock: (0..3).map(|i| ((r.lock[i].0 * 20_000 / r.circ_start.0.max(1)) as u32).min(600)).collect(),
             tactic: (0..3).map(|i| if r.phase >= 4 || now >= round_start(r, i) + ROUND { tactic_code(&r.votes[i]) } else { 0 }).collect(),
-            planners: r.planners, result: r.result.clone(), note: r.note.clone(),
+            planners: r.planners, result: r.result.clone(), note: r.note.clone(), kind: r.kind, scout: r.scout.clone(),
         }
     }
 }
