@@ -143,7 +143,8 @@ impl Coin {
             }
             Card::LastStand => {
                 require!(now >= self.last_stand_at + DAY, "Last Stand: once per coin per day");
-                let high = self.hi.iter().filter(|x| x.0 + 24 > now / HOUR).map(|x| x.1).max().unwrap_or(0);
+                // the reference high only counts hours before this one, so a pump in the current hour can't raise the bar and then be dumped
+                let high = self.hi.iter().filter(|x| x.0 + 24 > now / HOUR && x.0 < now / HOUR).map(|x| x.1).max().unwrap_or(0);
                 let price = self.pool().price();
                 // the dip must also show in the most recent full hour before this one, so a dump in the current hour can't trigger it
                 let held = self.hi.iter().rev().find(|x| x.0 < now / HOUR).map(|x| x.1 * 100 <= high * 75).unwrap_or(false);

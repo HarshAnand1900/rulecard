@@ -1194,6 +1194,20 @@ fn last_stand_needs_a_25_percent_dip_and_then_burns_from_the_pot() {
     assert!(pot - c.pot <= bps(pot, LAST_STAND_BPS) + 1);
 }
 
+#[test]
+fn a_pump_and_dump_in_one_hour_cannot_trigger_last_stand() {
+    let mut c = launch(vec![]);
+    buy(&mut c, 1, n(400), T0);                       // a quiet earlier hour at the normal price
+    buy(&mut c, 2, n(10), T0 + 1000); give(&mut c, 2, Card::LastStand, T0 + 3 * HOUR);
+    buy(&mut c, 4, n(2), T0 + HOUR / 2);
+    c.energy = 30;
+    let t3 = buy(&mut c, 3, n(100), T0 + 2 * HOUR + 1000); // the pump sets a new high inside this hour
+    ctx(3, 1, T0 + 2 * HOUR + 2000); let _ = c.sell(U128(t3), None); // and the dump brings it back
+    ctx(2, 0, T0 + 2 * HOUR + 3000);
+    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| { c.play_card(Card::LastStand, None); }));
+    assert!(r.is_err(), "the pump raised the 24h high only inside the current hour, which doesn't count");
+}
+
 // ------------------------------------------------------------------ new cards, batch 2: the Table (Stampede, Squeeze, Supernova, Black Hole, Harvest, Whale Tax, Alliance)
 /// A coin with `holders` qualified wallets (30 NEAR each, held for hours), at the given level, with the Energy set.
 fn crowd(holders: usize, level: u8, energy: u32) -> (Coin, u64) {
