@@ -17,9 +17,11 @@ mod cards;
 mod table;
 mod raid;
 mod omens;
+mod stakes;
 pub use raid::*;
 pub use omens::*;
 pub use cards::*;
+pub use stakes::*;
 pub use table::*;
 #[cfg(test)]
 mod tests;
@@ -277,6 +279,8 @@ pub struct Coin {
     /// highest price in each of the last 24 hours (hour number, price), for Last Stand
     pub(crate) hi: Vec<(u64, u128)>,
     pub(crate) banner: Option<(AccountId, u64)>,
+    pub(crate) duels: Vec<Duel>, pub(crate) next_duel: u32,
+    pub(crate) bounties: Vec<Bounty>, pub(crate) next_bounty: u32,
     pub(crate) harvest: Option<Harvest>,
     pub(crate) ally: Option<(AccountId, u64)>,
     // chart
@@ -359,7 +363,7 @@ impl Coin {
             epics_day: 0, epics_today: 0, last_ember: 0, hype_until: 0, hype_last: 0, rollcall_until: 0, rollcall_mult: 1, tag_until: 0,
             bets_held: 0, total_bought: 0, total_sold: 0,
             raid: None, raids: vec![], raid_seq: 0, last_raid_end: 0, last_raid_start: 0, last_attack: 0, omen: Omen::default(), squalls: vec![], droughts: vec![], blood_until: 0,
-            heat: 0, heat_at: 0, slowburn_until: 0, recruit_until: 0, recruit_left: 0, diamond_until: 0, whale_until: 0, last_stand_at: 0, hi: vec![], harvest: None, ally: None, banner: None,
+            heat: 0, heat_at: 0, slowburn_until: 0, recruit_until: 0, recruit_left: 0, diamond_until: 0, whale_until: 0, last_stand_at: 0, hi: vec![], harvest: None, ally: None, banner: None, duels: vec![], next_duel: 0, bounties: vec![], next_bounty: 0,
             prices: Vector::new(b"p"), price_seq: 0,
         };
         let me = env::current_account_id();

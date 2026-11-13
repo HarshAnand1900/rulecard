@@ -66,7 +66,7 @@ pub enum Question {
 
 #[near(serializers = [borsh, json])]
 #[derive(Clone)]
-pub struct Bet { pub account: AccountId, pub yes: bool, pub amount: U128 }
+pub struct Bet { pub account: AccountId, pub yes: bool, pub amount: U128, pub hedged: bool }
 
 #[near(serializers = [borsh, json])]
 #[derive(Clone)]
@@ -274,7 +274,7 @@ impl Coin {
         h.bal -= amount.0; h.no_trade_until = h.no_trade_until.max(resolve_at);
         self.save(&a, h);
         self.bets_held += amount.0;
-        self.table[i].bets.push(Bet { account: a.clone(), yes, amount });
+        self.table[i].bets.push(Bet { account: a.clone(), yes, amount, hedged: false });
         let me = env::current_account_id();
         events::ft_transfer(&a, &me, amount.0, Some("prophecy bet"));
     }
@@ -299,7 +299,7 @@ impl Coin {
         require!(self.pool().value(amount.0) >= GN / 10, "minimum throw 0.1 NEAR worth");
         h.bal -= amount.0; self.save(&a, h);
         self.bets_held += amount.0;
-        self.table[i].bets.push(Bet { account: a.clone(), yes: true, amount });
+        self.table[i].bets.push(Bet { account: a.clone(), yes: true, amount, hedged: false });
         events::ft_transfer(&a, &env::current_account_id(), amount.0, Some("black hole"));
     }
 
@@ -335,6 +335,43 @@ impl Coin {
         true
     }
 
+    /// Hedge (a Common, 5 Energy): attach it to your bets on an open Prophecy. A hedged bet that loses loses a quarter
+    /// instead of half; a hedged bet that wins gets 25% less of the winnings.
+    pub fn hedge(&mut self, id: u32) {
+        let now = env::block_timestamp_ms();
+        let a = env::predecessor_account_id();
+        self.touch(now);
+        let i = self.find(id);
+        require!(self.table[i].card == Card::Prophecy && (1..=2).contains(&self.table[i].phase), "Hedge goes on a Prophecy that is taking or waiting on bets");
+        require!(self.table[i].bets.iter().any(|b| b.account == a), "you have no bet on this Prophecy");
+        require!(self.table[i].bets.iter().filter(|b| b.account == a).all(|b| !b.hedged), "already hedged");
+        require!(self.energy >= Card::Hedge.energy(), "not enough Energy");
+        let mut h = self.settle(&a, now);
+        self.take_card(&mut h, Card::Hedge, now); self.save(&a, h);
+        self.energy -= Card::Hedge.energy();
+        for b in self.table[i].bets.iter_mut().filter(|b| b.account == a) { b.hedged = true; }
+        events::rulecard("hedge", json!({ "id": id, "account_id": a }));
+    }
+
+    /// Counterspell (a Rare, 20 Energy): cancel a Common or Rare card that is still gathering backers or signers.
+    /// Its owner gets the card back but waits an hour; whatever the crowd put in is refunded.
+    pub fn counterspell_card(&mut self, id: u32) {
+        let now = env::block_timestamp_ms();
+        let a = env::predecessor_account_id();
+        self.touch(now);
+        let i = self.find(id);
+        let p = &self.table[i];
+        require!(p.phase == 0 && now < p.phase_end, "only a card that is still gathering backers or signers");
+        require!(p.card.tier() <= 1, "a Counterspell stops Commons and Rares");
+        require!(p.proposer != a, "you can't counter your own card");
+        require!(self.energy >= Card::Counterspell.energy(), "not enough Energy");
+        let mut h = self.settle(&a, now);
+        let exp = self.take_card(&mut h, Card::Counterspell, now); self.free_stock(Card::Counterspell, exp); self.save(&a, h);
+        self.energy -= Card::Counterspell.energy();
+        self.fail(i, now, "countered");
+        self.archive();
+    }
+
     /// Move a card forward if its time has come. Anyone can call it.
     pub fn resolve(&mut self, id: u32) { let now = env::block_timestamp_ms(); self.touch(now); if let Some(i) = self.table.iter().position(|p| p.id == id) { self.step(i, now); self.archive(); } }
 
@@ -348,7 +385,7 @@ impl Coin {
     fn find(&self, id: u32) -> usize { self.table.iter().position(|p| p.id == id).unwrap_or_else(|| env::panic_str("no such card on the table")) }
     fn roll_epic_day(&mut self, now: u64) { if self.epics_day != now / DAY { self.epics_day = now / DAY; self.epics_today = 0; } }
 
-    fn check_question(&self, q: &Question) {
+    pub(crate) fn check_question(&self, q: &Question) {
         match q {
             Question::Line { price } => {
                 let p = self.pool().price(); let d = p.abs_diff(price.0) * 10_000 / p.max(1);
@@ -371,7 +408,7 @@ impl Coin {
         }
     }
 
-    fn answer(&self, q: &Question, snap: u128) -> bool {
+    pub(crate) fn answer(&self, q: &Question, snap: u128) -> bool {
         match q {
             Question::Line { price } => self.pool().price() >= price.0,
             Question::Tide => (self.total_bought as i128 - self.total_sold as i128 + i128::MAX / 2) as u128 > snap,
@@ -408,7 +445,7 @@ impl Coin {
         self.archive();
     }
 
-    fn archive(&mut self) {
+    pub(crate) fn archive(&mut self) {
         let (done, open): (Vec<Proposal>, Vec<Proposal>) = std::mem::take(&mut self.table).into_iter().partition(|p| p.phase == 3);
         self.table = open;
         for p in done { self.history.push(p); }
@@ -451,7 +488,7 @@ impl Coin {
 
     fn nonce_jitter(&mut self) -> u64 { self.rand() % FIRE_JITTER_MS }
 
-    fn fail(&mut self, i: usize, now: u64, why: &str) {
+    pub(crate) fn fail(&mut self, i: usize, now: u64, why: &str) {
         let p = self.table[i].clone();
         let mut h = self.holder(&p.proposer); self.return_card(&mut h, p.card, p.card_exp); h.cooldown_until = now + FAIL_COOLDOWN; self.save(&p.proposer, h);
         if p.card == Card::Ember { for b in p.backers.iter().skip(1) { let mut h = self.holder(b); self.return_card(&mut h, Card::Ember, 0); self.save(b, h); } }
@@ -624,11 +661,14 @@ impl Coin {
             return;
         }
         let yes = self.answer(&q, p.snapshot.0);
-        let (win_total, lose_total) = if yes { (yes_total, no_total) } else { (no_total, yes_total) };
-        let to_winners = lose_total * 3 / 10; let to_caster = lose_total / 10; let to_burn = lose_total / 2 - to_winners - to_caster;
+        let win_total = if yes { yes_total } else { no_total };
+        // a loser loses half of its bet (a quarter if it is hedged); of what is lost, 60% goes to the winners, 20% to the caster, 20% burns
+        let loss = |b: &Bet| if b.hedged { b.amount.0 / 4 } else { b.amount.0 / 2 };
+        let pool: u128 = p.bets.iter().filter(|b| b.yes != yes).map(loss).sum();
+        let to_winners = pool * 6 / 10; let to_caster = pool * 2 / 10;
         let mut paid = 0u128;
         for b in &p.bets {
-            let back = if b.yes == yes { b.amount.0 + mul_div(to_winners, b.amount.0, win_total) } else { b.amount.0 - b.amount.0 / 2 };
+            let back = if b.yes == yes { let g = mul_div(to_winners, b.amount.0, win_total); b.amount.0 + if b.hedged { g * 3 / 4 } else { g } } else { b.amount.0 - loss(b) };
             paid += back;
             let mut h = self.settle(&b.account, now); h.bal += back; self.save(&b.account, h);
             events::ft_transfer(&me, &b.account, back, Some("prophecy payout"));
@@ -641,7 +681,6 @@ impl Coin {
         let held = yes_total + no_total;
         self.bets_held -= held;
         let burn = held - paid - if oracle { 0 } else { to_caster }; // to_burn plus rounding dust
-        let _ = to_burn;
         self.burn_circ(now, &me, burn, "Prophecy losers");
         let what = format!("answer: {}", if yes { "Yes" } else { "No" });
         let t = &mut self.table[i]; t.phase = 3; t.result = what.clone();

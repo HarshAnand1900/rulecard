@@ -1504,3 +1504,146 @@ fn only_the_enemy_coin_may_peek_at_a_plan() {
     ctx_as("toad.rulecard.testnet".parse().unwrap(), 0, t + 10, vec![]);
     c.raid_peek(7, 0);
 }
+
+// ------------------------------------------------------------------ new cards, batch 4: Hedge, Counterspell, Duel, Bounty
+#[test]
+fn hedge_makes_a_loser_lose_a_quarter_and_trims_a_winners_gain() {
+    let mut c = launch(vec![]);
+    for i in 1..=11 { buy(&mut c, i, n(20), T0 + i as u64); }
+    give(&mut c, 1, Card::Prophecy, T0 + HOUR); give(&mut c, 7, Card::Hedge, T0); give(&mut c, 2, Card::Hedge, T0);
+    c.energy = 40;
+    let t0 = T0 + 2 * HOUR;
+    ctx(1, 0, t0); let id = c.play_card(Card::Prophecy, Some(Question::Tide));
+    ctx(2, 0, t0 + 1); c.back(id); ctx(3, 0, t0 + 2); c.back(id);
+    ctx(4, 0, t0 + BACK_WINDOW + 1); c.poke();
+    let stake = bal(&c, 2) / 10;
+    for i in 2..=9 { ctx(i, 1, t0 + BACK_WINDOW + 10 + i as u64); c.bet(id, i <= 6, U128(stake)); } // wallets 2-6 Yes, 7-9 No
+    ctx(7, 0, t0 + BACK_WINDOW + 40); c.hedge(id);
+    ctx(2, 0, t0 + BACK_WINDOW + 41); c.hedge(id);
+    buy(&mut c, 10, n(5), t0 + BACK_WINDOW + BET_WINDOW + HOUR);
+    let (b2, b3, b7, b8) = (bal(&c, 2), bal(&c, 3), bal(&c, 7), bal(&c, 8));
+    ctx(11, 0, t0 + BACK_WINDOW + BET_WINDOW + PROPHECY_LEN + 1); c.poke();
+    assert_eq!(c.get_history()[0].result, "answer: Yes");
+    assert_eq!(bal(&c, 7) - b7, stake - stake / 4, "the hedged loser keeps 75%");
+    assert_eq!(bal(&c, 8) - b8, stake - stake / 2, "an unhedged loser keeps 50%");
+    let pool = stake / 4 + 2 * (stake / 2);
+    let g = pool * 6 / 10 / 5; // one winner's share before the hedge
+    assert!(close(bal(&c, 3) - b3, stake + g), "an unhedged winner gets its share");
+    assert!(close(bal(&c, 2) - b2, stake + g * 3 / 4), "a hedged winner gets 25% less of the gain");
+    assert_eq!(c.bets_held, 0);
+    check_supply(&mut c, &(1..=11).collect::<Vec<_>>(), t0 + 4 * HOUR);
+}
+
+#[test]
+#[should_panic(expected = "you have no bet")]
+fn hedge_needs_a_bet() {
+    let mut c = launch(vec![]);
+    for i in 1..=4 { buy(&mut c, i, n(20), T0 + i as u64); }
+    give(&mut c, 1, Card::Prophecy, T0); give(&mut c, 4, Card::Hedge, T0); c.energy = 40;
+    let t0 = T0 + 2 * HOUR;
+    ctx(1, 0, t0); let id = c.play_card(Card::Prophecy, Some(Question::Tide));
+    ctx(2, 0, t0 + 1); c.back(id); ctx(3, 0, t0 + 2); c.back(id);
+    ctx(2, 0, t0 + BACK_WINDOW + 1); c.poke();
+    ctx(4, 0, t0 + BACK_WINDOW + 10); c.hedge(id);
+}
+
+#[test]
+fn a_counterspell_cancels_a_card_that_is_still_gathering_backers() {
+    let mut c = launch(vec![]);
+    for i in 1..=4 { buy(&mut c, i, n(10), T0 + i as u64); }
+    give(&mut c, 1, Card::Ember, T0); give(&mut c, 2, Card::Counterspell, T0);
+    c.energy = 30;
+    ctx(1, 0, T0 + HOUR); let id = c.play_card(Card::Ember, None);
+    ctx(2, 0, T0 + HOUR + 1000); c.counterspell_card(id);
+    assert!(c.get_table().is_empty());
+    assert_eq!(c.get_history()[0].result, "failed: countered");
+    assert_eq!(c.holder(&acc(1)).commons[Card::Ember.common_index().unwrap()], 1, "the Ember went back to its owner");
+    assert_eq!(c.energy, 10, "the Counterspell cost 20 Energy");
+}
+
+#[test]
+#[should_panic(expected = "you can't counter your own card")]
+fn you_cant_counter_your_own_card() {
+    let mut c = launch(vec![]);
+    buy(&mut c, 1, n(10), T0);
+    give(&mut c, 1, Card::Ember, T0); give(&mut c, 1, Card::Counterspell, T0); c.energy = 30;
+    ctx(1, 0, T0 + HOUR); let id = c.play_card(Card::Ember, None);
+    ctx(1, 0, T0 + HOUR + 10); c.counterspell_card(id);
+}
+
+#[test]
+fn a_duel_pays_the_winner_the_pot_minus_ten_percent_and_locks_trading() {
+    let mut c = launch(vec![]);
+    for i in 1..=4 { buy(&mut c, i, n(20), T0 + i as u64); }
+    give(&mut c, 1, Card::Duel, T0); c.energy = 30;
+    let stake = bal(&c, 1) / 10; let (a0, b0) = (bal(&c, 1), bal(&c, 2));
+    ctx(1, 0, T0 + HOUR); let id = c.duel_challenge(acc(2), U128(stake), true);
+    assert_eq!(bal(&c, 1), a0 - stake);
+    ctx(2, 0, T0 + HOUR + 1000); c.duel_accept(id);
+    assert_eq!(c.bets_held, bal_stake_sum(stake));
+    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| { ctx(2, 1, T0 + HOUR + 2000); c.sell(U128(1), None); }));
+    assert!(r.is_err(), "a duelist can't trade");
+    buy(&mut c, 3, n(5), T0 + HOUR + 20 * MIN); // the coin is a net buyer, so the Yes side wins
+    let burned = c.burned;
+    ctx(4, 0, T0 + HOUR + 1000 + DUEL_LEN + 1); c.poke();
+    assert!(c.get_duels()[0].result.starts_with("winner"), "{}", c.get_duels()[0].result);
+    assert_eq!(bal(&c, 1), a0 - stake + 2 * stake - bps(2 * stake, DUEL_BURN_BPS), "the challenger wins both stakes minus 10%");
+    assert_eq!(bal(&c, 2), b0 - stake);
+    assert!(c.burned - burned >= bps(2 * stake, DUEL_BURN_BPS) - 1);
+    assert_eq!(c.bets_held, 0);
+    check_supply(&mut c, &[1, 2, 3, 4], T0 + 3 * HOUR);
+}
+fn bal_stake_sum(stake: u128) -> u128 { 2 * stake }
+
+#[test]
+fn an_unanswered_duel_is_refunded() {
+    let mut c = launch(vec![]);
+    for i in 1..=2 { buy(&mut c, i, n(20), T0 + i as u64); }
+    give(&mut c, 1, Card::Duel, T0); c.energy = 30;
+    let stake = bal(&c, 1) / 10; let a0 = bal(&c, 1);
+    ctx(1, 0, T0 + HOUR); let _ = c.duel_challenge(acc(2), U128(stake), false);
+    ctx(2, 0, T0 + HOUR + DUEL_OPEN + 1); c.poke();
+    assert_eq!(bal(&c, 1), a0, "refunded");
+    assert!(c.get_duels()[0].result.starts_with("refunded"));
+    assert_eq!(c.bets_held, 0);
+}
+
+#[test]
+#[should_panic(expected = "closed, or not for you")]
+fn only_the_challenged_wallet_can_accept() {
+    let mut c = launch(vec![]);
+    for i in 1..=3 { buy(&mut c, i, n(20), T0 + i as u64); }
+    give(&mut c, 1, Card::Duel, T0); c.energy = 30;
+    ctx(1, 0, T0 + HOUR); let id = c.duel_challenge(acc(2), U128(bal(&c, 1) / 10), true);
+    ctx(3, 0, T0 + HOUR + 10); c.duel_accept(id);
+}
+
+#[test]
+fn a_met_bounty_pays_a_bonus_and_a_missed_one_burns_ten_percent() {
+    for met in [true, false] {
+        let mut c = launch(vec![]);
+        for i in 1..=4 { buy(&mut c, i + if met { 0 } else { 10 }, n(20), T0 + i as u64); }
+        let o = if met { 0 } else { 10 };
+        give(&mut c, o + 1, Card::Bounty, T0); c.energy = 30;
+        let pledge = bal(&c, o + 1) / 10; let p2 = bal(&c, o + 2) / 20;
+        let (a0, b0) = (bal(&c, o + 1), bal(&c, o + 2));
+        ctx(o + 1, 0, T0 + HOUR); let id = c.bounty_open(Question::Tide, U128(pledge));
+        ctx(o + 2, 0, T0 + HOUR + 10); c.bounty_pledge(id, U128(p2));
+        assert_eq!(c.bets_held, pledge + p2);
+        if met { buy(&mut c, o + 3, n(5), T0 + 2 * HOUR); } // net buying: the goal is met
+        let rp = c.reward_pool; let burned = c.burned;
+        ctx(o + 4, 0, T0 + HOUR + BOUNTY_LEN + 1); c.poke();
+        assert_eq!(c.bets_held, 0);
+        let b = c.get_bounties()[0].clone();
+        if met {
+            assert!(b.result.starts_with("goal met"), "{}", b.result);
+            assert!(bal(&c, o + 1) > a0 && bal(&c, o + 2) > b0, "pledgers got a bonus");
+            assert!(rp > c.reward_pool, "from the reward pool");
+        } else {
+            assert!(b.result.starts_with("goal missed"), "{}", b.result);
+            assert_eq!(bal(&c, o + 1), a0 - bps(pledge, BOUNTY_MISS_BURN_BPS), "90% back");
+            assert!(c.burned - burned >= bps(pledge + p2, BOUNTY_MISS_BURN_BPS) - 2, "10% burned");
+        }
+        check_supply(&mut c, &[o + 1, o + 2, o + 3, o + 4], T0 + 10 * HOUR);
+    }
+}

@@ -264,6 +264,7 @@ impl Coin {
         if self.ritual.day < today { self.ritual.day = today; }
         self.touch_omen(now);
         self.step_all(now);
+        self.step_stakes(now);
         self.expire_raid(now);
     }
 
