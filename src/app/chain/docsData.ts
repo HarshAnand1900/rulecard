@@ -212,7 +212,7 @@ export const DOCS: DocPage[] = [
     id: 'launch', group: 'Build', title: 'Launching a coin', summary: 'Name it, pick rules, add a seed.',
     parts: [
       { id: 'steps', title: 'Steps', blocks: [
-        { steps: ['Connect a wallet. Use your own testnet account so the coin is tied to you.', 'Open Launch from the + button in the top bar.', 'Pick a name, a symbol and up to three rules.', 'Add a seed. It goes into the bonding curve as the first liquidity.', 'Sign. The factory deploys the coin as its own contract.'] } ] },
+        { steps: ['Connect a wallet. Use your own testnet account so the coin is tied to you.', 'Open Launch from the + button in the top bar.', 'Pick a name, a symbol and up to three rules. You can also upload a coin picture: it is cropped to a square, shrunk to about 9 KB and saved inside the coin on chain, so it cannot be changed later. Without one, the coin draws its own face from its war record.', 'Add a seed. It goes into the bonding curve as the first liquidity.', 'Sign. The factory deploys the coin as its own contract.'] } ] },
       { id: 'cost', title: 'What it costs', blocks: [
         { ul: ['Seed: between 5 and 100 NEAR at full size. The demo factory uses one hundredth of that.', 'Storage deposit: held by the coin account to pay for its code. The launch screen shows the exact amount.', 'Gas: a small network fee.'] } ] },
       { id: 'cannot', title: 'What you cannot do', blocks: [{ ul: ['Pull the seed back out.', 'Change a rule, mint more, or freeze anyone\'s tokens.', 'Take the creator escrow before the coin graduates.'] }] },

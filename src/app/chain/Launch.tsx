@@ -21,11 +21,13 @@ const PRESETS: { name: string; blurb: string; rules: Rule[] }[] = [
   { name: 'Peaceful', blurb: 'No raids early, creator locked', rules: ['PeaceCoin', 'CreatorLock'] },
 ];
 const STEPS = ['Identity', 'Rules', 'Seed', 'Review'];
+const ICON_MAX = 12000; // characters of data URI (about 9 KB of image)
 
 export default function Launch({ ch, me, act, busy, go, coins }: {
   ch: Net; me: string; act: (l: string, f: () => Promise<unknown>, d?: string) => Promise<void>; busy: string; go: (p: { kind: 'coin'; id: string }) => void; coins: CoinEntry[];
 }) {
   const [name, setName] = useState(''); const [sym, setSym] = useState(''); const [seed, setSeed] = useState(20); const [rules, setRules] = useState<Rule[]>([]);
+  const [icon, setIcon] = useState<string | null>(null); const [iconErr, setIconErr] = useState('');
   const [deposit, setDeposit] = useState(5);
   const [bounds, setBounds] = useState<[number, number]>([5, 100]);
   const [bal, setBal] = useState<number | null>(null);
@@ -33,6 +35,26 @@ export default function Launch({ ch, me, act, busy, go, coins }: {
   useEffect(() => { ch.view(ch.factoryId, 'get_params').then((p: any) => { setDeposit(toNear(p.deploy_deposit)); const b: [number, number] = [toNear(p.seed_min), toNear(p.seed_max)]; setBounds(b); setSeed(s => Math.min(b[1], Math.max(b[0], s > b[1] ? b[0] * 4 : s))); }); }, [ch, ch.scale]);
   useEffect(() => { ch.balance().then(setBal).catch(() => {}); }, [ch, me]);
 
+  // The coin's picture: cropped to a square, shrunk and re-encoded until it is small enough to live on the chain inside the coin (every call loads it).
+  const pickIcon = async (f: File | undefined) => {
+    setIconErr(''); if (!f) return;
+    if (!f.type.startsWith('image/')) { setIconErr('Choose an image file (PNG, JPG, WebP or GIF).'); return; }
+    if (f.size > 8 * 1024 * 1024) { setIconErr('That file is over 8 MB. Pick a smaller picture.'); return; }
+    try {
+      const bmp = await createImageBitmap(f);
+      const side = Math.min(bmp.width, bmp.height);
+      for (const px of [160, 128, 96, 72]) {
+        const cv = document.createElement('canvas'); cv.width = cv.height = px;
+        const g = cv.getContext('2d'); if (!g) throw new Error('canvas');
+        g.drawImage(bmp, (bmp.width - side) / 2, (bmp.height - side) / 2, side, side, 0, 0, px, px);
+        for (const q of [0.85, 0.7, 0.55, 0.4]) {
+          const url = cv.toDataURL('image/webp', q);
+          if (url.startsWith('data:image/webp') && url.length <= ICON_MAX) { setIcon(url); return; }
+        }
+      }
+      setIconErr('That picture is too detailed to fit on the chain. Try a simpler one.');
+    } catch { setIconErr('Could not read that image. Try a PNG or JPG.'); }
+  };
   const toggle = (r: Rule) => setRules(rs => rs.includes(r) ? rs.filter(x => x !== r) : rs.length < 3 ? [...rs, r] : rs);
   const taxClash = rules.includes('PaperTax') && rules.includes('SoftTax');
   const symOk = /^[a-zA-Z0-9]{2,10}$/.test(sym);
@@ -62,6 +84,17 @@ export default function Launch({ ch, me, act, busy, go, coins }: {
               <label>Ticker<div className="tickbox"><span className="mono">$</span><input value={sym} maxLength={10} onChange={e => setSym(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} placeholder="FROG" /></div>
                 <small className={`lhint ${taken || (sym && !symOk) ? 'bad' : sym && symOk ? 'ok' : ''}`}>{taken ? 'This ticker is already taken.' : sym && !symOk ? '2 to 10 letters or numbers.' : sym ? `Contract: ${ch.coinId(sym)}` : '2 to 10 letters or numbers. It becomes the contract name.'}</small>
               </label>
+              <div className="iconpick">
+                <span className="iconprev" aria-hidden="true">{icon ? <img src={icon} alt="" /> : <b>{(sym || '?').slice(0, 3)}</b>}</span>
+                <div className="iconctl">
+                  <strong className="small">Coin picture <span className="muted">(optional)</span></strong>
+                  <div className="row gap wrap">
+                    <label className="btn ghost small filebtn">{icon ? 'Change picture' : 'Upload a picture'}<input type="file" accept="image/*" onChange={e => { void pickIcon(e.target.files?.[0]); e.target.value = ''; }} /></label>
+                    {icon && <button type="button" className="btn ghost small" onClick={() => { setIcon(null); setIconErr(''); }}>Remove</button>}
+                  </div>
+                  <small className={`lhint ${iconErr ? 'bad' : ''}`}>{iconErr || (icon ? `Saved inside the coin on chain (${Math.round(icon.length / 1024 * 10) / 10} KB). It can't be changed later.` : 'Cropped to a square and shrunk to fit on the chain. Without one, the coin draws its own face from its war record.')}</small>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -103,7 +136,7 @@ export default function Launch({ ch, me, act, busy, go, coins }: {
               <div className="feelegend small"><span><i className="d1" />1.5% to the pot</span><span><i className="d2" />0.3% protocol</span><span><i className="d3" />0.2% creator escrow, paid at graduation</span></div></div>
             <label className="agree"><input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} /><span>I understand the name, rules and seed cannot be changed or taken back. There is no admin key.</span></label>
             <button className="btn big-cta buy" disabled={!!reason || !!busy} onClick={() => act('Launch', async () => {
-              await ch.call(ch.factoryId, 'create_coin', { name, symbol: sym, icon: null, rules }, nearToYocto(total));
+              await ch.call(ch.factoryId, 'create_coin', { name, symbol: sym, icon, rules }, nearToYocto(total));
               go({ kind: 'coin', id: ch.coinId(sym) });
             }, `$${sym} launched`)}>{busy ? `${busy}…` : reason || `Launch $${sym} for ${fmtNear(total)} NEAR`}</button>
           </div>
@@ -113,7 +146,7 @@ export default function Launch({ ch, me, act, busy, go, coins }: {
           <div className="panel lprev" style={{ ['--ac' as any]: color, ['--m' as any]: `url(/bg/jokers/${joker}.png)` }}>
             <div className="muted small mono">PREVIEW</div>
             <div className="lp-card">
-              <span className="avatar big" aria-hidden="true"><b>{(sym || '?').slice(0, 4)}</b></span>
+              <span className="avatar big" aria-hidden="true">{icon ? <img src={icon} alt="" /> : <b>{(sym || '?').slice(0, 4)}</b>}</span>
               <div className="lp-id"><strong className="lp-sym">${sym || 'TICKER'}</strong><span className="muted">{name || 'Your coin name'}</span></div>
               <span className="lvl l1">L1 Launched</span>
             </div>
