@@ -15,6 +15,8 @@ export const DOCS: DocPage[] = [
         { steps: ['Buy a small bag of a coin.', 'Say gm to check in. This builds the coin\'s daily Ritual and stops your bag from burning.', 'Lock some tokens in the Vault to keep them safe and earn a share of what sleepers lose.', 'Open packs of rule cards and play them together with other holders.', 'Join raids against other coins and watch the War Map.'] } ] },
       { id: 'testnet', title: 'Testnet only', blocks: [
         { note: 'Everything runs on NEAR testnet. Testnet NEAR and every coin have no value. Nothing here is financial advice.' } ] },
+      { id: 'hackathon', title: 'Built for the NEAR hackathon', blocks: [
+        { p: 'Rulecard is entered in the Memecoins With Mechanics track: memecoins where the meme does something, judged on the mechanic and not the chart. Each coin is a real NEP 141 contract with its rules in the contract, no admin key, and a page that shows today’s progress and every mint and burn. The Judges page checks the books live on the chain, and the repository README has the track requirements, the simulations and the honest limits.' } ] },
     ],
   },
   {

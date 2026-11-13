@@ -21,7 +21,19 @@ a rule or print an admin.
 - Earlier world (v1, 9 cards / 4 Omens, kept for reference and no longer updated): [`demo2.harshtest1.testnet`](https://testnet.nearblocks.io/address/demo2.harshtest1.testnet)
 - App: **https://rulecard-lime.vercel.app** (press PLAY: no wallet, no sign-up). To run it yourself: `npx vite --mode testnet`, see [docs/deploy.md](docs/deploy.md)
 
-Track: **Memecoins With Mechanics** (NEAR).
+**Hackathon submission**
+
+| | |
+|---|---|
+| Hackathon | NEAR hackathon |
+| Track | **Memecoins With Mechanics** ([11 / MEM]: "build memecoins where the meme does something", judged on the mechanic, not the chart) |
+| What it is | a league of memecoins: each coin is its own NEP-141 contract, communities must show up daily or their bags burn, and coins raid each other |
+| Network | NEAR testnet, demo scale (see [Testnet today, mainnet later](#testnet-today-mainnet-later-what-changes-and-what-doesnt)). Nothing is deployed to mainnet |
+| Try it | https://rulecard-lime.vercel.app (press PLAY, no wallet needed) |
+| Verify it | the app's **Judges** page: zero access keys, no admin, supply and burn books add up, and forbidden transactions refused live |
+| Source | https://github.com/HarshAnand1900/rulecard (contracts in `contracts/`, app in `src/`, simulations in `research/`) |
+| Tests | 116 coin tests and 7 factory tests at both scales, plus randomized fuzz runs (`npm test`) |
+| Submitted | before the 2026-11-14 23:59 UTC deadline |
 
 ## Judges: start here (5 minutes)
 
