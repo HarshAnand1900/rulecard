@@ -15,6 +15,7 @@ import { TIER_OF, TIER_NAME, CARD_TEXT, CARD_SYMBOL, RULE_TEXT, LEVEL_NAME, OMEN
 import PriceChart, { type PricePoint, toMicro } from './PriceChart';
 import Proof from './Proof';
 import WarMap from './WarMap';
+import RaidArena from './RaidArena';
 import Profile from './Profile';
 import Docs from './Docs';
 import Launch from './Launch';
@@ -34,7 +35,7 @@ const TACTIC_CARDS: Card[] = ['Rally', 'Curse', 'Ward', 'Mirror', 'Counterspell'
 const SIGNED: Card[] = ['Inferno', 'BlackHole', 'Harvest', 'WhaleTax', 'Alliance', 'Supernova'];
 const tacticName = (code: number) => (code ? `${TACTIC[Math.floor(code / 10)]} ×${['1', '2', '3'][code % 10]}` : '—');
 
-type Page = { kind: 'discover' } | { kind: 'profile' } | { kind: 'docs' } | { kind: 'launch' } | { kind: 'proof' } | { kind: 'war' } | { kind: 'coin'; id: string };
+type Page = { kind: 'discover' } | { kind: 'profile' } | { kind: 'docs' } | { kind: 'launch' } | { kind: 'proof' } | { kind: 'war' } | { kind: 'arena'; id: string } | { kind: 'coin'; id: string };
 type Tab = 'trade' | 'today' | 'cards' | 'vault' | 'raid' | 'log';
 
 export default function ChainApp() {
@@ -145,7 +146,7 @@ export default function ChainApp() {
       </div></div>}
       {busy && <div className="busy" role="status">⏳ {busy}…</div>}
       {toast && <div className={`toast ${toast.ok ? 'ok' : 'bad'}`} role="status">{toast.text}</div>}
-      <main className="page" key={page.kind === 'coin' ? page.id : page.kind}>
+      <main className="page" key={page.kind === 'coin' || page.kind === 'arena' ? `${page.kind}-${page.id}` : page.kind}>
         {ch.scale === 'demo' && !practice && <div className="demo-banner"><strong>Demo mode</strong>: same contract rules, but every NEAR amount is ÷100 and time runs 12× faster (gm every 30 min, a Ritual day is 2h, raid rounds 100 s). Separate factory and coins. Switch to <em>Real</em> for full-size numbers.</div>}
         {listErr && <div className="warn">{listErr}</div>}
         {page.kind === 'discover' && <Discover {...ctx} />}
@@ -154,7 +155,8 @@ export default function ChainApp() {
         {page.kind === 'profile' && <Profile ch={ch} me={me} bal={bal} coins={coins} tick={tick} go={id => setPage({ kind: 'coin', id })} onBackup={() => setModal('key')} onSwitch={() => switchDoor(practice ? 'wallet' : 'practice')}
           onReset={() => { if (confirm('Start over with a brand-new practice wallet? The current one is forgotten.')) { ch.resetWallet!(); location.reload(); } }} onGuide={openGuide} />}
         {page.kind === 'proof' && <Proof ch={ch} coins={coins} tick={tick} />}
-        {page.kind === 'war' && <WarMap ch={ch} coins={coins} tick={tick} go={id => setPage({ kind: 'coin', id })} />}
+        {page.kind === 'war' && <WarMap ch={ch} coins={coins} tick={tick} go={id => setPage({ kind: 'coin', id })} arena={id => setPage({ kind: 'arena', id })} />}
+        {page.kind === 'arena' && <RaidArena ch={ch} me={me} id={page.id} coins={coins} tick={tick} act={act} busy={busy} back={() => setPage({ kind: 'coin', id: page.id })} go={id => setPage({ kind: 'coin', id })} />}
         {page.kind === 'coin' && <CoinPage {...ctx} id={page.id} />}
       </main>
     </>
@@ -303,7 +305,7 @@ interface CoinData { c: CoinView; h: HolderView | null; r: Ritual; lv: LevelView
 function CoinPage(p: Ctx & { id: string }) {
   const { ch, me, act, busy, tick, id } = p;
   const [d, setD] = useState<CoinData | null>(null);
-  const [tab, setTab] = useState<Tab>('trade');
+  const [tab, setTab] = useState<Tab>(() => { try { const t = sessionStorage.getItem('rc-open-tab'); sessionStorage.removeItem('rc-open-tab'); return t === 'raid' ? 'raid' : 'trade'; } catch { return 'trade'; } });
   const [lockPrompt, setLockPrompt] = useState<bigint | null>(null);
   useEffect(() => {
     (async () => {
@@ -379,7 +381,7 @@ function CoinPage(p: Ctx & { id: string }) {
             ? <div className={`omencard ${d.omen.phase}`} role="status" title={d.omen.text} style={{ ['--oc' as any]: OMEN_COLOR[d.omen.name] }}><span className="oc-top mono"><span>{d.omen.phase === 'active' ? 'OMEN ACTIVE' : 'OMEN INCOMING'}</span><InfoDot title={d.omen.name} align="left"><OmenInfo name={d.omen.name} text={d.omen.text} phase={d.omen.phase} /></InfoDot></span><strong>{d.omen.name}</strong><small className="mono">{d.omen.phase === 'active' ? `ends in ${dur(d.omen.ends_at - now)}` : `starts in ${dur(d.omen.starts_at - now)}`}</small></div>
             : <div className="omencard none" title="Omens are short luck events every few hours"><span className="oc-top mono"><span>OMENS</span><InfoDot title="Omens" align="left"><OmenInfo name="" text="" phase="none" /></InfoDot></span><strong>{c.level < 2 ? 'From level 2' : 'None right now'}</strong><small className="mono">luck events</small></div>}
           <button className={`gmbtn ${!h ? 'off' : gmReady ? 'ready' : 'wait'} ${idleBurning ? 'burning' : ''}`} disabled={!h || !gmReady || !!busy} onClick={() => call('gm', 'gm', {}, 0n, 'gm! +Energy, idle clock reset')}
-            aria-label={!h ? 'gm: buy to join first' : gmReady ? 'Say gm' : `gm available in ${dur(h.next_gm - now)}`}>
+            title={h && h.last_gm ? (idleBurning ? 'Idle burn is running now' : `Idle burn starts in ${dur(h.idle_burn_starts - now)}`) : undefined} aria-label={!h ? 'gm: buy to join first' : gmReady ? 'Say gm' : `gm available in ${dur(h.next_gm - now)}`}>
             <span className="gm-sun" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" /><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5.3 5.3l1.9 1.9M16.8 16.8l1.9 1.9M18.7 5.3l-1.9 1.9M7.2 16.8l-1.9 1.9" /></svg></span>
             <span className="gm-main"><strong>{!h ? 'gm' : gmReady ? 'Say gm' : 'gm'}</strong><small className="mono">{!h ? 'Buy to join' : gmReady ? (idleBurning ? 'idle burn is running' : 'check in now') : `next in ${dur(h.next_gm - now)}`}</small></span>
             <span className="gm-bar" aria-hidden="true"><i style={{ width: `${h && h.last_gm && !gmReady ? Math.min(100, Math.max(0, 100 - ((h.next_gm - now) / ((6 * HOUR) / TS)) * 100)) : 100}%` }} /></span>
@@ -394,7 +396,7 @@ function CoinPage(p: Ctx & { id: string }) {
 
       {c.graduated && <div className="grad-banner">🎓 <strong>${c.symbol} graduated</strong>: its curve sold out, so buys, rituals, cards and raids are over. Holders can still sell back to the curve. The creator's escrow ({fmtNear(toNear(c.escrow))} N) is claimable now. Next on the roadmap: graduating into a Ref Finance pool.
         {ch.me() === c.creator && toNear(c.escrow) > 0 && <button className="btn small primary" disabled={!!busy} onClick={() => call('Claim escrow', 'claim_creator_escrow')}>Claim escrow</button>}</div>}
-      {d.raid?.phase === 2 && <button className="raid-live" onClick={() => setTab('raid')}><span className="rl-dot" /><span className="mono small rl-tag">RAID LIVE</span><strong>${d.raid.attacker.split('.')[0].toUpperCase()} vs ${d.raid.defender.split('.')[0].toUpperCase()}</strong><span className="small">{d.raid.round !== null ? `round ${d.raid.round + 1} of 3` : 'mustering'} · ends in {dur(d.raid.end - now)}</span><span className="rl-go">Open arena →</span></button>}
+      {d.raid?.phase === 2 && <button className="raid-live" onClick={() => p.go({ kind: 'arena', id })}><span className="rl-dot" /><span className="mono small rl-tag">RAID LIVE</span><strong>${d.raid.attacker.split('.')[0].toUpperCase()} vs ${d.raid.defender.split('.')[0].toUpperCase()}</strong><span className="small">{d.raid.round !== null ? `round ${d.raid.round + 1} of 3` : 'mustering'} · ends in {dur(d.raid.end - now)}</span><span className="rl-go">Open arena →</span></button>}
       {c.level < 2 && <p className="small muted">Omens (short luck events every few hours) begin when the coin reaches level 2.</p>}
 
       {ch.scale === 'demo' && !c.graduated && <Guide ch={ch} me={ch.me()} coinId={id} h={h} hand={d.hand} r={d.r} busy={busy} visitedWar={guideWarVisited(ch.me())}
@@ -790,7 +792,7 @@ function VaultTab({ d, now, busy, call }: TabProps) {
   );
 }
 
-function RaidTab({ ch, id, d, now, busy, call, coins, act, me }: TabProps) {
+function RaidTab({ ch, id, d, now, busy, call, coins, act, me, go }: TabProps) {
   const { raid, c, hand } = d;
   const [target, setTarget] = useState('');
   const others = coins.filter(x => x.account_id !== id);
@@ -813,7 +815,7 @@ function RaidTab({ ch, id, d, now, busy, call, coins, act, me }: TabProps) {
         {c.level < 2 && <p className="small down">Raids start at L2.</p>}
       </div>}
       {raid && <div className="panel stack">
-        <div className="row between wrap"><h2>{raid.attacking ? `$${c.symbol} ⚔ ${short(other).split('.')[0].toUpperCase()}` : `${short(other).split('.')[0].toUpperCase()} ⚔ $${c.symbol}`}</h2><span className="row gap">{raid.kind === 1 && <span className="chip">Friendly</span>}{raid.kind === 2 && <span className="chip hot">Hard</span>}<span className="chip hot">{phase}</span></span></div>
+        <div className="row between wrap"><h2>{raid.attacking ? `$${c.symbol} ⚔ ${short(other).split('.')[0].toUpperCase()}` : `${short(other).split('.')[0].toUpperCase()} ⚔ $${c.symbol}`}</h2><span className="row gap">{raid.kind === 1 && <span className="chip">Friendly</span>}{raid.kind === 2 && <span className="chip hot">Hard</span>}<span className="chip hot">{phase}</span>{raid.phase === 2 && <button className="btn small" onClick={() => go({ kind: 'arena', id })}>Full arena →</button>}</span></div>
         {raid.phase === 0 && <div className="row gap"><Bar label="signers" value={raid.backers} max={raid.needed} text={`${raid.backers}/${raid.needed}`} />
           <button className="btn" disabled={!!busy} onClick={() => call('Sign raid', 'sign_raid')}>Sign</button>
           <button className="btn primary" disabled={!!busy} onClick={() => call('Launch raid', 'launch_raid', {}, 0n, 'Raid sent to the target')}>Launch</button></div>}

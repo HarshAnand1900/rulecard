@@ -45,7 +45,7 @@ function layout(items: { id: string; sym: string; v: number }[], x: number, y: n
 const left = (ms: number) => { const t = Math.max(0, Math.round(ms / 1000)), m = Math.floor(t / 60); return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : m ? `${m}m ${t % 60}s` : `${t}s`; };
 const ago = (ms: number) => { const m = Math.max(0, Math.round(ms / 60_000)); return m < 60 ? `${m}m ago` : m < 2880 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`; };
 
-export default function WarMap({ ch, coins, tick, go }: { ch: Net; coins: CoinEntry[]; tick: number; go: (id: string) => void }) {
+export default function WarMap({ ch, coins, tick, go, arena }: { ch: Net; coins: CoinEntry[]; tick: number; go: (id: string) => void; arena?: (id: string) => void }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [view, setView] = useState<'arena' | 'tiles'>('tiles');
   useEffect(() => {
@@ -116,7 +116,7 @@ export default function WarMap({ ch, coins, tick, go }: { ch: Net; coins: CoinEn
       {!!liveRaids.length && <div className="live-raids">{liveRaids.map(r => {
         const rd = r.raid!, a1 = rd.attacker, d1 = rd.defender;
         return (
-          <button key={r.id} className="lraid" onClick={() => go(r.id)}>
+          <button key={r.id} className="lraid" onClick={() => (arena ?? go)(r.id)}>
             <span className="lr-tag mono"><i className="rl-dot" />RAID LIVE</span>
             <span className="lr-vs"><strong style={{ color: accent(a1) }}>${sym(a1)}</strong><em className="vs">vs</em><strong style={{ color: accent(d1) }}>${sym(d1)}</strong></span>
             <span className="pips" aria-label="Rounds">{[0, 1, 2].map(k => <i key={k} className={`pip ${rd.round === null ? '' : k < rd.round ? 'w' : k === rd.round ? 'live' : ''}`} />)}</span>
