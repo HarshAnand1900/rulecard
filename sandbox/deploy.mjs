@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 const nodeUrl = 'http://127.0.0.1:3030';
 const out = join(here, '..', 'contracts', 'out');
-const wasm = (c, m) => join(out, `rulecard_${c}_${m}.wasm`);
+const wasm = (c, m) => join(out, `rulecard_${c}_${m === 'demo' && c === 'coin' && process.env.RULECARD_GASTEST ? 'gastest' : m}.wasm`); // RULECARD_GASTEST=1: the local gas-measuring coin build
 const keyFile = join(here, '.keys', 'keys.json');
 const PLAYERS = ['you', 'alice', 'bob'];
 const BOTS = Array.from({ length: 16 }, (_, i) => `bot${i + 1}`); // L2 needs 15 qualified check-ins

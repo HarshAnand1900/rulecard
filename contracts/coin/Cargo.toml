@@ -25,3 +25,4 @@ overflow-checks = true
 
 [features]
 demo = []
+gastest = ["demo"] # local sandbox only: adds gas_fill, which fabricates worst-case state to measure gas

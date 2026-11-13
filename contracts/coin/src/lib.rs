@@ -18,6 +18,8 @@ mod table;
 mod raid;
 mod omens;
 mod stakes;
+#[cfg(feature = "gastest")]
+mod gastest;
 pub use raid::*;
 pub use omens::*;
 pub use cards::*;

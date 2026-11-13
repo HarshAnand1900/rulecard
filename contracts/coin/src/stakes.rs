@@ -15,6 +15,10 @@ pub const BOUNTY_LEN: u64 = 6 * HOUR;
 pub const BOUNTY_MAX_PLEDGES: usize = 20;
 pub const BOUNTY_BONUS_CAP: u128 = SUPPLY / 2_000; // a met Bounty adds at most 0.05% of supply, and only once a day
 pub const PAYOUT_KEEP: u64 = 3 * DAY;
+/// The pending list is loaded with the coin's state on every call, so it stays small. A card that will queue payouts can only be
+/// opened while there is room for a full house; if it still overflows, the extra payout is credited straight away (one wallet, one write).
+pub const PENDING_MAX: usize = 160;
+pub const PENDING_PER_CARD: usize = 45;
 pub const BOUNTY_BONUS_BPS: u128 = 1_000;
 pub const BOUNTY_MISS_BURN_BPS: u128 = 1_000;
 
@@ -105,6 +109,7 @@ impl Coin {
         let a = env::predecessor_account_id();
         require!(!self.graduated, "the game ended at graduation");
         self.touch(now);
+        self.require_payout_room();
         self.check_question(&question);
         require!(question != Question::Tide, "a Bounty can't ask the Tide question: a single buy would make it true");
         require!(self.energy >= Card::Bounty.energy(), "not enough Energy");
@@ -172,14 +177,31 @@ impl Coin {
 }
 
 impl Coin {
-    /// Queue a payout for a wallet to collect. Payouts nobody collects for 3 days are burned, so the list can't grow forever.
-    pub(crate) fn push_payout(&mut self, now: u64, account: &AccountId, tokens: u128, pack: bool, what: &str) {
+    /// Burn payouts nobody collected for 3 days. Called once when a card closes, never once per payout.
+    pub(crate) fn purge_payouts(&mut self, now: u64) {
+        if self.pending.iter().all(|p| now < p.at + PAYOUT_KEEP) { return; }
         let me = env::current_account_id();
         let (keep, old): (Vec<Payout>, Vec<Payout>) = std::mem::take(&mut self.pending).into_iter().partition(|p| now < p.at + PAYOUT_KEEP);
         self.pending = keep;
         let lost: u128 = old.iter().map(|p| p.tokens.0).sum();
         if lost > 0 { self.pending_held -= lost; self.burn_circ(now, &me, lost, "unclaimed payout"); }
+    }
+
+    /// Cards that queue payouts when they close can only be opened while the list has room for them.
+    pub(crate) fn require_payout_room(&mut self) {
+        let now = env::block_timestamp_ms();
+        self.purge_payouts(now);
+        require!(self.pending.len() + PENDING_PER_CARD <= PENDING_MAX, "too many payouts are waiting to be claimed: try again once wallets have claimed");
+    }
+
+    /// Queue a payout for a wallet to collect with `claim_payouts`. O(1). If the list is somehow full the payout is credited directly instead.
+    pub(crate) fn push_payout(&mut self, now: u64, account: &AccountId, tokens: u128, pack: bool, what: &str) {
         if tokens == 0 && !pack { return; }
+        if self.pending.len() >= PENDING_MAX {
+            let mut h = self.settle(account, now); h.bal += tokens; if h.since == 0 { h.since = now; } if pack { h.next_pack = 0; } self.save(account, h);
+            events::ft_transfer(&env::current_account_id(), account, tokens, Some("payout"));
+            return;
+        }
         self.pending_held += tokens;
         self.pending.push(Payout { account: account.clone(), tokens: U128(tokens), pack, at: now, what: what.to_string() });
     }

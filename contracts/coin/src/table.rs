@@ -178,6 +178,7 @@ impl Coin {
             let hot = self.table.iter().any(|p| p.card == Card::Prophecy && p.phase == 1 && { let y: u128 = p.bets.iter().filter(|b| b.yes).map(|b| b.amount.0).sum(); let n: u128 = p.bets.iter().filter(|b| !b.yes).map(|b| b.amount.0).sum(); n * 10 > y * 15 && n > 0 });
             require!(hot, "Squeeze needs an open Prophecy where the No side is more than 1.5 times the Yes side");
         }
+        if matches!(card, Card::Prophecy | Card::BlackHole) { self.require_payout_room(); }
         let card_exp = self.take_card(&mut h, card, now);
         let (needed, window, backers) = match card {
             Card::Ember => (3, EMBER_WINDOW, vec![a.clone()]),
@@ -657,7 +658,8 @@ impl Coin {
         let me = env::current_account_id();
         self.free_stock(p.card, p.card_exp);
         if wallets.len() < PROPHECY_MIN_WALLETS || yes_total == 0 || no_total == 0 {
-            for b in &p.bets { let mut h = self.settle(&b.account, now); h.bal += b.amount.0; self.save(&b.account, h); events::ft_transfer(&me, &b.account, b.amount.0, Some("prophecy refund")); }
+            self.purge_payouts(now);
+            for b in &p.bets { self.push_payout(now, &b.account, b.amount.0, false, "Prophecy refund"); }
             self.bets_held -= yes_total + no_total;
             let t = &mut self.table[i]; t.phase = 3; t.result = "refunded: fewer than 8 wallets or one side empty".into();
             return;
@@ -669,16 +671,16 @@ impl Coin {
         let pool: u128 = p.bets.iter().filter(|b| b.yes != yes).map(loss).sum();
         let to_winners = pool * 6 / 10; let to_caster = pool * 2 / 10;
         let mut paid = 0u128;
+        self.purge_payouts(now);
+        // nobody is settled here: every bettor's payout is queued and collected with `claim_payouts`
         for b in &p.bets {
             let back = if b.yes == yes { let g = mul_div(to_winners, b.amount.0, win_total); b.amount.0 + if b.hedged { g * 3 / 4 } else { g } } else { b.amount.0 - loss(b) };
             paid += back;
-            let mut h = self.settle(&b.account, now); h.bal += back; self.save(&b.account, h);
-            events::ft_transfer(&me, &b.account, back, Some("prophecy payout"));
+            self.push_payout(now, &b.account, back, false, "Prophecy");
         }
         let oracle = p.proposer == me; // an Oracle Prophecy is opened by the coin itself: no caster to pay, that share burns too
         if !oracle {
-            let mut c = self.settle(&p.proposer, now); c.bal += to_caster; self.save(&p.proposer, c);
-            events::ft_transfer(&me, &p.proposer, to_caster, Some("prophecy caster share"));
+            self.push_payout(now, &p.proposer, to_caster, false, "Prophecy caster share");
         }
         let held = yes_total + no_total;
         self.bets_held -= held;

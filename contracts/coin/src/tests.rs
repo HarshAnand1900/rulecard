@@ -27,6 +27,11 @@ fn launch(rules: Vec<Rule>) -> Coin {
 fn buy(c: &mut Coin, who: usize, near: u128, ms: u64) -> u128 { ctx(who, near, ms); c.buy(None).0 }
 fn bal(c: &Coin, who: usize) -> u128 { c.ft_balance_of(acc(who)).0 }
 
+/// Everyone with something waiting collects it (Prophecy, Black Hole and Bounty payouts are claimed, not pushed).
+fn claim_all(c: &mut Coin, holders: &[usize], ms: u64) {
+    for &h in holders { if !c.get_pending(acc(h)).is_empty() { ctx(h, 0, ms); c.claim_payouts(); } }
+}
+
 /// Every token is somewhere: holders + the contract = total supply.
 fn check_supply(c: &mut Coin, holders: &[usize], ms: u64) {
     for &h in holders { ctx(h, 0, ms); let _ = c.claim_vault(); }
@@ -366,6 +371,7 @@ fn prophecy_pays_winners_caster_and_burns() {
     let before_caster = bal(&c, 1); let before_yes = bal(&c, 2); let before_no = bal(&c, 8);
     ctx(11, 0, t0 + BACK_WINDOW + BET_WINDOW + PROPHECY_LEN + 1); c.poke();
     assert_eq!(c.get_history()[0].result, "answer: Yes");
+    claim_all(&mut c, &(1..=11).collect::<Vec<_>>(), t0 + 3 * HOUR);
     let lose_total = 3 * stake;
     assert_eq!(bal(&c, 8) - before_no, stake - stake / 2, "a loser gets half back");
     assert!(close(bal(&c, 2) - before_yes, stake + lose_total * 3 / 10 / 5), "a winner gets its bet + its share of 30%");
@@ -1014,6 +1020,7 @@ fn oracle_opens_a_prophecy_on_itself_and_refunds_when_few_bet() {
     ctx(2, 1, base + 3 * MIN); c.bet(id, false, U128(b2 / 10));
     ctx(5, 0, base + MIN + BET_WINDOW + PROPHECY_LEN + 1); c.poke();
     assert!(c.get_history()[0].result.starts_with("refunded"), "{}", c.get_history()[0].result);
+    claim_all(&mut c, &[1, 2], base + MIN + BET_WINDOW + PROPHECY_LEN + 2);
     assert_eq!((bal(&c, 1), bal(&c, 2)), (b1, b2), "nobody loses when fewer than 8 wallets bet");
     assert_eq!(c.bets_held, 0);
     check_supply(&mut c, &[1, 2], base + 5 * HOUR);
@@ -1529,6 +1536,7 @@ fn hedge_makes_a_loser_lose_a_quarter_and_trims_a_winners_gain() {
     let (b2, b3, b7, b8) = (bal(&c, 2), bal(&c, 3), bal(&c, 7), bal(&c, 8));
     ctx(11, 0, t0 + BACK_WINDOW + BET_WINDOW + PROPHECY_LEN + 1); c.poke();
     assert_eq!(c.get_history()[0].result, "answer: Yes");
+    claim_all(&mut c, &(1..=11).collect::<Vec<_>>(), t0 + 3 * HOUR);
     assert_eq!(bal(&c, 7) - b7, stake - stake / 4, "the hedged loser keeps 75%");
     assert_eq!(bal(&c, 8) - b8, stake - stake / 2, "an unhedged loser keeps 50%");
     let pool = stake / 4 + 2 * (stake / 2);
