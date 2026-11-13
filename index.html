@@ -234,19 +234,13 @@ details .ans { padding: 0 var(--s300) var(--s300); color: var(--muted); animatio
   </div>
 </section>
 
-<section class="arena" aria-label="A hand and a raid"><div class="wrap">
-    <div class="stage" id="table" aria-label="Three coins as cards: FROG raiding MOTH, ZAP at peace">
-      <div class="hand">
-        <article class="bc l" style="--tc:var(--epic)"><div class="top"><span class="caption-3">LEVEL 2</span><span class="status caption-4"><span class="dot"></span>Raiding</span></div><div class="art"><span class="sym" style="--m:url(/bg/jokers/3-epic-wink.png)" aria-hidden="true"></span></div><div><h2 class="heading-5">FROG</h2><p class="caption-4 muted">Frog Pond</p></div><div class="pts"><span class="heading-4 mono">13</span><span class="caption-4 muted">war points</span></div></article>
-        <article class="bc r" style="--tc:var(--teal)"><div class="top"><span class="caption-3">LEVEL 2</span><span class="status caption-4"><span class="dot"></span>At peace</span></div><div class="art"><span class="sym" style="--m:url(/bg/jokers/2-rare-laugh.png)" aria-hidden="true"></span></div><div><h2 class="heading-5">ZAP</h2><p class="caption-4 muted">Zap Cat</p></div><div class="pts"><span class="heading-4 mono">13</span><span class="caption-4 muted">war points</span></div></article>
-        <article class="bc c" style="--tc:var(--mythic)"><div class="top"><span class="caption-3">LEVEL 2</span><span class="status caption-4"><span class="dot"></span>Defending</span></div><div class="art"><span class="sym" style="--m:url(/bg/jokers/4-mythic-starry.png)" aria-hidden="true"></span></div><div><h2 class="heading-5">MOTH</h2><p class="caption-4 muted">Moth Lamp</p></div><div class="pts"><span class="heading-4 mono">13</span><span class="caption-4 muted">war points</span></div></article>
-      </div>
-      <div class="panel raidline">
-        <span class="caption-3">FROG</span><span class="track"><span class="fill"></span></span><span class="caption-3">MOTH</span><span class="pips" aria-label="Round 2 of 3"><i class="pip"></i><i class="pip"></i><i class="pip"></i></span>
-      </div>
-      <p class="caption-2 muted" style="text-align:center">An example of a hand and a raid. Open the War Map in the app to see the live ones.</p>
-    </div>
-</div></section>
+<section class="arena" id="live" aria-labelledby="live-h">
+  <div class="wrap">
+    <div class="lv-head rv"><div><span class="title-4 eyebrow">Live on NEAR testnet</span><h2 class="heading-4" id="live-h">Active memecoins right now</h2></div><a class="btn btn-ghost button-sm" href="/play/">See every coin<i class="ph-bold ph-arrow-up-right i" aria-hidden="true"></i></a></div>
+    <div class="lv-grid" id="live-grid" aria-busy="true" aria-live="polite"></div>
+    <p class="caption-2 muted lv-note" id="live-note">Reading the chain.</p>
+  </div>
+</section>
 
 <div class="strip">
   <div class="wrap grid cols-4">
@@ -439,7 +433,9 @@ details .ans { padding: 0 var(--s300) var(--s300); color: var(--muted); animatio
 </section>
 </main>
 <a class="fab" id="fab" href="/enter/" tabindex="-1" aria-hidden="true">Play free<i class="ph-bold ph-arrow-up-right" aria-hidden="true"></i></a>
+<script>window.RC_FACTORY = "demo2.harshtest1.testnet"; /* the factory the landing reads; change it when the world moves */</script>
 <script src="/sculpt.js" defer></script>
+<script src="/live.js" defer></script>
 
 <footer>
   <div class="wrap foot">
