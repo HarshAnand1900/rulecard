@@ -2,11 +2,11 @@
 (function () {
   var spin = document.getElementById('sculpt-spin');
   if (!spin) return;
-  var N = 9, glyphs = ['♠', '♦', '♣', '♥'];
+  var N = 8, glyphs = ['♠', '♦', '♣', '♥'];
   for (var i = 0; i < N; i++) {
     var d = document.createElement('div');
-    d.className = 'slab' + (i % 3 === 0 ? ' hot' : '');
-    d.style.transform = 'translateY(' + ((i - (N - 1) / 2) * 30) + 'px) rotateY(' + (i * 42) + 'deg) translateZ(128px) rotateX(-6deg)';
+    d.className = 'slab' + (i % 3 === 1 ? ' hot' : '');
+    d.style.transform = 'translateY(' + ((i - (N - 1) / 2) * 30) + 'px) rotateY(' + (i * 45) + 'deg) translateZ(132px) rotateX(-6deg)';
     d.innerHTML = '<i class="f"><b>' + glyphs[i % 4] + '</b><u>' + glyphs[i % 4] + '</u></i><i class="k"></i><i class="e1"></i><i class="e2"></i><i class="e3"></i><i class="e4"></i>';
     spin.appendChild(d);
   }

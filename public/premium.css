@@ -203,42 +203,60 @@ section[style*="rgba(19,18,9"]::before {
 .arena .stage { max-width: 760px; margin: 0 auto; }
 @media (max-width: 1023px) { .hero-grid { min-height: 0; } }
 
-/* ---------------------------------------------------------------- 3D card spiral in the hero */
+/* ---------------------------------------------------------------- 3D card spiral in the hero: obsidian cards with a gilded emblem, thin metal edges, a floor glow */
 .hero { position: relative; }
-.sculpt { position: absolute; right: 4%; top: 2%; width: min(600px, 44vw); aspect-ratio: 1; perspective: 1400px; pointer-events: none; z-index: 0; }
+.sculpt { position: absolute; right: 4%; top: 2%; width: min(620px, 45vw); aspect-ratio: 1; perspective: 1700px; pointer-events: none; z-index: 0; }
 .hero-grid { position: relative; z-index: 1; }
-.sculpt-glow { position: absolute; inset: 12%; border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 90, 20, .34), rgba(255, 75, 0, .1) 55%, transparent 72%); filter: blur(10px); }
+.sculpt-glow { position: absolute; inset: 6% 4% 8%; border-radius: 50%; background:
+  radial-gradient(closest-side, rgba(255, 96, 24, .30), rgba(255, 75, 0, .08) 58%, transparent 76%),
+  repeating-linear-gradient(118deg, transparent 0 34px, rgba(255, 90, 30, .12) 34px 56px, transparent 56px 96px);
+  -webkit-mask-image: radial-gradient(closest-side, #000 40%, transparent 100%); mask-image: radial-gradient(closest-side, #000 40%, transparent 100%); filter: blur(10px); }
+/* the floor: a soft ember pool and a faint ring the spiral stands on */
+.sculpt::after { content: ""; position: absolute; left: 12%; right: 12%; bottom: 2%; height: 14%; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 110, 30, .42), rgba(255, 75, 0, .12) 60%, transparent 100%); filter: blur(8px); }
 .sculpt-rig { position: absolute; inset: 0; transform-style: preserve-3d; transform: rotateX(-14deg); transition: transform 900ms var(--ease); display: grid; place-items: center; }
 .sculpt-spin { position: relative; width: 0; height: 0; transform-style: preserve-3d; }
-.slab { position: absolute; width: 112px; height: 156px; left: -56px; top: -78px; transform-style: preserve-3d; }
+.slab { position: absolute; width: 118px; height: 168px; left: -59px; top: -84px; transform-style: preserve-3d; }
 .slab > i { position: absolute; display: block; }
-.slab .f, .slab .k { inset: 0; border-radius: 10px; }
+.slab .f, .slab .k { inset: 0; border-radius: 12px; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+/* front: obsidian with fine ribbing, a travelling sheen, a gilded hairline frame and a centre emblem */
 .slab .f {
-  transform: translateZ(5px); background: linear-gradient(150deg, #2A2B31 0%, #0E0F13 46%, #050607 100%);
-  border: 1px solid rgba(245, 239, 230, .2); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), inset 0 0 22px rgba(0, 0, 0, .7);
+  transform: translateZ(3px); overflow: hidden;
+  background:
+    linear-gradient(118deg, transparent 28%, rgba(255, 255, 255, .13) 44%, rgba(255, 190, 120, .08) 50%, transparent 62%),
+    repeating-linear-gradient(118deg, rgba(255, 255, 255, .05) 0 1px, transparent 1px 7px),
+    linear-gradient(155deg, #2D2E35 0%, #121317 40%, #060608 100%);
+  box-shadow: 0 0 0 1px rgba(255, 214, 160, .3), inset 0 1px 0 rgba(255, 255, 255, .3), inset 0 -18px 30px rgba(0, 0, 0, .6);
 }
-.slab .k { transform: translateZ(-5px) rotateY(180deg); background: linear-gradient(210deg, #1A1B20, #050607); border: 1px solid rgba(255, 139, 37, .25); }
-.slab .f b, .slab .f u { position: absolute; font: 600 22px/1 var(--head); text-decoration: none; color: rgba(245, 239, 230, .78); }
-.slab .f b { left: 10px; top: 8px; } .slab .f u { right: 10px; bottom: 8px; transform: rotate(180deg); }
-.slab.hot .f { border-color: rgba(255, 139, 37, .75); box-shadow: 0 0 18px rgba(255, 75, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .25), inset 0 0 22px rgba(255, 90, 20, .22); }
-.slab.hot .f b, .slab.hot .f u { color: #FFB45A; }
-/* the 10px thickness: four edge strips */
-.slab .e1, .slab .e2 { left: 0; right: 0; height: 10px; background: linear-gradient(90deg, #3A3B42, #121318); }
-.slab .e1 { top: -5px; transform: rotateX(90deg); }
-.slab .e2 { bottom: -5px; transform: rotateX(90deg); }
-.slab .e3, .slab .e4 { top: 0; bottom: 0; width: 10px; background: linear-gradient(180deg, #34353C, #101116); }
-.slab .e3 { left: -5px; transform: rotateY(90deg); }
-.slab .e4 { right: -5px; transform: rotateY(90deg); }
-.slab.hot .e1, .slab.hot .e3 { background: linear-gradient(90deg, #FFB45A, #FF5A14); box-shadow: 0 0 10px rgba(255, 90, 20, .7); }
+.slab .f::before { content: ""; position: absolute; inset: 7px; border-radius: 7px; border: 1px solid rgba(255, 196, 130, .26); }
+.slab .f::after { content: ""; position: absolute; left: 50%; top: 52%; width: 62%; aspect-ratio: 5 / 7; translate: -50% -50%; opacity: .95; filter: drop-shadow(0 0 7px rgba(255, 110, 20, .55));
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 140'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23FFE3A8'/><stop offset='.5' stop-color='%23FF9A3C'/><stop offset='1' stop-color='%23C8480E'/></linearGradient></defs><g fill='none' stroke='url(%23g)' stroke-width='2.2' stroke-linejoin='round'><path d='M50 8 L90 70 L50 132 L10 70 Z'/><path d='M50 26 L74 70 L50 114 L26 70 Z' stroke-width='1.4' opacity='.8'/><circle cx='50' cy='70' r='9'/><path d='M50 8 L50 26 M50 114 L50 132 M10 70 L26 70 M74 70 L90 70' stroke-width='1.4'/></g><circle cx='50' cy='70' r='3.2' fill='url(%23g)'/></svg>") center / contain no-repeat; }
+.slab .f b, .slab .f u { position: absolute; font: 600 17px/1 var(--head); text-decoration: none; color: rgba(255, 214, 160, .85); z-index: 1; }
+.slab .f b { left: 12px; top: 11px; } .slab .f u { right: 12px; bottom: 11px; transform: rotate(180deg); }
+.slab .k { transform: translateZ(-3px) rotateY(180deg); overflow: hidden;
+  background: repeating-linear-gradient(118deg, rgba(255, 255, 255, .04) 0 1px, transparent 1px 7px), linear-gradient(205deg, #1E1F25, #060608); box-shadow: 0 0 0 1px rgba(255, 160, 70, .3); }
+.slab .k::after { content: ""; position: absolute; inset: 30%; border-radius: 50%; border: 1px solid rgba(255, 170, 90, .4); box-shadow: 0 0 16px rgba(255, 90, 20, .35), inset 0 0 14px rgba(255, 90, 20, .25); }
+.slab.hot .f { box-shadow: 0 0 0 1px rgba(255, 170, 80, .9), 0 0 22px rgba(255, 75, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .35), inset 0 -18px 30px rgba(0, 0, 0, .55), inset 0 0 26px rgba(255, 90, 20, .18); }
+/* the 6px edge: brushed metal, with an emissive ember line on the lit cards */
+.slab .e1, .slab .e2 { left: 0; right: 0; height: 6px; background: linear-gradient(90deg, #5A5B63, #1A1B20 40%, #3C3D45); }
+.slab .e1 { top: -3px; transform: rotateX(90deg); } .slab .e2 { bottom: -3px; transform: rotateX(90deg); }
+.slab .e3, .slab .e4 { top: 0; bottom: 0; width: 6px; background: linear-gradient(180deg, #55565E, #17181C 55%, #34353C); }
+.slab .e3 { left: -3px; transform: rotateY(90deg); } .slab .e4 { right: -3px; transform: rotateY(90deg); }
+.slab.hot .e1, .slab.hot .e3, .slab.hot .e4 { background: linear-gradient(90deg, #FFE0A0, #FF7A1A 50%, #C8480E); box-shadow: 0 0 14px rgba(255, 90, 20, .85); }
 @media (prefers-reduced-motion: no-preference) {
   @keyframes spinY { to { transform: rotateY(360deg); } }
-  .sculpt-spin { animation: spinY 46s linear infinite; }
+  .sculpt-spin { animation: spinY 64s linear infinite; }
   @keyframes bob { 0%, 100% { translate: 0 -6px; } 50% { translate: 0 8px; } }
   .sculpt-rig { animation: bob 9s ease-in-out infinite; }
 }
 @media (max-width: 1023px) { .sculpt { right: -22%; top: 2%; width: 86vw; opacity: .26; } }
-
 @media (min-width: 1024px) { .hero-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) !important; min-height: 560px; } }
+
+/* ---------------------------------------------------------------- the closing curtain runs edge to edge */
+:root:root .close > .wrap { max-width: none; padding-left: 0; padding-right: 0; width: 100%; }
+.curtain { border-radius: 0 !important; border-left: 0 !important; border-right: 0 !important; border-top: 1px solid rgba(255, 139, 37, .3) !important; border-bottom: 1px solid rgba(255, 139, 37, .3) !important;
+  padding-top: clamp(72px, 10vw, 140px); padding-bottom: clamp(72px, 10vw, 140px); }
+:root:root .close { padding-top: 48px; }
 
 /* ---------------------------------------------------------------- the hand under the hero: the same black glass and ember edge as the pack's cards */
 .hand .bc, .hand .bc.l, .hand .bc.r, .hand .bc.c {
