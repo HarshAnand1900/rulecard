@@ -9,7 +9,7 @@ export const DOCS: DocPage[] = [
     id: 'welcome', group: 'Start here', title: 'What is Rulecard', summary: 'A memecoin game where each coin is its own community.',
     parts: [
       { id: 'idea', title: 'The idea', blocks: [
-        { p: 'Rulecard is a memecoin launchpad built as a game. Every coin is its own NEP 141 token contract on NEAR with the game rules built in. Holders keep their coin alive by showing up every day, play rule cards together, and the coin that shows up bigger can raid another coin and take a share of its pot.' },
+        { p: 'Rulecard is a memecoin whose holders play cards that rewrite its rules. Every coin is its own NEP 141 token contract on NEAR with a deck of 29 cards and the game rules built in. Holders keep the coin alive by showing up every day, which earns the Energy that cards cost. They back and sign cards together, and the coin that shows up bigger can raid another coin and take a share of its pot.' },
         { p: 'There is no admin key. After a coin launches nobody can change its rules, mint more, or freeze anyone, including the creator.' } ] },
       { id: 'loop', title: 'The loop in one minute', blocks: [
         { steps: ['Buy a small bag of a coin.', 'Say gm to check in. This builds the coin\'s daily Ritual and stops your bag from burning.', 'Lock some tokens in the Vault to keep them safe and earn a share of what sleepers lose.', 'Open packs of rule cards and play them together with other holders.', 'Join raids against other coins and watch the War Map.'] } ] },

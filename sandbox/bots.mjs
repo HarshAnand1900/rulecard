@@ -96,8 +96,37 @@ async function omenPoke(coin) {
   if (o?.needs_roll) { await act(bots[0], coin, 'poke', {}, 0n, true); log(`${sym(coin)}: rolled the next Omen`); }
 }
 
+/** A card that needs backers or signers fires only if enough wallets join inside its short window, and a bot tick is longer than that
+ *  window. So when a bot plays one, the other bots join in the same tick: the card really fires and the pot, supply and log move. */
+async function gather(coin, proposer, id, card) {
+  const t0 = (await view(coin, 'get_table')).find(x => x.id === id && x.card === card);
+  if (!t0 || t0.phase !== 0 || !t0.needed) return;
+  let have = t0.backers.length;
+  for (const bot of [...bots].filter(b => b !== proposer).sort(() => Math.random() - 0.5)) {
+    if (have >= t0.needed) break;
+    if (await act(bot, coin, SIGNED.includes(card) ? 'sign' : 'back', { id }, 0n, true)) have++;
+  }
+  log(`${sym(coin)}: ${card} has ${have}/${t0.needed} ${SIGNED.includes(card) ? 'signers' : 'backers'}${have >= t0.needed ? ', it will fire' : ''}`);
+}
+
+/** A Prophecy is refunded unless 8 or more wallets bet, so once it is taking bets enough bots bet on both sides in one tick. */
+async function fillProphecy(coin, t) {
+  const have = new Set(t.bets.map(b => b.account));
+  let placed = t.bets.length, yes = t.bets.filter(b => b.yes).length;
+  for (const bot of [...bots].sort(() => Math.random() - 0.5)) {
+    if (placed >= 10) break;
+    const me = idOf(bot); if (have.has(me)) continue;
+    const bal = BigInt(await view(coin, 'ft_balance_of', { account_id: me }));
+    if (bal === 0n) continue;
+    const side = yes <= placed - yes; // keep both sides filled
+    if (await act(bot, coin, 'bet', { id: t.id, yes: side, amount: (bal / 12n).toString() }, 1n, true)) { placed++; if (side) yes++; }
+  }
+  log(`${sym(coin)}: Prophecy has ${placed} bets`);
+}
+
 async function playCoin(coin, liveCoins) {
   const c = await view(coin, 'get_coin');
+  for (const t of await view(coin, 'get_table')) if (t.card === 'Prophecy' && t.phase === 1 && t.bets.length < 9) await fillProphecy(coin, t);
   for (const bot of [...bots].sort(() => Math.random() - 0.5).slice(0, PER)) {
     const me = idOf(bot);
     const bal = BigInt(await view(coin, 'ft_balance_of', { account_id: me }));
@@ -121,7 +150,7 @@ async function playCoin(coin, liveCoins) {
     if (hand && chance(0.35)) {
       const has = k => hand.commons.some(([n, x]) => n === k && x > 0) || hand.cards.some(x => x.card === k);
       const card = PLAYABLE.filter(has).sort(() => Math.random() - 0.5)[0];
-      if (card) await act(bot, coin, 'play_card', { card, question: card === 'Prophecy' ? 'Tide' : null });
+      if (card) { const id = await act(bot, coin, 'play_card', { card, question: card === 'Prophecy' ? 'Tide' : null }); if (typeof id === 'number') await gather(coin, bot, id, card); }
       if (c.harvest_until > c.now) await act(bot, coin, 'harvest_claim', {}, 0n, true);
     }
     // raids

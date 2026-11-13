@@ -1,11 +1,13 @@
 # Rulecard
 
-**Rulecard is a league of memecoins whose communities go to war, and the war is on chain.**
+**Rulecard is a memecoin whose holders play cards that rewrite its rules.** Back an Inferno and the pot burns supply. Call a Prophecy and
+the crowd bets on the chart. Rally your coin and raid a rival's pot. Miss the daily Ritual and the sleepers' bags burn twice as fast.
 
-Each coin is its own NEP-141 contract with a daily **Ritual** (the whole community has to show up or its bags burn), a **Vault**, rule
-cards and **raids**: one coin attacks another through real cross-contract calls, and the community that shows up in bigger numbers
-takes 15% of the loser's pot. The factory that launches the coins deletes its own key in its deploy transaction, so nobody can change
-a rule or print an admin.
+Every coin is its own NEP-141 contract with a deck of **29 cards** (10 Commons, 11 Rares, 7 Epics and a Mythic) and **13 Omens**. A card
+costs the coin's shared **Energy**, which the daily **Ritual** earns, and the crowd has to back or sign it before it fires. The **Vault**
+and idle burn are the stakes, and **raids** are cards played against another coin through real cross-contract calls: the community that
+shows up in bigger numbers takes 15% of the loser's pot. The factory that launches the coins deletes its own key in its deploy
+transaction, so nobody can change a rule or print an admin.
 
 ```
  every day the WHOLE coin has to show up: enough wallets say gm, enough NEAR gets locked in the Vault
@@ -40,6 +42,7 @@ a rule or print an admin.
 | Press this | You will see |
 |---|---|
 | Open the app, press **PLAY** (no wallet, no sign-up) | a practice wallet is made, funded and buys its first bag: real testnet transactions, each with a receipt link |
+| Open a coin, tab **Cards**: **Claim pack**, then play or back a card from your hand | a card goes on **The Table**, the crowd backs or signs it, then it fires: the pot burns supply and the Log, the supply number and the chart move. Rares and Epics (Prophecy, Black Hole, Harvest, Duel, Bounty) have their own forms |
 | Open **War Map** | every coin ranked by level and Ritual streak, its high score, who is raiding whom right now, and the latest raid results. Bots are marked 🤖 wherever their names show (the Log and the raid lists) |
 | Open a coin, tab **Ritual** | today's progress, time left, the streak, the coin's best streak ever (its high score) and the last 7 days |
 | Press **gm** | one check-in per 6 hours (30 minutes in demo mode). Press it again and the contract refuses |
