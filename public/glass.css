@@ -67,27 +67,31 @@ body.scrolled .top, body.scrolled .nav { background-color: rgba(4, 4, 6, .92); b
 /* ---------------- solid surfaces: nothing shows through floating buttons or panels, and there is no sheen, spotlight or reflection ---------------- */
 :root { --dk: #0b0b0e; --dk-hi: #15151b; --panel: #0b0b0e; --sunk: #060608; --surface: #0b0b0e; --surface-2: #101015; --surface-3: #16161c; --surface-4: #1e1e26; }
 .panel, .stat, .coin-card, .way, .pc, .door, .chron-card, .card:not(.rc):not(.t1):not(.t2):not(.t3), .tbl, .treemap, .tabbar, .ticker, .rraid, .srow, .mini, .bc,
-.btn:not(.primary):not(.gm):not(.big-cta), .btn-ghost, .seg, .chip, .pill, .presets button, .ritualcard, .tick-item:not(.hot), .tbadge, .tm-chip, .side-tabs, .amt, .omencard.none, select, .menu summary, .door-btn,
+.btn-ghost, .seg, .chip, .pill, .presets button, .ritualcard, .tick-item:not(.hot), .tbadge, .tm-chip, .side-tabs, .amt, .omencard.none, select, .menu summary, .door-btn,
 .top, .nav, .toggle, .tab, .onboard-card, .menu-body, .busy, .toast, .sheet, .guide, .tour, .ritual-hero, .omen-banner, .raid-live, .demo-banner, .grad-banner, .warn {
   background-image: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
 }
 .panel, .stat, .coin-card, .way, .pc, .door, .chron-card, .card:not(.rc):not(.t1):not(.t2):not(.t3), .tbl, .treemap, .tabbar, .ticker, .rraid, .srow, .mini,
-.btn:not(.primary):not(.gm):not(.big-cta), .btn-ghost, .chip, .pill:not(.ok):not(.bad):not(.hot), .presets button, .ritualcard, .tick-item:not(.hot), .tbadge, .tm-chip, .amt, .omencard.none, select, .menu summary, .door-btn, .toggle, .tab {
+.btn-ghost, .chip, .pill:not(.ok):not(.bad):not(.hot), .presets button, .ritualcard, .tick-item:not(.hot), .tbadge, .tm-chip, .amt, .omencard.none, select, .menu summary, .door-btn, .toggle, .tab {
   background-color: #0b0b0e !important;
 }
 .seg, .side-tabs { background-color: #060608 !important; }
 .top, .nav { background-color: #08080a !important; }
 .onboard-card, .menu-body, .busy, .toast, .sheet { background-color: #0a0a0d !important; }
 .guide, .tour, .ritual-hero { background-color: #0d0c08 !important; }
-.btn:hover:not(:disabled):not(.primary):not(.gm):not(.big-cta), .btn-ghost:hover, .presets button:hover, .ritualcard:hover, .tick-item:not(.hot):hover, .door-btn:hover, .tab:hover { background-color: #15151b !important; }
+.btn-ghost:hover, .presets button:hover, .ritualcard:hover, .tick-item:not(.hot):hover, .door-btn:hover, .tab:hover { background-color: #15151b !important; }
 .presets button.on { background-color: #2a1608 !important; }
 .seg button[aria-pressed="true"] { background-color: var(--accent) !important; }
 .tabbar button[aria-pressed="true"] { background-color: #15151b !important; }
 
 /* no lit top edge or inner highlight: flat edges with a plain drop shadow */
-.panel, .stat, .coin-card, .way, .pc, .door, .chron-card, .tbl, .tabbar, .mini, .top, .nav, .btn, .seg, .chip, .tick-item, .presets button, .ritualcard {
+.panel, .stat, .coin-card, .way, .pc, .door, .chron-card, .tbl, .tabbar, .mini, .top, .nav, .seg, .chip, .tick-item, .presets button, .ritualcard {
   box-shadow: 0 10px 28px -14px #000 !important;
 }
 .btn.primary, .btn.gm, .btn.big-cta, .play-btn, .nav .btn { box-shadow: 0 8px 20px -10px rgba(255, 122, 26, .55) !important; }
 .btn.big-cta { box-shadow: 0 8px 20px -10px var(--up) !important; } .btn.big-cta.sell { box-shadow: 0 8px 20px -10px var(--down) !important; }
 .tm-in, .chron-card::after, .srow::after, .coin-card::after, .card .sym, .tm-art { text-shadow: none; }
+
+/* the landing is a page, not an app: never scroll sideways, and keep the primary button its own colour */
+html, body { overflow-x: clip; }
+.hero, .stage { overflow-x: clip; }
