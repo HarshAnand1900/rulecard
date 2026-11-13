@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rules: Rulecard</title>
+<meta name="description" content="The Ritual, Vault, idle burn, raids, omens and every card in the deck.">
+<meta name="robots" content="index,follow">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/pages.css">
+<link rel="stylesheet" href="/glass.css">
+<script src="/bg.js" defer></script>
+<script src="/fx.js" defer></script>
+</head>
+<body>
+<main id="main" class="pg"><div class="wrap">
+<div class="pg-head rv">
+  <span class="chip caption-3"><i class="ph-bold ph-book-open i"></i>Rules</span>
+  <h1 class="heading-2"><span class="grad">Every rule, in one place</span></h1>
+  <p class="body-3 muted">Rules are written into each coin's contract when it launches. Nobody holds an admin key, so nobody can change them later, not even the creator.</p>
+</div>
+<div class="prose rv">
+  <h2 class="heading-5">The daily loop</h2>
+  <ul class="body-3 muted">
+    <li><strong>Ritual:</strong> say gm once a day. It earns Energy and keeps your bag safe.</li>
+    <li><strong>Idle burn:</strong> skip your Ritual and part of your unlocked bag burns, at most 8% in a day.</li>
+    <li><strong>Vault:</strong> lock tokens to stay out of the burn. Locked tokens share what the burns release.</li>
+  </ul>
+  <h2 class="heading-5">Raids</h2>
+  <p class="body-3 muted">A coin that shows up bigger than a rival can raid it and take a share of its pot. Each raid has three rounds. Players play Rally, Curse or Ward: Rally beats Ward, Ward beats Curse, Curse beats Rally. The result moves War Map points.</p>
+  <h2 class="heading-5">Omens</h2>
+  <p class="body-3 muted">Full Moon, Thunder, Ghost Ember and Treasure change the odds for a short window. Every omen is picked from public chain randomness, so nobody can order one.</p>
+  <h2 class="heading-5">Hard limits</h2>
+  <ul class="body-3 muted">
+    <li>No admin key: the factory deletes its own key after it launches a coin.</li>
+    <li>Losses are capped: idle burn takes at most 8% of unlocked tokens in a day.</li>
+    <li>Every mint and burn is logged onchain with its source.</li>
+  </ul>
+</div>
+<div class="sec-head rv" style="margin-top:var(--s800)"><h2 class="heading-3">The deck</h2><p class="body-3 muted">Cards cost the coin's Energy. Energy goes up by 1 for every gm and by 1 for every 10 NEAR bought.</p></div>
+<div class="tabs" id="tiers" role="group" aria-label="Filter by rarity">
+  <button class="chip caption-1" data-t="all" aria-pressed="true">All</button><button class="chip caption-1" data-t="common" aria-pressed="false">Common</button><button class="chip caption-1" data-t="rare" aria-pressed="false">Rare</button><button class="chip caption-1" data-t="epic" aria-pressed="false">Epic</button><button class="chip caption-1" data-t="mythic" aria-pressed="false">Mythic</button>
+</div>
+<div class="grid3" id="deck"></div>
+<div class="cta-row"><a class="btn btn-lg button-lg" href="/enter/">Play and try them<i class="ph-bold ph-arrow-right i" aria-hidden="true"></i></a></div>
+</div></main>
+<script>
+(function () {
+  var CARDS = [
+    ['common', 'Rally', 'rally', 0, 'Raid tactic', 'Your raid score x1.05 to 1.10. Beats Ward, loses to Curse.'],
+    ['common', 'Curse', 'curse', 0, 'Raid tactic', 'Their score x0.95 to 0.90 and cancels their Rally. Loses to Ward.'],
+    ['common', 'Ward', 'ward', 0, 'Raid tactic', 'Turns their Curse back on them. Loses to Rally.'],
+    ['common', 'Ember', 'ember', 5, 'Needs 3 copies', 'The pot burns 1%, 2% or 3% at 3, 6 or 10 copies. Anyone can stoke it.'],
+    ['common', 'Roll Call', 'rollcall', 5, 'Play alone', 'For 1 hour every gm gives double Energy.'],
+    ['common', 'Hype Siren', 'siren', 5, 'Play alone', 'Pins the coin on Trending for 15 minutes.'],
+    ['rare', 'Prophecy', 'prophecy', 20, 'Needs 2 to 3 backers', 'Ask the crowd a 2 hour question. Losers lose half.'],
+    ['epic', 'Inferno', 'inferno', 50, 'Needs signers', 'The crowd fuels, locked for 24 hours. Then the pot burns 10% plus half the fuel.'],
+    ['epic', 'Storm', 'storm', 0, 'Soon', 'Idle wallets lose a slice. Half to the Vault, half burned.'],
+    ['epic', 'Black Hole', 'blackhole', 0, 'Soon', 'A huge burn that needs a crowd to sign it.'],
+    ['epic', 'Heist', 'heist', 0, 'Soon', 'Raid a rival pot with a plan.'],
+    ['mythic', 'Supernova', 'supernova', 0, 'Soon', 'The pot spends its full daily cap at once.']
+  ];
+  var C = { common: 'var(--common)', rare: 'var(--rare)', epic: 'var(--epic)', mythic: 'var(--mythic)' };
+  var host = document.getElementById('deck'), tabs = document.getElementById('tiers');
+  function render(t) {
+    host.innerHTML = CARDS.filter(function (c) { return t === 'all' || c[0] === t; }).map(function (c) {
+      return '<article class="card rc" style="--tc:' + C[c[0]] + '"><div class="top caption-3"><span>' + c[0].toUpperCase() + '</span><span>' + (c[3] ? 'Energy ' + c[3] : c[4] === 'Soon' ? 'Soon' : 'Free') + '</span></div>' +
+        '<span class="sym" style="--m:url(/bg/symbols/' + c[2] + '.png)" aria-hidden="true"></span><h3 class="heading-6">' + c[1] + '</h3><p class="caption-1" style="color:var(--tc)">' + c[4] + '</p><p class="body-6 muted">' + c[5] + '</p></article>';
+    }).join('');
+  }
+  tabs.addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; Array.prototype.forEach.call(tabs.children, function (x) { x.setAttribute('aria-pressed', x === b); }); render(b.dataset.t); });
+  render('all');
+})();
+</script>
+<script src="/site.js"></script>
+</body>
+</html>

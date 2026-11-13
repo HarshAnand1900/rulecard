@@ -1,0 +1,93 @@
+/* Glass surfaces, pointer spotlight and scroll motion, shared by landing, inner pages and the app. */
+#fx-prog { position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 100; background: #ff7a1a; transform-origin: 0 50%; transform: scaleX(0); pointer-events: none; box-shadow: 0 0 10px #ff7a1a88; }
+
+/* surfaces: soft top light, hairline highlight and a deep shadow so they float above the field */
+.panel, .stat, .coin-card, .way, .pc, .treemap, .chron-card, .door, .card:not(.rc):not(.t1):not(.t2):not(.t3) {
+  background-image: radial-gradient(320px circle at var(--mx, 50%) var(--my, -60%), rgba(255, 255, 255, .075), transparent 62%), linear-gradient(180deg, rgba(255, 255, 255, .045), rgba(255, 255, 255, 0) 42%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .09), inset 0 0 0 1px rgba(255, 255, 255, .02), 0 18px 40px -18px rgba(0, 0, 0, .9);
+  border-color: rgba(255, 255, 255, .11);
+}
+.panel:hover, .coin-card:hover, .pc:hover, .door:hover { border-color: rgba(255, 255, 255, .2); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .13), 0 26px 54px -20px rgba(0, 0, 0, .95); }
+.ritual-hero, .guide, .omen-banner, .tour { background-image: radial-gradient(320px circle at var(--mx, 50%) var(--my, -60%), rgba(255, 255, 255, .06), transparent 62%), linear-gradient(180deg, #ffcc3312, transparent 70%); }
+.card.t1, .card.t2, .card.t3, .bc { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 22px 44px -18px rgba(0, 0, 0, .95), 0 0 24px -6px color-mix(in srgb, var(--tc) 55%, transparent); }
+
+/* floating bars */
+.top, .nav { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 14px 40px -12px rgba(0, 0, 0, .9); transition: background-color 500ms cubic-bezier(.22, 1, .36, 1), box-shadow 500ms cubic-bezier(.22, 1, .36, 1), border-color 500ms; }
+.top { backdrop-filter: blur(16px) saturate(150%); -webkit-backdrop-filter: blur(16px) saturate(150%); }
+body.scrolled .top, body.scrolled .nav { background-color: rgba(12, 12, 12, .86); border-color: rgba(255, 255, 255, .16); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), 0 20px 50px -10px rgba(0, 0, 0, 1); }
+
+/* buttons */
+.btn { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), 0 6px 18px -8px rgba(0, 0, 0, .8); }
+.btn:hover:not(:disabled) { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .2), 0 12px 26px -10px rgba(0, 0, 0, .9); }
+.btn.primary, .nav .btn, .btn-lg:not(.btn-ghost), .play-btn { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 8px 26px -8px rgba(255, 122, 26, .65); }
+.btn.primary:hover:not(:disabled), .nav .btn:hover, .btn-lg:not(.btn-ghost):hover, .play-btn:hover { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 14px 36px -8px rgba(255, 122, 26, .85); }
+.seg, .tabs button, .chip { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06); }
+
+/* scroll motion: rise, fade, settle out of a soft blur, staggered by position */
+.rv { filter: blur(6px); transition: opacity 800ms cubic-bezier(.22, 1, .36, 1), transform 800ms cubic-bezier(.22, 1, .36, 1), filter 800ms cubic-bezier(.22, 1, .36, 1); }
+.rv.in { filter: none; }
+.fx-on .fx-r { opacity: 0; transform: translateY(30px) scale(.985); filter: blur(5px); transition: opacity 800ms cubic-bezier(.22, 1, .36, 1) var(--fd, 0ms), transform 800ms cubic-bezier(.22, 1, .36, 1) var(--fd, 0ms), filter 800ms cubic-bezier(.22, 1, .36, 1) var(--fd, 0ms), border-color 300ms, box-shadow 500ms; }
+.fx-on .fx-r.fx-in { opacity: 1; transform: none; filter: none; }
+.fx-on .coin-card.fx-r.fx-in:hover { transform: translateY(-4px); transition-delay: 0ms; }
+.fx-on .card.fx-r.fx-in:hover { transform: translateY(-6px) rotate(-.6deg); transition-delay: 0ms; }
+@media (prefers-reduced-motion: reduce) { #fx-prog { display: none; } .rv { filter: none; } .fx-on .fx-r { opacity: 1; transform: none; filter: none; } }
+
+/* landing: bolder scroll motion. Items fly in from alternating sides, headings rise out of a blur, a line draws across each section,
+   and the hero drifts away as you leave it. */
+.rv { opacity: 0; transform: translateY(64px) scale(.95); filter: blur(10px); transition: opacity 900ms cubic-bezier(.22, 1, .36, 1), transform 1000ms cubic-bezier(.22, 1, .36, 1), filter 900ms cubic-bezier(.22, 1, .36, 1); transition-delay: calc(var(--d, 0) * 110ms); }
+.rv:nth-child(3n+1) { transform: translate(-56px, 48px) rotate(-1.6deg) scale(.95); }
+.rv:nth-child(3n) { transform: translate(56px, 48px) rotate(1.6deg) scale(.95); }
+.rv.in, .rv:nth-child(3n+1).in, .rv:nth-child(3n).in { opacity: 1; transform: none; filter: none; }
+.sline { display: block; height: 1px; width: 100%; max-width: 1200px; margin: 0 auto; background: linear-gradient(90deg, transparent, #ff7a1a, transparent); transform: scaleX(0); opacity: 0; transition: transform 1400ms cubic-bezier(.22, 1, .36, 1), opacity 800ms; }
+.sline.on { transform: scaleX(1); opacity: .8; }
+.hero-copy { opacity: calc(1 - var(--hp, 0) * .75); translate: 0 calc(var(--hp, 0) * -70px); }
+.hero .stage { scale: calc(1 - var(--hp, 0) * .1); opacity: calc(1 - var(--hp, 0) * .6); }
+@media (prefers-reduced-motion: reduce) { .rv, .rv:nth-child(3n+1), .rv:nth-child(3n) { opacity: 1; transform: none; filter: none; } .sline { transform: none; opacity: .6; } .hero-copy, .hero .stage { translate: none; scale: none; opacity: 1; } }
+@media (max-width: 767px) { .rv:nth-child(3n+1), .rv:nth-child(3n) { transform: translateY(56px) scale(.96); } }
+
+/* deeper, tinted and see through: surfaces carry a dark indigo fill so the field shows through them */
+:root { --surface: rgba(9, 9, 11, .88); --surface-2: rgba(15, 15, 18, .88); --surface-3: rgba(24, 24, 28, .88); --surface-4: rgba(34, 34, 40, .88); --line: rgba(255, 255, 255, 0.1); }
+.panel, .stat, .coin-card, .way, .pc, .door, .chron-card, .card:not(.rc), .bc, .tbl, .treemap {
+  -webkit-backdrop-filter: blur(12px) saturate(150%); backdrop-filter: blur(12px) saturate(150%);
+}
+.panel, .stat, .coin-card, .way, .pc, .door, .card:not(.t1):not(.t2):not(.t3):not(.rc) { border-color: rgba(255, 255, 255, 0.1); }
+.nav { background: rgba(8, 8, 10, .72); border-color: rgba(255, 255, 255, 0.13); }
+body.scrolled .top, body.scrolled .nav { background-color: rgba(4, 4, 6, .92); border-color: rgba(255, 255, 255, 0.16); }
+.btn-ghost, .btn.ghost { background: rgba(255, 255, 255, 0.064); border-color: rgba(255, 255, 255, 0.2); }
+.btn-ghost:hover { background: rgba(255, 255, 255, 0.109); }
+.seg { background: rgba(255, 255, 255, 0.045); border-color: rgba(255, 255, 255, 0.15); }
+.chip, .pill { background: rgba(255, 255, 255, 0.051); border-color: rgba(255, 255, 255, 0.15); }
+.sheet { background: rgba(4, 4, 6, .95); }
+
+/* landing and inner pages: the same dark fill for secondary buttons and chips (the orange main button stays orange) */
+.btn-ghost, .chip, .tbl, .tab, .toggle { background-color: rgba(10, 10, 13, .84); border-color: rgba(255, 255, 255, .1); }
+.btn-ghost:hover, .tab:hover { background-color: rgba(26, 26, 32, .9); }
+.nav { background-color: rgba(8, 8, 10, .8); }
+
+/* ---------------- solid surfaces: nothing shows through floating buttons or panels, and there is no sheen, spotlight or reflection ---------------- */
+:root { --dk: #0b0b0e; --dk-hi: #15151b; --panel: #0b0b0e; --sunk: #060608; --surface: #0b0b0e; --surface-2: #101015; --surface-3: #16161c; --surface-4: #1e1e26; }
+.panel, .stat, .coin-card, .way, .pc, .door, .chron-card, .card:not(.rc):not(.t1):not(.t2):not(.t3), .tbl, .treemap, .tabbar, .ticker, .rraid, .srow, .mini, .bc,
+.btn:not(.primary):not(.gm):not(.big-cta), .btn-ghost, .seg, .chip, .pill, .presets button, .ritualcard, .tick-item:not(.hot), .tbadge, .tm-chip, .side-tabs, .amt, .omencard.none, select, .menu summary, .door-btn,
+.top, .nav, .toggle, .tab, .onboard-card, .menu-body, .busy, .toast, .sheet, .guide, .tour, .ritual-hero, .omen-banner, .raid-live, .demo-banner, .grad-banner, .warn {
+  background-image: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+.panel, .stat, .coin-card, .way, .pc, .door, .chron-card, .card:not(.rc):not(.t1):not(.t2):not(.t3), .tbl, .treemap, .tabbar, .ticker, .rraid, .srow, .mini,
+.btn:not(.primary):not(.gm):not(.big-cta), .btn-ghost, .chip, .pill:not(.ok):not(.bad):not(.hot), .presets button, .ritualcard, .tick-item:not(.hot), .tbadge, .tm-chip, .amt, .omencard.none, select, .menu summary, .door-btn, .toggle, .tab {
+  background-color: #0b0b0e !important;
+}
+.seg, .side-tabs { background-color: #060608 !important; }
+.top, .nav { background-color: #08080a !important; }
+.onboard-card, .menu-body, .busy, .toast, .sheet { background-color: #0a0a0d !important; }
+.guide, .tour, .ritual-hero { background-color: #0d0c08 !important; }
+.btn:hover:not(:disabled):not(.primary):not(.gm):not(.big-cta), .btn-ghost:hover, .presets button:hover, .ritualcard:hover, .tick-item:not(.hot):hover, .door-btn:hover, .tab:hover { background-color: #15151b !important; }
+.presets button.on { background-color: #2a1608 !important; }
+.seg button[aria-pressed="true"] { background-color: var(--accent) !important; }
+.tabbar button[aria-pressed="true"] { background-color: #15151b !important; }
+
+/* no lit top edge or inner highlight: flat edges with a plain drop shadow */
+.panel, .stat, .coin-card, .way, .pc, .door, .chron-card, .tbl, .tabbar, .mini, .top, .nav, .btn, .seg, .chip, .tick-item, .presets button, .ritualcard {
+  box-shadow: 0 10px 28px -14px #000 !important;
+}
+.btn.primary, .btn.gm, .btn.big-cta, .play-btn, .nav .btn { box-shadow: 0 8px 20px -10px rgba(255, 122, 26, .55) !important; }
+.btn.big-cta { box-shadow: 0 8px 20px -10px var(--up) !important; } .btn.big-cta.sell { box-shadow: 0 8px 20px -10px var(--down) !important; }
+.tm-in, .chron-card::after, .srow::after, .coin-card::after, .card .sym, .tm-art { text-shadow: none; }

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Play Rulecard: demo or full testnet</title>
+<meta name="description" content="Choose the demo with a practice wallet, or connect your own wallet for the full game on NEAR testnet.">
+<meta name="robots" content="index,follow">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/pages.css">
+<link rel="stylesheet" href="/glass.css">
+<script src="/bg.js" defer></script>
+<script src="/fx.js" defer></script>
+</head>
+<body>
+<main id="main" class="pg"><div class="wrap">
+<div class="pg-head rv">
+  <span class="chip caption-3"><i class="ph-bold ph-door-open i"></i>Choose how to play</span>
+  <h1 class="heading-2"><span class="grad">Two ways in, one game</span></h1>
+  <p class="body-3 muted">Both run on NEAR testnet and both are the same contracts. Pick the demo to see everything in a few minutes, or bring your own wallet to play the full game.</p>
+</div>
+<div class="two">
+  <article class="card door main rv" style="--d:0">
+    <span class="chip caption-3 tag"><i class="ph-bold ph-lightning i"></i>Demo, about 2 minutes</span>
+    <h2 class="heading-4">Try the demo</h2>
+    <p class="body-3 muted">No wallet, no install. We make a practice wallet in your browser, send it a little testnet NEAR and walk you through your first gm, bag and raid.</p>
+    <ul class="body-5">
+      <li><i class="ph-bold ph-check-circle i"></i>Three live coins (FROG, ZAP, MOTH) and 16 labelled bots already playing</li>
+      <li><i class="ph-bold ph-check-circle i"></i>Time runs 12 times faster and NEAR amounts are divided by 100, so a whole day passes in minutes</li>
+      <li><i class="ph-bold ph-check-circle i"></i>Guided first steps, then free play: Ritual, Vault, cards, raids, bets, War Map</li>
+      <li class="no"><i class="ph-bold ph-minus-circle i"></i>Practice wallet lives in this browser only, so clearing site data loses it</li>
+    </ul>
+    <a class="btn btn-lg button-lg" href="/play/?door=practice">Start the demo<i class="ph-bold ph-arrow-right i" aria-hidden="true"></i></a>
+    <p class="caption-2 muted">Free. Nothing has value.</p>
+  </article>
+  <article class="card door rv" style="--d:1">
+    <span class="chip caption-3 tag"><i class="ph-bold ph-wallet i"></i>Full testnet</span>
+    <h2 class="heading-4">Play with my wallet</h2>
+    <p class="body-3 muted">Connect your own testnet account. Your wallet signs, your coins stay yours, and you get every part of the game, including launching a coin of your own.</p>
+    <ul class="body-5">
+      <li><i class="ph-bold ph-check-circle i"></i>MyNearWallet or Meteor on NEAR testnet</li>
+      <li><i class="ph-bold ph-check-circle i"></i>Launch your own coin with a name, symbol and rule cards</li>
+      <li><i class="ph-bold ph-check-circle i"></i>One tap mode: a limited key per coin so gm, packs and Battle cry skip the popup</li>
+      <li><i class="ph-bold ph-check-circle i"></i>Your history, bags and bets follow your account, in any browser</li>
+      <li class="no"><i class="ph-bold ph-minus-circle i"></i>Needs a testnet account with some testnet NEAR</li>
+    </ul>
+    <a class="btn btn-lg button-lg" href="/play/?door=wallet" style="background:var(--surface-3);color:var(--text)">Connect a wallet<i class="ph-bold ph-arrow-right i" aria-hidden="true"></i></a>
+    <p class="caption-2 muted">Testnet NEAR is free and has no value.</p>
+  </article>
+</div>
+<table class="tbl body-5 rv" aria-label="Demo compared with full testnet">
+  <thead><tr><th></th><th>Demo</th><th>Full testnet</th></tr></thead>
+  <tbody>
+    <tr><td>Wallet</td><td>Practice wallet made for you</td><td>Your own, signs each move</td></tr>
+    <tr><td>Time and amounts</td><td>12 times faster, NEAR divided by 100</td><td>Same contracts, your pace</td></tr>
+    <tr><td>Launch a coin</td><td>Yes at demo size, if your practice wallet has enough NEAR</td><td>Yes, from the Launch page</td></tr>
+    <tr><td>Where it lives</td><td>This browser</td><td>Your account</td></tr>
+    <tr><td>Best for</td><td>Seeing the game in minutes</td><td>Judges, builders and real play tests</td></tr>
+  </tbody>
+</table>
+<div class="steps">
+  <div class="step rv" style="--d:0"><span class="n mono caption-3">01</span><h3 class="title-2">Pick a door</h3><p class="body-6 muted">You can switch later from the app header.</p></div>
+  <div class="step rv" style="--d:1"><span class="n mono caption-3">02</span><h3 class="title-2">Get set up</h3><p class="body-6 muted">Demo: automatic. Wallet: connect and approve the key.</p></div>
+  <div class="step rv" style="--d:2"><span class="n mono caption-3">03</span><h3 class="title-2">Say gm</h3><p class="body-6 muted">Do your Ritual to keep your bag from burning.</p></div>
+  <div class="step rv" style="--d:3"><span class="n mono caption-3">04</span><h3 class="title-2">Join a raid</h3><p class="body-6 muted">Play a tactic card and watch the War Map move.</p></div>
+</div>
+</div></main>
+
+<script src="/site.js"></script>
+</body>
+</html>

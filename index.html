@@ -1,15 +1,516 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Rulecard</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script>window.global = window; window.process = window.process || { env: {}, browser: true }; /* near-api-js and wallet deps expect Node globals */</script>
-    <script type="module" src="/src/app/main.tsx"></script>
-  </body>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rulecard: the memecoin game where coins raid each other</title>
+<meta name="description" content="Every coin is its own onchain card game on NEAR. Check in daily, lock tokens, play rule cards with other holders and raid rival coins. Free on testnet, no wallet needed.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Rulecard: the memecoin game where coins raid each other">
+<meta property="og:description" content="Show up every day or your bag burns. The coin that shows up bigger takes a share of a rival's pot. Free on NEAR testnet.">
+<meta name="twitter:card" content="summary">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.1" defer></script>
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/glass.css">
+<script src="/bg.js" defer></script>
+<script src="/fx.js" defer></script>
+<style>
+main, footer { position: relative; z-index: 1; }
+.hero-copy, .sec-head, .tagline-text, .strip .item, .foot, .close-in { text-shadow: 0 0 12px #000, 0 0 3px #000; }
+.close { background: rgba(19, 18, 9, .7); }
+/* hero */
+.hero { padding: var(--s900) 0 var(--s800); overflow-x: clip; }
+.hero-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s600); align-items: center; }
+.hero-copy { display: flex; flex-direction: column; gap: var(--s300); align-items: flex-start; padding-top: var(--s600); }
+.hero-copy h1, .hero-copy .sub { max-width: 680px; }
+.grad { background: linear-gradient(90deg, #FFFFFF, #9B9B9B); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; }
+.cta-note { display: flex; flex-direction: column; gap: var(--s100); }
+.proof { display: flex; flex-wrap: wrap; gap: var(--s200) var(--s300); color: var(--muted); }
+.proof span { display: inline-flex; align-items: center; gap: var(--s75); }
+.proof .i { font-size: 18px; color: var(--good); }
+.table { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-3xl); padding: var(--s300); display: flex; flex-direction: column; gap: var(--s200); }
+.table-head { display: flex; justify-content: space-between; align-items: center; }
+.coins { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s100); position: relative; }
+.coin { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-xl); padding: var(--s200); display: flex; flex-direction: column; gap: var(--s100); transition: transform 500ms var(--ease); }
+.coin:hover { transform: translateY(-4px); }
+.coin .face { width: 40px; height: 40px; border-radius: var(--r-full); display: grid; place-items: center; font-size: 24px; background: var(--surface-3); }
+.coin .pts { display: flex; align-items: baseline; gap: var(--s50); }
+.coin.raiding { border-color: var(--bad); }
+.coin.defending { border-color: var(--rare); }
+.status { display: inline-flex; align-items: center; gap: var(--s50); }
+.status .dot { width: 8px; height: 8px; border-radius: var(--r-full); background: var(--muted); }
+.raiding .status .dot { background: var(--bad); } .defending .status .dot { background: var(--rare); }
+.raidline { display: flex; align-items: center; gap: var(--s100); }
+.raidline .track { position: relative; flex: 1; height: 8px; border-radius: var(--r-full); background: var(--surface-3); overflow: hidden; }
+.raidline .fill { position: absolute; inset: 0; background: var(--bad); transform-origin: left; transform: scaleX(0); transition: transform 1600ms var(--ease) 400ms; }
+.stage.in .raidline .fill { transform: scaleX(.66); }
+.pips { display: flex; gap: var(--s75); }
+.pip { width: 24px; height: 8px; border-radius: var(--r-full); background: var(--surface-3); transition: background-color 500ms; }
+.stage.in .pip:nth-child(1) { background: var(--good); transition-delay: 600ms; }
+.stage.in .pip:nth-child(2) { background: var(--bad); transition-delay: 1200ms; }
+
+
+/* hero hand */
+.hero-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+.stage { display: flex; flex-direction: column; gap: var(--s300); }
+.hand { position: relative; height: 380px; }
+.bc { --tc: var(--common); position: absolute; left: 50%; top: 0; width: 220px; aspect-ratio: 5 / 7; background: var(--surface); border: 1px solid var(--tc); border-radius: var(--r-2xl); padding: var(--s200); display: flex; flex-direction: column; gap: var(--s100); opacity: 0; transform: translate(-50%, 140px) rotate(0deg); animation: deal 900ms var(--ease) forwards; }
+.bc .top { display: flex; justify-content: space-between; align-items: center; color: var(--tc); }
+.bc .art { flex: 1; min-height: 0; border-radius: var(--r-xl); background: var(--surface-2); display: grid; place-items: center; font-size: 64px; color: var(--tc); }
+.bc .pts { display: flex; align-items: baseline; gap: var(--s75); }
+.bc.l { --x: -78%; --r: -9deg; z-index: 1; animation-delay: 150ms; }
+.bc.r { --x: 78%; --r: 9deg; z-index: 1; animation-delay: 300ms; }
+.bc.c { --x: 0%; --r: 0deg; z-index: 2; animation-delay: 0ms; }
+.bc.l, .bc.r { top: var(--s300); }
+.hand .bc { transition: transform 500ms var(--ease); }
+@keyframes deal { to { opacity: 1; transform: translate(calc(-50% + var(--x)), 0) rotate(var(--r)); } }
+.hand:hover .bc.c { animation-play-state: running; }
+.hand .bc:hover { z-index: 5; }
+.status .dot { background: var(--muted); }
+@media (max-width: 1023px) { .hero-grid { grid-template-columns: minmax(0, 1fr); } .hand { height: 340px; } }
+@media (max-width: 639px) { .hand { height: 280px; } .bc { width: 160px; padding: var(--s100); } .bc .art { font-size: 40px; } .bc.l { --x: -50%; } .bc.r { --x: 50%; } }
+@media (prefers-reduced-motion: reduce) { .bc { animation: none; opacity: 1; transform: translate(calc(-50% + var(--x)), 0) rotate(var(--r)); } }
+
+.sym { display: block; width: 72px; height: 72px; background: var(--tc); -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat; transition: transform 500ms var(--ease); }
+.bc .art .sym { width: 84%; height: 84%; }
+.bc:hover .sym, .pc:hover .sym { transform: scale(1.08); }
+
+/* proof strip */
+.strip { padding: var(--s600) 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.strip .item { display: flex; gap: var(--s100); align-items: flex-start; }
+.strip .i { font-size: 24px; color: var(--action); flex: none; }
+
+/* tagline reveal */
+.tagline { padding: var(--s900) 0; }
+.tagline-text { max-width: 900px; }
+.tagline-text .w { opacity: .3; transition: opacity 700ms var(--ease); }
+.tagline-text .w.on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .tagline-text .w { opacity: 1; transition: none; } }
+
+/* steps */
+.step-n { color: var(--action); }
+
+/* ritual + vault */
+.meter { display: flex; flex-direction: column; gap: var(--s75); }
+.meter .row { display: flex; justify-content: space-between; }
+.bar { height: 8px; border-radius: var(--r-full); background: var(--surface-3); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 100%; transform-origin: left; transform: scaleX(0); transition: transform 1600ms var(--ease) 300ms; background: var(--c); }
+.in .bar i { transform: scaleX(var(--p)); }
+.made { opacity: 0; transform: translateY(8px); transition: opacity 500ms var(--ease) 1500ms, transform 500ms var(--ease) 1500ms; color: var(--good); }
+.in .made { opacity: 1; transform: none; }
+.locks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s75); }
+.lock { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-xl); padding: var(--s200); display: flex; flex-direction: column; gap: var(--s50); transition: transform 500ms var(--ease), border-color 300ms; }
+.lock:hover { transform: translateY(-4px); border-color: var(--teal); }
+.lock .big { color: var(--teal); }
+
+/* deck */
+.tabs { display: flex; gap: var(--s75); flex-wrap: wrap; margin-bottom: var(--s400); }
+.tab { padding: var(--s75) var(--s100); border-radius: var(--r-lg); border: 1px solid var(--line); background: transparent; color: var(--muted); transition: background-color 300ms, color 300ms, border-color 300ms, transform 500ms var(--ease); }
+.tab:hover { color: var(--ink); border-color: var(--surface-4); }
+.tab:active { transform: scale(0.98); }
+.tab[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.deck { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s200); min-height: 320px; }
+@media (max-width: 1023px) { .deck { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 639px) { .deck { grid-template-columns: minmax(0, 1fr); } }
+.pc { --tc: var(--common); background: var(--surface); border: 1px solid var(--tc); border-radius: var(--r-2xl); padding: var(--s200); display: flex; flex-direction: column; gap: var(--s200); opacity: 0; transform: translateY(32px) scale(.96); transition: opacity 600ms var(--ease), transform 600ms var(--ease); transition-delay: calc(var(--d, 0) * 70ms); }
+.deck.in .pc { opacity: 1; transform: none; }
+.deck.in .pc:hover { transform: translateY(-8px); transition-delay: 0ms; }
+.pc .top { display: flex; justify-content: space-between; align-items: center; color: var(--tc); }
+.pc .cost { display: inline-flex; align-items: center; gap: var(--s25); color: var(--mythic); }
+.pc .art { height: 112px; border-radius: var(--r-xl); background: var(--surface-2); display: grid; place-items: center; font-size: 56px; color: var(--tc); }
+.pc .way { margin-top: auto; color: var(--muted); }
+.pc.soon { border-style: dashed; border-color: var(--surface-4); }
+.pc.soon .art, .pc.soon .top { color: var(--muted); }
+.pc.soon { opacity: .55; }
+.deck.in .pc.soon { opacity: .55; }
+.empty { grid-column: 1 / -1; background: var(--surface); border: 1px dashed var(--surface-4); border-radius: var(--r-2xl); padding: var(--s600) var(--s300); display: flex; flex-direction: column; align-items: center; gap: var(--s100); text-align: center; }
+.empty .i { font-size: 40px; color: var(--muted); }
+.ways { margin-top: var(--s600); }
+.way-box { display: flex; gap: var(--s100); align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-xl); padding: var(--s200); }
+.way-box .i { font-size: 24px; color: var(--action); flex: none; }
+.omens { margin-top: var(--s700); }
+.omen { border: 1px solid var(--line); border-radius: var(--r-2xl); padding: var(--s300); background: var(--surface); display: flex; flex-direction: column; gap: var(--s100); transition: transform 500ms var(--ease); }
+.omen:hover { transform: translateY(-4px); }
+.omen .i { font-size: 32px; color: var(--teal); }
+
+/* raids */
+.raid-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s600); align-items: start; }
+@media (max-width: 1023px) { .raid-grid { grid-template-columns: minmax(0, 1fr); } }
+.raid-steps { display: flex; flex-direction: column; gap: var(--s200); }
+.rstep { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: var(--s200); }
+.rstep .num { width: 40px; height: 40px; border-radius: var(--r-full); display: grid; place-items: center; background: var(--surface-3); border: 1px solid var(--line); color: var(--bad); }
+.timeline { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-3xl); padding: var(--s300); display: flex; flex-direction: column; gap: var(--s200); }
+.tl-row { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: var(--s100); align-items: center; padding: var(--s100); border-radius: var(--r-xl); background: var(--surface-2); border: 1px solid var(--line); opacity: .4; transform: translateX(-16px); transition: opacity 500ms var(--ease), transform 500ms var(--ease), border-color 300ms; transition-delay: calc(var(--d) * 600ms); }
+.timeline.in .tl-row { opacity: 1; transform: none; }
+.timeline.in .tl-row.run { border-color: var(--bad); }
+.tl-row .i { font-size: 24px; color: var(--good); }
+.tl-row.run .i { color: var(--bad); }
+.swing { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s100); }
+.swing .coin { align-items: flex-start; }
+.swing .coin .n { font-size: 36px; line-height: 40px; font-weight: 600; }
+.up { color: var(--good); } .down { color: var(--bad); }
+
+/* prophecy */
+.slip { background: var(--surface); border: 1px solid var(--mythic); border-radius: var(--r-3xl); padding: var(--s400); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s500); }
+@media (max-width: 1023px) { .slip { grid-template-columns: minmax(0, 1fr); padding: var(--s300); } }
+.slip .q { display: flex; flex-direction: column; gap: var(--s200); }
+.yesno { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s100); }
+.yesno div { border: 1px solid var(--line); border-radius: var(--r-xl); padding: var(--s200); text-align: center; background: var(--surface-2); transition: transform 500ms var(--ease), border-color 300ms; }
+.yesno div:hover { transform: translateY(-4px); border-color: var(--mythic); }
+.split { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s75); }
+.split div { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--s100); display: flex; flex-direction: column; gap: var(--s25); }
+
+/* proof */
+.term { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-3xl); padding: var(--s300); display: flex; flex-direction: column; gap: var(--s100); }
+.term .ln { display: flex; flex-wrap: wrap; gap: var(--s75) var(--s100); align-items: baseline; opacity: 0; transform: translateY(8px); transition: opacity 500ms var(--ease), transform 500ms var(--ease); transition-delay: calc(var(--d) * 350ms); }
+.term.in .ln { opacity: 1; transform: none; }
+.term .stamp { color: var(--bad); border: 1px solid var(--bad); border-radius: var(--r); padding: var(--s25) var(--s75); }
+.stats { margin-top: var(--s500); }
+.stat { display: flex; flex-direction: column; gap: var(--s50); }
+
+/* rules */
+.rules { display: flex; flex-wrap: wrap; gap: var(--s75); }
+
+/* faq */
+.faq { display: flex; flex-direction: column; gap: var(--s100); max-width: 800px; }
+details { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-2xl); transition: border-color 300ms; }
+details:hover { border-color: var(--surface-4); }
+summary { list-style: none; cursor: pointer; padding: var(--s200) var(--s300); display: flex; justify-content: space-between; align-items: center; gap: var(--s200); border-radius: var(--r-2xl); }
+summary::-webkit-details-marker { display: none; }
+summary .i { font-size: 20px; flex: none; transition: transform 500ms var(--ease); color: var(--muted); }
+details[open] summary .i { transform: rotate(45deg); }
+details .ans { padding: 0 var(--s300) var(--s300); color: var(--muted); animation: fadeIn 500ms var(--ease); }
+@keyframes fadeIn { from { opacity: 0; } }
+
+/* close */
+.close { border-top: 1px solid var(--line); }
+.close-in { display: flex; flex-direction: column; gap: var(--s300); align-items: flex-start; max-width: 680px; }
+
+@media (max-width: 1023px) { .hero-grid { grid-template-columns: minmax(0, 1fr); } .hero-copy { padding-top: var(--s400); } }
+@media (max-width: 639px) { .coins { grid-template-columns: minmax(0, 1fr); } .locks { grid-template-columns: minmax(0, 1fr); } .swing { grid-template-columns: minmax(0, 1fr); } .split { grid-template-columns: minmax(0, 1fr); } .hero { padding-top: var(--s800); } }
+</style>
+</head>
+<body>
+<a class="skip body-5" href="#main">Skip to content</a>
+
+<header class="nav" id="nav">
+  <a class="logo title-3" href="#top" aria-label="Rulecard home"><span class="mark" aria-hidden="true"><i class="ph-bold ph-cards"></i></span>Rulecard</a>
+  <nav class="nav-links body-5" aria-label="Main">
+    <a href="#how">How it works</a><a href="#deck">The deck</a><a href="#raids">Raids</a><a href="#proof">Proof</a><a href="/rules/">Rules</a><a href="/launch/">Launch</a><a href="#faq">FAQ</a>
+  </nav>
+  <div class="nav-end">
+    <a class="btn button-sm" href="/enter/">Play free</a>
+    <button class="toggle" id="toggle" aria-expanded="false" aria-controls="sheet" aria-label="Open menu"><span></span><span></span></button>
+  </div>
+</header>
+<div class="sheet" id="sheet" aria-hidden="true">
+  <a class="heading-4" href="#how" style="--n:0">How it works</a>
+  <a class="heading-4" href="#deck" style="--n:1">The deck</a>
+  <a class="heading-4" href="#raids" style="--n:2">Raids</a>
+  <a class="heading-4" href="#proof" style="--n:3">Proof</a>
+  <a class="heading-4" href="#faq" style="--n:4">FAQ</a>
+  <a class="btn btn-lg button-lg" href="/enter/" style="--n:5; align-self:flex-start">Play free on testnet</a>
+</div>
+
+<main id="main">
+<section class="hero" id="top" aria-labelledby="h1">
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <h1 class="heading-1 grad" id="h1">The memecoin game<br>where coins raid each other</h1>
+      <p class="body-3 muted sub" style="font-size:18px;line-height:28px">Every coin is its own onchain card game on NEAR. Show up every day or your bag burns, and the coin that shows up bigger takes a share of a rival's pot.</p>
+      <div class="cta-note">
+        <div><a class="btn btn-lg button-lg" href="/enter/">Play free on testnet<i class="ph-bold ph-arrow-right i" aria-hidden="true"></i></a></div>
+        <p class="caption-2 muted">No wallet needed. We make you a practice wallet in your browser.</p>
+      </div>
+      <p class="proof caption-1"><span><i class="ph-fill ph-check-circle i" aria-hidden="true"></i>3 coins live on NEAR testnet</span><span><i class="ph-fill ph-check-circle i" aria-hidden="true"></i>No admin key</span><span><i class="ph-fill ph-check-circle i" aria-hidden="true"></i>16 labelled bots</span></p>
+    </div>
+    <div class="stage" id="table" aria-label="Three coins as cards: FROG raiding MOTH, ZAP at peace">
+      <div class="hand">
+        <article class="bc l" style="--tc:var(--epic)"><div class="top"><span class="caption-3">LEVEL 2</span><span class="status caption-4"><span class="dot"></span>Raiding</span></div><div class="art"><span class="sym" style="--m:url(/bg/jokers/3-epic-wink.png)" aria-hidden="true"></span></div><div><h2 class="heading-5">FROG</h2><p class="caption-4 muted">Frog Pond</p></div><div class="pts"><span class="heading-4 mono">13</span><span class="caption-4 muted">war points</span></div></article>
+        <article class="bc r" style="--tc:var(--teal)"><div class="top"><span class="caption-3">LEVEL 2</span><span class="status caption-4"><span class="dot"></span>At peace</span></div><div class="art"><span class="sym" style="--m:url(/bg/jokers/2-rare-laugh.png)" aria-hidden="true"></span></div><div><h2 class="heading-5">ZAP</h2><p class="caption-4 muted">Zap Cat</p></div><div class="pts"><span class="heading-4 mono">13</span><span class="caption-4 muted">war points</span></div></article>
+        <article class="bc c" style="--tc:var(--mythic)"><div class="top"><span class="caption-3">LEVEL 2</span><span class="status caption-4"><span class="dot"></span>Defending</span></div><div class="art"><span class="sym" style="--m:url(/bg/jokers/4-mythic-starry.png)" aria-hidden="true"></span></div><div><h2 class="heading-5">MOTH</h2><p class="caption-4 muted">Moth Lamp</p></div><div class="pts"><span class="heading-4 mono">13</span><span class="caption-4 muted">war points</span></div></article>
+      </div>
+      <div class="panel raidline">
+        <span class="caption-3">FROG</span><span class="track"><span class="fill"></span></span><span class="caption-3">MOTH</span><span class="pips" aria-label="Round 2 of 3"><i class="pip"></i><i class="pip"></i><i class="pip"></i></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="strip">
+  <div class="wrap grid cols-4">
+    <div class="item rv" style="--d:0"><i class="ph-bold ph-key i" aria-hidden="true"></i><div><div class="title-3">No admin key</div><p class="body-6 muted">The factory deletes its own key when it launches a coin. Nobody can change a rule, not even the creator.</p></div></div>
+    <div class="item rv" style="--d:1"><i class="ph-bold ph-vault i" aria-hidden="true"></i><div><div class="title-3">No rugs</div><p class="body-6 muted">The curve holds the NEAR buyers paid, and the creator's seed can't come back out.</p></div></div>
+    <div class="item rv" style="--d:2"><i class="ph-bold ph-shield-check i" aria-hidden="true"></i><div><div class="title-3">Losses are capped</div><p class="body-6 muted">Idle burn takes at most 8% of your unlocked tokens in a day.</p></div></div>
+    <div class="item rv" style="--d:3"><i class="ph-bold ph-scroll i" aria-hidden="true"></i><div><div class="title-3">Every burn is logged</div><p class="body-6 muted">Each mint and burn is an onchain event with its source.</p></div></div>
+  </div>
+</div>
+
+<section class="tagline" aria-label="The idea">
+  <div class="wrap"><p class="heading-2 tagline-text" id="tagline">Every coin has to show up every day. The ones that do get stronger. The ones that sleep pay the ones that stay.</p></div>
+</section>
+
+<section id="how" aria-labelledby="how-h">
+  <div class="wrap">
+    <div class="sec-head rv"><span class="title-4 eyebrow">How it works</span><h2 class="heading-3" id="how-h">Three things a coin does together</h2><p class="body-3 muted">A coin lives or dies by its community. Each step below is a real action in the app.</p></div>
+    <div class="grid cols-3">
+      <article class="card rv" style="--d:0"><span class="ico-box"><i class="ph-bold ph-sun i" aria-hidden="true"></i></span><span class="caption-3 step-n">STEP 1</span><h3 class="heading-6">Show up</h3><p class="body-6 muted">Say gm every 6 hours and lock tokens in the Vault. Go 24 hours silent and idle burn takes 1% of your unlocked tokens every 6 hours, never more than 8% a day.</p></article>
+      <article class="card rv" style="--d:1"><span class="ico-box"><i class="ph-bold ph-cards i" aria-hidden="true"></i></span><span class="caption-3 step-n">STEP 2</span><h3 class="heading-6">Play cards together</h3><p class="body-6 muted">Open two cards every 6 hours. Small cards fire alone. Big ones wait on the table until enough holders back or sign them.</p></article>
+      <article class="card rv" style="--d:2"><span class="ico-box"><i class="ph-bold ph-sword i" aria-hidden="true"></i></span><span class="caption-3 step-n">STEP 3</span><h3 class="heading-6">Raid a rival</h3><p class="body-6 muted">Three signers start a raid on another coin. Three rounds decide it, and the winner's pot takes 15% of the loser's.</p></article>
+    </div>
+    <p class="caption-2 muted rv" style="margin-top:var(--s200)">Times shown are full scale. The demo runs 12 times faster, so a gm every 30 minutes and a Ritual day of 2 hours.</p>
+  </div>
+</section>
+
+<section aria-labelledby="loop-h" style="background:rgba(19,18,9,.62);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div class="wrap">
+    <div class="sec-head rv"><span class="title-4 eyebrow">The daily loop</span><h2 class="heading-3" id="loop-h">A goal for the whole coin, and a safe place to hide</h2></div>
+    <div class="grid cols-2">
+      <div class="card rv" id="ritual" style="--d:0">
+        <div style="display:flex;justify-content:space-between;align-items:center"><h3 class="heading-6">Today's Ritual</h3><span class="chip caption-4">Example</span></div>
+        <p class="body-6 muted">Enough wallets say gm and enough NEAR gets locked before the day ends.</p>
+        <div class="meter" style="--c:var(--action);--p:.77"><div class="row"><span class="body-5">Wallets that said gm</span><span class="mono body-5">31 of 40</span></div><div class="bar"><i></i></div></div>
+        <div class="meter" style="--c:var(--teal);--p:1"><div class="row"><span class="body-5">NEAR locked in the Vault</span><span class="mono body-5">50 of 50</span></div><div class="bar"><i></i></div></div>
+        <p class="body-5 made">Goal met: the pot burns 5% of itself, and 7% on a 3 day streak.</p>
+        <p class="body-6 muted">Miss it and idle burn doubles for 6 hours. The coin keeps its best streak as a high score.</p>
+      </div>
+      <div class="card rv" id="vault" style="--d:1">
+        <h3 class="heading-6">The Vault</h3>
+        <p class="body-6 muted">Locked tokens can't burn. They also earn half of what idle burn and early exits take, shared by weight.</p>
+        <div class="locks">
+          <div class="lock"><span class="body-5 muted">6 hours</span><span class="heading-4 big mono">1x</span><span class="caption-5 muted">weight</span></div>
+          <div class="lock"><span class="body-5 muted">24 hours</span><span class="heading-4 big mono">1.5x</span><span class="caption-5 muted">weight</span></div>
+          <div class="lock"><span class="body-5 muted">72 hours</span><span class="heading-4 big mono">2x</span><span class="caption-5 muted">weight</span></div>
+        </div>
+        <p class="body-6 muted">Leaving early costs 20%. Half goes to the holders who stay and half is burned.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="deck" aria-labelledby="deck-h">
+  <div class="wrap">
+    <div class="sec-head rv"><span class="title-4 eyebrow">The deck</span><h2 class="heading-3" id="deck-h">The big cards need friends</h2><p class="body-3 muted">Each coin has its own limited deck, and cards cost the coin's Energy. Energy goes up by 1 for every gm and by 1 for every 10 NEAR bought.</p></div>
+    <div class="tabs rv" role="tablist" aria-label="Card tier" id="tabs"></div>
+    <div class="deck" id="deck-grid" aria-live="polite"></div>
+    <div class="ways grid cols-4">
+      <div class="way-box rv" style="--d:0"><i class="ph-bold ph-user i" aria-hidden="true"></i><div><div class="title-4">Solo</div><p class="body-6 muted">Play it alone and it fires at once.</p></div></div>
+      <div class="way-box rv" style="--d:1"><i class="ph-bold ph-users-three i" aria-hidden="true"></i><div><div class="title-4">Backed</div><p class="body-6 muted">Needs two or three backers, or three copies.</p></div></div>
+      <div class="way-box rv" style="--d:2"><i class="ph-bold ph-signature i" aria-hidden="true"></i><div><div class="title-4">Signed</div><p class="body-6 muted">Needs enough qualified signers inside 15 minutes.</p></div></div>
+      <div class="way-box rv" style="--d:3"><i class="ph-bold ph-sword i" aria-hidden="true"></i><div><div class="title-4">Raid plan</div><p class="body-6 muted">Rally, Curse and Ward fill the three slots of a raid.</p></div></div>
+    </div>
+    <div class="omens">
+      <div class="sec-head rv" style="margin-bottom:var(--s400)"><span class="title-4 eyebrow">Omens</span><h3 class="heading-4">An hour of luck every three</h3><p class="body-3 muted">From level 2, each coin gets one hour of changed rules every three hours. The next one is rolled from the block's random seed.</p></div>
+      <div class="grid cols-4">
+        <div class="omen rv" style="--d:0"><i class="ph-bold ph-moon-stars i" aria-hidden="true"></i><div class="title-2">Full Moon</div><p class="body-6 muted">Every gm and every buy gives the coin double Energy.</p></div>
+        <div class="omen rv" style="--d:1"><i class="ph-bold ph-cloud-lightning i" aria-hidden="true"></i><div class="title-2">Thunder</div><p class="body-6 muted">Sells pay 1% more, and the pot keeps it.</p></div>
+        <div class="omen rv" style="--d:2"><i class="ph-bold ph-fire i" aria-hidden="true"></i><div class="title-2">Ghost Ember</div><p class="body-6 muted">The coin plays a card on itself and the pot burns 3%.</p></div>
+        <div class="omen rv" style="--d:3"><i class="ph-bold ph-gift i" aria-hidden="true"></i><div class="title-2">Treasure</div><p class="body-6 muted">One wallet that checks in this hour gets a free pack.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="raids" aria-labelledby="raids-h" style="background:rgba(19,18,9,.62);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div class="wrap">
+    <div class="sec-head rv"><span class="title-4 eyebrow">Raids</span><h2 class="heading-3" id="raids-h">Win value from another coin, not from nowhere</h2><p class="body-3 muted">A raid needs no card, only signers. The other coin can't decline it.</p></div>
+    <div class="raid-grid">
+      <div class="raid-steps">
+        <div class="rstep rv" style="--d:0"><span class="num title-3">1</span><div><h3 class="title-2">Sign</h3><p class="body-6 muted">Three signers at level 2, five at level 3, eight at level 4. The defender gets 30 minutes to get ready.</p></div></div>
+        <div class="rstep rv" style="--d:1"><span class="num title-3">2</span><div><h3 class="title-2">Fill your plan</h3><p class="body-6 muted">Put a Rally, Curse or Ward in each of three slots. Plans stay hidden until each round ends.</p></div></div>
+        <div class="rstep rv" style="--d:2"><span class="num title-3">3</span><div><h3 class="title-2">Three rounds</h3><p class="body-6 muted">Each side scores buying, crowd size and locked tokens. Tactics then multiply the score by 1.1 or 0.9.</p></div></div>
+        <div class="rstep rv" style="--d:3"><span class="num title-3">4</span><div><h3 class="title-2">Settle</h3><p class="body-6 muted">The winner's pot takes 15% of the loser's, or 20% on War Coins, and buys and burns its own tokens.</p></div></div>
+      </div>
+      <div class="rv" style="--d:1">
+        <div class="timeline" id="timeline">
+          <div style="display:flex;justify-content:space-between;align-items:center"><span class="title-3">FROG raids MOTH</span><span class="chip caption-4">Example</span></div>
+          <div class="tl-row" style="--d:0"><i class="ph-fill ph-check-circle i" aria-hidden="true"></i><div><div class="body-5">Sign</div><div class="caption-5 muted mono">sign_raid</div></div><span class="caption-4 muted">3 of 3 signed</span></div>
+          <div class="tl-row" style="--d:1"><i class="ph-fill ph-check-circle i" aria-hidden="true"></i><div><div class="body-5">Muster</div><div class="caption-5 muted mono">launch_raid</div></div><span class="caption-4 muted">30 minutes</span></div>
+          <div class="tl-row run" style="--d:2"><i class="ph-fill ph-lightning i" aria-hidden="true"></i><div><div class="body-5">Three rounds</div><div class="caption-5 muted mono">battle_cry</div></div><span class="caption-4 down">Round 2</span></div>
+          <div class="tl-row" style="--d:3"><i class="ph-bold ph-hourglass i" aria-hidden="true" style="color:var(--muted)"></i><div><div class="body-5">Settle</div><div class="caption-5 muted mono">settle_raid</div></div><span class="caption-4 muted">15% of the pot</span></div>
+          <div class="swing">
+            <div class="coin"><span class="caption-3 muted">FROG points</span><span class="n mono up" data-count="13" data-to="15">13</span></div>
+            <div class="coin"><span class="caption-3 muted">MOTH points</span><span class="n mono down" data-count="13" data-to="11">13</span></div>
+          </div>
+          <p class="caption-5 muted">War Map points: 10 to join, 3 for every level, and a raid moves 2, 3 or 4 points from the loser to the winner. Nobody drops below 4.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="bet-h">
+  <div class="wrap">
+    <div class="sec-head rv"><span class="title-4 eyebrow">Bets</span><h2 class="heading-3" id="bet-h">Ask the crowd a question and let it bet</h2></div>
+    <div class="slip rv">
+      <div class="q">
+        <span class="chip caption-4" style="align-self:flex-start;color:var(--rare)"><i class="ph-bold ph-crystal-ball i" aria-hidden="true"></i>Prophecy, rare card</span>
+        <h3 class="heading-5">Will FROG be a net buyer over the next 2 hours?</h3>
+        <div class="yesno"><div class="title-2">Yes</div><div class="title-2">No</div></div>
+        <p class="caption-2 muted">Totals stay hidden until the window closes. Bettors can't trade the coin until it settles, and bets are refunded if fewer than 8 wallets join.</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--s200)">
+        <h3 class="title-2">Losers lose half. Here is where it goes.</h3>
+        <div class="split"><div><span class="heading-5 mono up">30%</span><span class="caption-4 muted">to the winners</span></div><div><span class="heading-5 mono">10%</span><span class="caption-4 muted">to the caster</span></div><div><span class="heading-5 mono down">10%</span><span class="caption-4 muted">burned</span></div></div>
+        <p class="body-6 muted">Prophecy costs 20 Energy and needs two or three backers. The crowd's question can ask about price, buyers or Vault share.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="proof" aria-labelledby="proof-h" style="background:rgba(19,18,9,.62);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div class="wrap">
+    <div class="sec-head rv"><span class="title-4 eyebrow">Proof</span><h2 class="heading-3" id="proof-h">Try to cheat it. The contract says no.</h2><p class="body-3 muted">The Judges page in the app sends six forbidden transactions to a live coin. Each answer is NEAR's own error.</p></div>
+    <div class="term" id="term">
+      <div class="ln" style="--d:0"><span class="mono body-5">sell, no deposit</span><span class="stamp caption-3">REFUSED</span><span class="mono caption-4 muted">needs 1 yoctoNEAR</span></div>
+      <div class="ln" style="--d:1"><span class="mono body-5">set_admin</span><span class="stamp caption-3">REFUSED</span><span class="mono caption-4 muted">MethodNotFound</span></div>
+      <div class="ln" style="--d:2"><span class="mono body-5">new, launch the coin again</span><span class="stamp caption-3">REFUSED</span><span class="mono caption-4 muted">already initialized</span></div>
+      <div class="ln" style="--d:3"><span class="mono body-5">gm, then gm again</span><span class="stamp caption-3">REFUSED</span><span class="mono caption-4 muted">gm once every 6h</span></div>
+      <div class="ln" style="--d:4"><span class="mono body-5">unlock before the end</span><span class="stamp caption-3">REFUSED</span><span class="mono caption-4 muted">still locked</span></div>
+      <div class="ln" style="--d:5"><span class="mono body-5">claim_creator_escrow</span><span class="stamp caption-3">REFUSED</span><span class="mono caption-4 muted">paid at graduation only</span></div>
+    </div>
+    <div class="grid cols-4 stats">
+      <div class="stat rv" style="--d:0"><span class="heading-3 mono" data-count="56">0</span><span class="body-6 muted">coin tests, at two scales</span></div>
+      <div class="stat rv" style="--d:1"><span class="heading-3 mono" data-count="21">0</span><span class="body-6 muted">live checks on the chain</span></div>
+      <div class="stat rv" style="--d:2"><span class="heading-3 mono" data-count="12000">0</span><span class="body-6 muted">random operations fuzz tested</span></div>
+      <div class="stat rv" style="--d:3"><span class="heading-3 mono" data-count="0">0</span><span class="body-6 muted">access keys on every coin</span></div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="launch-h">
+  <div class="wrap">
+    <div class="sec-head rv"><span class="title-4 eyebrow">Launch</span><h2 class="heading-3" id="launch-h">Start your own coin and pick its rules</h2><p class="body-3 muted">Seed the pot with 5 to 100 NEAR at full scale and choose up to 3 of 11 creator rules. Both are locked forever, because there is no admin key to change them.</p></div>
+    <div class="rules">
+      <span class="chip body-5 rv" style="--d:0">Launch Guard</span><span class="chip body-5 rv" style="--d:1">Paper Tax</span><span class="chip body-5 rv" style="--d:2">Soft Tax</span><span class="chip body-5 rv" style="--d:3">Creator Lock</span><span class="chip body-5 rv" style="--d:4">Whale Cap</span><span class="chip body-5 rv" style="--d:5">War Coin</span><span class="chip body-5 rv" style="--d:6">Peace Coin</span><span class="chip body-5 rv" style="--d:7">Ruthless</span><span class="chip body-5 rv" style="--d:8">Wild Coin</span><span class="chip body-5 rv" style="--d:9">Fair Launch</span><span class="chip body-5 rv" style="--d:10">Hold the Line</span>
+    </div>
+  </div>
+</section>
+
+<section id="faq" aria-labelledby="faq-h" style="border-top:1px solid var(--line)">
+  <div class="wrap">
+    <div class="sec-head rv"><span class="title-4 eyebrow">Questions</span><h2 class="heading-3" id="faq-h">What people ask first</h2></div>
+    <div class="faq rv">
+      <details><summary class="title-2">Is this real money?<i class="ph-bold ph-plus i" aria-hidden="true"></i></summary><p class="ans body-3">No. It runs on NEAR testnet at demo speed. Testnet NEAR has no value, and a Ritual day takes two hours instead of 24.</p></details>
+      <details><summary class="title-2">Do I need a wallet?<i class="ph-bold ph-plus i" aria-hidden="true"></i></summary><p class="ans body-3">No. Play free makes a practice wallet in your browser and sends it 0.25 testnet NEAR. You can also connect your own testnet wallet inside the app.</p></details>
+      <details><summary class="title-2">Can the team change the rules or take the money?<i class="ph-bold ph-plus i" aria-hidden="true"></i></summary><p class="ans body-3">No. Every rule is fixed at launch, and the factory deletes its own access key in the same transaction that deploys it. The curve holds the NEAR buyers paid, and the creator's seed can't come back out.</p></details>
+      <details><summary class="title-2">Who are the bots?<i class="ph-bold ph-plus i" aria-hidden="true"></i></summary><p class="ans body-3">Sixteen labelled bots keep the demo world moving by checking in, trading and starting raids. Their whole brain is one readable file in the repository, and their names carry a robot mark in the app.</p></details>
+      <details><summary class="title-2">What happens if I stop playing?<i class="ph-bold ph-plus i" aria-hidden="true"></i></summary><p class="ans body-3">After 24 hours without a gm, idle burn takes 1% of your unlocked tokens every 6 hours, at most 8% in a day. Half burns and half goes to locked holders. Locked tokens never burn.</p></details>
+      <details><summary class="title-2">What decides a raid?<i class="ph-bold ph-plus i" aria-hidden="true"></i></summary><p class="ans body-3">Each side scores buying, crowd size and locked tokens in three rounds, and hidden Rally, Curse and Ward cards tilt the score. The coin whose community shows up in bigger numbers has the edge.</p></details>
+      <details><summary class="title-2">Is it audited?<i class="ph-bold ph-plus i" aria-hidden="true"></i></summary><p class="ans body-3">No. The contracts are not audited. They pass 56 tests at two scales and a random fuzz test, and the Judges page checks them on the chain. Card rolls use the block's random seed, and raid plans are readable onchain.</p></details>
+      <details><summary class="title-2">What is not built yet?<i class="ph-bold ph-plus i" aria-hidden="true"></i></summary><p class="ans body-3">Fire against Stop contests, the Storm, Black Hole, Heist and Supernova cards, nine more Omens, a DEX pool for graduated coins and a card market. They are on the roadmap, not in the app.</p></details>
+    </div>
+  </div>
+</section>
+
+<section class="close" aria-labelledby="close-h">
+  <div class="wrap">
+    <div class="close-in">
+      <h2 class="heading-2 grad rv" id="close-h">Pick a coin and join its war</h2>
+      <p class="body-3 muted rv" style="--d:1;font-size:18px;line-height:28px">Free on NEAR testnet. No wallet, no card, no sign up.</p>
+      <a class="btn btn-lg button-lg rv" style="--d:2" href="/enter/">Play free on testnet<i class="ph-bold ph-arrow-right i" aria-hidden="true"></i></a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <div style="display:flex;flex-direction:column;gap:var(--s75)"><a class="logo title-3" href="#top"><span class="mark" aria-hidden="true"><i class="ph-bold ph-cards"></i></span>Rulecard</a><p class="caption-2 muted" style="max-width:420px">Built for the NEAR hackathon. Testnet only, not financial advice.</p></div>
+    <ul class="body-5 muted">
+      <li><a href="/enter/">Play</a></li><li><a href="https://github.com/HarshAnand1900/rulecard">Source code</a></li><li><a href="/privacy.html">Privacy</a></li><li><a href="/terms.html">Terms</a></li>
+    </ul>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var $ = function (s, r) { return (r || document).querySelector(s); }, $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* data: only what the contracts really do, the rest is marked soon */
+  var CARDS = [
+    ['common', 'Rally', 'rally', 0, 'Raid tactic', 'Your raid score x1.05 to 1.10. Beats Ward, loses to Curse.'],
+    ['common', 'Curse', 'curse', 0, 'Raid tactic', 'Their score x0.95 to 0.90 and cancels their Rally. Loses to Ward.'],
+    ['common', 'Ward', 'ward', 0, 'Raid tactic', 'Turns their Curse back on them. Loses to Rally.'],
+    ['common', 'Ember', 'ember', 5, 'Needs 3 copies', 'The pot burns 1%, 2% or 3% at 3, 6 or 10 copies. Anyone can stoke it.'],
+    ['common', 'Roll Call', 'rollcall', 5, 'Play alone', 'For 1 hour every gm gives double Energy.'],
+    ['common', 'Hype Siren', 'siren', 5, 'Play alone', 'Pins the coin on Trending for 15 minutes.'],
+    ['rare', 'Prophecy', 'prophecy', 20, 'Needs 2 to 3 backers', 'Ask the crowd a 2 hour question. Losers lose half.'],
+    ['epic', 'Inferno', 'inferno', 50, 'Needs signers', 'The crowd fuels, locked for 24 hours. Then the pot burns 10% plus half the fuel.'],
+    ['epic', 'Storm', 'storm', 0, 'Soon', 'Idle wallets lose a slice. Half to the Vault, half burned.', 1],
+    ['epic', 'Black Hole', 'blackhole', 0, 'Soon', 'A huge burn that needs a crowd to sign it.', 1],
+    ['epic', 'Heist', 'heist', 0, 'Soon', 'Raid a rival pot with a plan.', 1],
+    ['mythic', 'Supernova', 'supernova', 0, 'Soon', 'The pot spends its full daily cap at once.', 1]
+  ];
+  var TIER = { common: ['Common', 'var(--common)'], rare: ['Rare', 'var(--rare)'], epic: ['Epic', 'var(--epic)'], mythic: ['Mythic', 'var(--mythic)'] };
+  var tier = 'all';
+
+  function deck() {
+    var g = $('#deck-grid'); g.classList.remove('in');
+    var list = CARDS.filter(function (c) { return tier === 'all' || c[0] === tier; });
+    var built = list.filter(function (c) { return !c[6]; });
+    if (tier === 'mythic') { list = list.filter(function (c) { return !c[6]; }); }
+    g.innerHTML = list.length && !(tier === 'mythic' && built.length === 0) ? list.map(function (c, i) {
+      var t = TIER[c[0]];
+      return '<article class="pc' + (c[6] ? ' soon' : '') + '" style="--tc:' + t[1] + ';--d:' + i + '"><div class="top"><span class="caption-3">' + t[0].toUpperCase() + '</span>' + (c[6] ? '<span class="caption-4 muted">Soon</span>' : '<span class="cost caption-3"><i class="ph-fill ph-lightning i" aria-hidden="true"></i>' + c[3] + '</span>') + '</div><div class="art"><span class="sym" style="--m:url(/bg/symbols/' + c[2] + '.png)" aria-hidden="true"></span></div><div><h3 class="title-1">' + c[1] + '</h3><p class="body-6 muted" style="margin-top:var(--s50)">' + c[5] + '</p></div><span class="way caption-4">' + c[4] + '</span></article>';
+    }).join('') : '<div class="empty"><i class="ph-bold ph-sparkle i" aria-hidden="true"></i><h3 class="title-2">No Mythic cards are built yet</h3><p class="body-6 muted" style="max-width:420px">Supernova is the first one planned. Today the deck has common, rare and epic cards.</p></div>';
+    requestAnimationFrame(function () { requestAnimationFrame(function () { if (reduce || inView(g)) g.classList.add('in'); else ioDeck.observe(g); }); });
+  }
+  function tabs() {
+    var ids = ['all', 'common', 'rare', 'epic', 'mythic'];
+    $('#tabs').innerHTML = ids.map(function (id) {
+      var n = id === 'all' ? CARDS.filter(function (c) { return !c[6]; }).length : CARDS.filter(function (c) { return c[0] === id && !c[6]; }).length;
+      return '<button class="tab button-sm" role="tab" aria-selected="' + (id === tier) + '" data-t="' + id + '">' + (id === 'all' ? 'All' : id[0].toUpperCase() + id.slice(1)) + ' <span class="mono caption-4" style="opacity:.7">' + n + '</span></button>';
+    }).join('');
+  }
+  $('#tabs').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; tier = b.dataset.t; tabs(); deck(); });
+
+  function inView(el) { var r = el.getBoundingClientRect(); return r.top < innerHeight * .9 && r.bottom > 0; }
+  var ioDeck = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); ioDeck.unobserve(e.target); } }); }, { threshold: .12 });
+
+  /* reveal once, rising 32px */
+  var io = new IntersectionObserver(function (es) {
+    es.forEach(function (e) {
+      if (!e.isIntersecting) return; var el = e.target; el.classList.add('in'); io.unobserve(el);
+      $$('[data-count]', el).forEach(count);
+    });
+  }, { threshold: .15, rootMargin: '0px 0px -6% 0px' });
+  function count(el) {
+    var from = +el.dataset.count, to = el.dataset.to ? +el.dataset.to : from, dur = 1500, t0 = performance.now();
+    if (!el.dataset.to) { from = 0; to = +el.dataset.count; }
+    if (reduce) { el.textContent = to.toLocaleString('en-US'); return; }
+    (function f(t) { var k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3); el.textContent = Math.round(from + (to - from) * e).toLocaleString('en-US'); if (k < 1) requestAnimationFrame(f); })(t0);
+  }
+  tabs(); deck();
+  ['.rv', '#table', '#ritual', '#vault', '#timeline', '#term'].forEach(function (s) { $$(s).forEach(function (el) { if (reduce) { el.classList.add('in'); $$('[data-count]', el).forEach(count); } else io.observe(el); }); });
+  $$('.stats [data-count]').forEach(function (el) { if (!reduce) { /* counted when its stat reveals */ } });
+
+  /* tagline: each word passes from muted to full colour as it crosses the trigger line */
+  var tg = $('#tagline'); var words = tg.textContent.split(/\s+/).filter(Boolean);
+  tg.innerHTML = words.map(function (w) { return '<span class="w">' + w + '</span>'; }).join(' ');
+  var ws = $$('.w', tg);
+  if (reduce) { ws.forEach(function (w) { w.classList.add('on'); }); }
+  else {
+    var wio = new IntersectionObserver(function (es) { es.forEach(function (e) { e.target.classList.toggle('on', e.isIntersecting || e.boundingClientRect.top < 0); }); }, { rootMargin: '-50% 0px -35% 0px', threshold: 0 });
+    ws.forEach(function (w, i) { w.style.transitionDelay = '0ms'; wio.observe(w); });
+  }
+
+  /* nav: mobile sheet and current section */
+  var toggle = $('#toggle'), sheet = $('#sheet');
+  function sheetSet(open) { sheet.classList.toggle('open', open); sheet.setAttribute('aria-hidden', !open); toggle.setAttribute('aria-expanded', open); toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu'); document.body.style.overflow = open ? 'hidden' : ''; }
+  toggle.addEventListener('click', function () { sheetSet(!sheet.classList.contains('open')); });
+  $$('a', sheet).forEach(function (a) { a.addEventListener('click', function () { sheetSet(false); }); });
+  addEventListener('keydown', function (e) { if (e.key === 'Escape') sheetSet(false); });
+  var links = $$('.nav-links a'), secs = links.map(function (a) { var h = a.getAttribute('href'); return h.charAt(0) === '#' ? $(h) : null; });
+  var nio = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { var i = secs.indexOf(e.target); links.forEach(function (a, k) { a.setAttribute('aria-current', k === i); }); } }); }, { rootMargin: '-40% 0px -55% 0px' });
+  secs.forEach(function (s) { if (s) nio.observe(s); });
+})();
+</script>
+</body>
 </html>

@@ -21,7 +21,11 @@ export type Scale = 'demo' | 'real';
 export type Door = 'practice' | 'wallet';
 const SCALE_KEY = 'rulecard-scale', DOOR_KEY = 'rulecard-door';
 const savedScale = (): Scale => { try { return localStorage.getItem(SCALE_KEY) === 'real' ? 'real' : 'demo'; } catch { return 'demo'; } };
-export const savedDoor = (): Door | null => { try { const d = localStorage.getItem(DOOR_KEY); return d === 'practice' || d === 'wallet' ? d : null; } catch { return null; } };
+export const savedDoor = (): Door | null => { try {
+  // the marketing page's button opens /play/?door=practice: that choice is kept and the address is cleaned
+  const q = new URLSearchParams(location.search).get('door');
+  if (q === 'practice' || q === 'wallet') { localStorage.setItem(DOOR_KEY, q); history.replaceState(null, '', location.pathname); }
+  const d = localStorage.getItem(DOOR_KEY); return d === 'practice' || d === 'wallet' ? d : null; } catch { return null; } };
 export const saveDoor = (d: Door | null) => { try { if (d) localStorage.setItem(DOOR_KEY, d); else localStorage.removeItem(DOOR_KEY); } catch { /* ignore */ } };
 const envOf = () => (import.meta as any).env ?? {};
 /** A hosted testnet build shows the landing screen (two doors); the local sandbox never does. */

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Launch a coin: Rulecard</title>
+<meta name="description" content="How to launch a memecoin with built in rules on NEAR testnet, what it costs and what you cannot change.">
+<meta name="robots" content="index,follow">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/pages.css">
+<link rel="stylesheet" href="/glass.css">
+<script src="/bg.js" defer></script>
+<script src="/fx.js" defer></script>
+</head>
+<body>
+<main id="main" class="pg"><div class="wrap">
+<div class="pg-head rv">
+  <span class="chip caption-3"><i class="ph-bold ph-rocket-launch i"></i>For creators</span>
+  <h1 class="heading-2"><span class="grad">Launch a coin with rules</span></h1>
+  <p class="body-3 muted">Every coin is its own NEP 141 contract with the Rulecard rules built in. You pick a name, a symbol and a set of cards. After launch nobody can change anything, including you.</p>
+</div>
+<div class="steps" style="margin-top:0">
+  <div class="step rv" style="--d:0"><span class="n mono caption-3">01</span><h3 class="title-2">Connect a wallet</h3><p class="body-6 muted">Use your own testnet account so the coin is tied to you.</p></div>
+  <div class="step rv" style="--d:1"><span class="n mono caption-3">02</span><h3 class="title-2">Name it and pick rules</h3><p class="body-6 muted">Name, symbol, optional icon and the rule cards your coin starts with.</p></div>
+  <div class="step rv" style="--d:2"><span class="n mono caption-3">03</span><h3 class="title-2">Add a seed</h3><p class="body-6 muted">Your seed goes into the bonding curve as the first liquidity, plus a storage deposit for the coin's code.</p></div>
+  <div class="step rv" style="--d:3"><span class="n mono caption-3">04</span><h3 class="title-2">Share it</h3><p class="body-6 muted">The coin appears on Discover and starts its first day.</p></div>
+</div>
+<div class="prose rv" style="margin-top:var(--s600)">
+  <h2 class="heading-5">What you pay</h2>
+  <ul class="body-3 muted">
+    <li><strong>Seed:</strong> between 5 and 100 NEAR at full size. The demo factory uses one hundredth of that.</li>
+    <li><strong>Storage deposit:</strong> held by the coin account to pay for its code. The launch screen shows the exact amount before you sign.</li>
+    <li><strong>Gas:</strong> a small fee paid to the network.</li>
+  </ul>
+  <h2 class="heading-5">What you cannot do</h2>
+  <ul class="body-3 muted">
+    <li>Pull the seed back out. The curve holds it, so buyers can always sell back.</li>
+    <li>Change a rule, mint more, or freeze anyone's tokens.</li>
+  </ul>
+  <h2 class="heading-5">Where this runs</h2>
+  <p class="body-3 muted">Launching works on NEAR testnet today. Everything here uses testnet NEAR, which has no value.</p>
+  <div class="cta-row"><a class="btn btn-lg button-lg" href="/play/?door=wallet">Connect a wallet<i class="ph-bold ph-arrow-right i" aria-hidden="true"></i></a><a class="btn btn-lg button-lg" href="/rules/" style="background:var(--surface-3);color:var(--text)">Read the rules</a></div>
+</div>
+</div></main>
+
+<script src="/site.js"></script>
+</body>
+</html>

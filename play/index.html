@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rulecard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" />
+    <meta name="theme-color" content="#000000" />
+    <link rel="stylesheet" href="/glass.css" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="/bg.js" defer></script>
+    <script src="/fx.js" defer></script>
+    <script>window.global = window; window.process = window.process || { env: {}, browser: true }; /* near-api-js and wallet deps expect Node globals */</script>
+    <script type="module" src="/src/app/main.tsx"></script>
+  </body>
+</html>

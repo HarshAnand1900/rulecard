@@ -1,5 +1,6 @@
 // The guided first run: "STEP 3 OF 7". Each step is ticked from what the chain says you did, not from clicks, and links its receipt.
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type { Net } from './net';
 import type { HandView, HolderView, Ritual } from './types';
 import { play } from './sound';
@@ -19,6 +20,10 @@ const set = (me: string | null, k: string) => { try { localStorage.setItem(key(m
 export default function Guide(p: Props) {
   const { ch, me, h, hand, r, busy } = p;
   const [, bump] = useState(0);
+  const [manual, setManual] = useState<number | null>(null);
+  const [pend, setPend] = useState<string | null>(null);
+  useEffect(() => { if (!pend) return; const t = setTimeout(() => setPend(null), 20_000); return () => clearTimeout(t); }, [pend]);
+  useEffect(() => { const open = () => { try { localStorage.removeItem(key(me, 'skip')); } catch { /* ignore */ } setManual(0); bump(n => n + 1); }; window.addEventListener('rulecard-guide-open', open); return () => window.removeEventListener('rulecard-guide-open', open); }, [me]);
   const skipped = get(me, 'skip'), goalSeen = get(me, 'goal');
   const bag = !!h && (BigInt(h.balance) > 0n || BigInt(h.locked) > 0n);
   const receipt = (m: string) => { const x = ch.receipts?.[m]; return x && ch.explorer ? <a className="small" href={`${ch.explorer}/txns/${x.hash}`} target="_blank" rel="noreferrer">receipt ↗</a> : null; };
@@ -32,24 +37,26 @@ export default function Guide(p: Props) {
     { title: 'SEE THE FIGHT', done: p.visitedWar, text: 'Coins raid each other. The one that shows up in bigger numbers takes part of the other coin\'s pot. Take a look at the War Map.', cta: { label: 'Open the War Map', run: () => p.go('war') } },
     { title: 'YOUR GOAL', done: goalSeen, text: `Keep this coin's Ritual alive: ${r.gm_target} wallets saying gm and enough NEAR locked, every day. Make it and the pot burns supply; miss it and sleepers burn twice as fast.`, cta: { label: 'Got it', run: () => { set(me, 'goal'); play('ritualMade'); bump(n => n + 1); } } },
   ];
-  const i = steps.findIndex(s => !s.done);
+  const first = steps.findIndex(s => !s.done);
   if (skipped || !me) return null;
-  if (i === -1) return null;
-  const s = steps[i];
-  return (
-    <div className="guide" role="region" aria-label="Guided first run">
-      <div className="row between wrap">
-        <span className="small muted">STEP {i + 1} OF {steps.length}</span>
-        <button className="linkish small muted" onClick={() => { set(me, 'skip'); bump(n => n + 1); }}>Skip guide</button>
-      </div>
-      <div className="guide-title">{s.title}</div>
+  if (first === -1 && manual === null) return null;
+  const n = steps.length, i = Math.min(n - 1, manual ?? first), s = steps[i];
+  const skip = () => { set(me, 'skip'); setManual(null); bump(k => k + 1); };
+  return createPortal(
+    <div className="guide gd2" role="region" aria-label="Guided first run">
+      <div className="gd-top"><span className="gd-label">GUIDE · {i + 1} / {n}</span><button className="gd-x" aria-label="Skip guide" title="Skip guide" onClick={skip}>×</button></div>
+      <div className="gd-title">{s.title.charAt(0) + s.title.slice(1).toLowerCase()}{s.done && <span className="gd-done">Done</span>}</div>
       <p>{s.text}</p>
-      <div className="row gap wrap">
-        {s.cta && <button className="btn primary" disabled={!!busy} onClick={() => { play('click'); s.cta!.run(); }}>{s.cta.label}</button>}
-        {i > 0 && steps.slice(0, i).map((x, k) => x.receipt ? <span key={k} className="small muted">✓ {x.title.toLowerCase()} {x.receipt}</span> : null)}
+      {s.done && s.receipt && <div className="gd-receipt small muted">{s.receipt}</div>}
+      <div className="gd-bar" aria-hidden="true">{steps.map((x, k) => <i key={k} className={k === i ? 'now' : x.done ? 'on' : ''} />)}</div>
+      <div className="gd-foot">
+        <button className="gd-back" disabled={i === 0} onClick={() => setManual(i - 1)}>Back</button>
+        <span className="gd-spacer" />
+        {s.cta && !s.done && <button className="btn primary small" disabled={!!busy || pend === s.title} onClick={() => { play('click'); setManual(null); setPend(s.title); s.cta!.run(); }}>{pend === s.title ? 'Working…' : s.cta.label}</button>}
+        <button className="gd-next" onClick={() => (i === n - 1 ? skip() : setManual(i + 1))}>{i === n - 1 ? 'Finish' : 'Next'}</button>
       </div>
-      <div className="guide-dots" aria-hidden="true">{steps.map((x, k) => <i key={k} className={x.done ? 'on' : k === i ? 'now' : ''} />)}</div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

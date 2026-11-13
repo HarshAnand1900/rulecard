@@ -117,10 +117,8 @@ async function playCoin(coin, liveCoins) {
     }
     // raids
     const raid = await view(coin, 'get_raid');
-    if (!raid && c.level >= 2 && chance(0.5)) { // judges should always find a raid running or about to start
-      const targets = liveCoins.filter(x => x.id !== coin && x.level >= c.level);
-      if (targets.length) await act(bot, coin, 'start_raid', { target: pick(targets).id });
-    } else if (raid) {
+    // (raids are started by raidTick below, one at a time: random proposals on every coin made each target "busy")
+    if (raid) {
       if (raid.attacking && raid.phase === 0) { await act(bot, coin, 'sign_raid', {}, 0n, true); if ((await view(coin, 'get_raid'))?.backers >= raid.needed) await act(bot, coin, 'launch_raid'); }
       if (raid.phase === 2) {
         const plan = await view(coin, 'get_my_plan', { account_id: me });
@@ -135,6 +133,40 @@ async function playCoin(coin, liveCoins) {
     await act(bot, coin, 'claim_raid_pack', {}, 0n, true);
   }
   await act(bots[0], coin, 'poke', {}, 0n, true);
+}
+
+/** One coordinated raid at a time. A coin that has its own open proposal cannot be raided ("already in a raid"), so proposals are
+ *  only made when NO coin has one: pick an attacker and a target that are both free, have enough bots sign in the same tick
+ *  (the proposer counts as the first signature), then launch at once. Tries a few pairs, since the contract refuses a pair that
+ *  is shielded, on cooldown or too far apart in level. */
+async function raidTick(live) {
+  const state = [];
+  for (const x of live) state.push({ ...x, raid: await view(x.id, 'get_raid') });
+  if (state.some(x => x.raid && x.raid.phase < 4)) return; // a raid is forming or running: let it finish first
+  const eligible = state.filter(x => x.level >= 2);
+  const pairs = [];
+  for (const a of eligible) for (const b of eligible) if (a.id !== b.id && b.level >= a.level) pairs.push([a, b]);
+  pairs.sort(() => Math.random() - 0.5);
+  for (const [a, b] of pairs.slice(0, 6)) {
+    let proposer = null;
+    for (const bot of [...bots].sort(() => Math.random() - 0.5).slice(0, 8)) {
+      if (await act(bot, a.id, 'start_raid', { target: b.id }, 0n, true)) { proposer = bot; break; }
+    }
+    if (!proposer) continue;
+    let r = await view(a.id, 'get_raid');
+    for (const bot of bots) {
+      if (!r || r.backers >= r.needed) break;
+      if (bot === proposer) continue;
+      if (await act(bot, a.id, 'sign_raid', {}, 0n, true)) r = await view(a.id, 'get_raid');
+    }
+    if (r && r.backers >= r.needed) {
+      const ok = await act(proposer, a.id, 'launch_raid', {}, 0n, true);
+      const after = await view(a.id, 'get_raid');
+      log(`${sym(a.id)} raids ${sym(b.id)}: ${r.backers}/${r.needed} signed, ${ok && after && after.phase >= 1 ? 'launched' : 'launch was refused'}`);
+      if (after && after.phase >= 1) return;
+    } else log(`${sym(a.id)} proposed a raid on ${sym(b.id)} but only ${r?.backers ?? 0}/${r?.needed ?? '?'} could sign this tick`);
+    return; // a proposal is open: leave it to expire or finish before trying another pair
+  }
 }
 
 async function liveCoins() {
@@ -186,6 +218,7 @@ while (tick <= TICKS && Date.now() < DEADLINE) {
   try {
     const live = await liveCoins();
     for (const x of live) { await housekeeping(x.id); await ritualHelp(x.id); await omenPoke(x.id); await playCoin(x.id, live); }
+    await raidTick(live);
     log(`tick ${tick} done (${live.length} live coins: ${live.map(x => sym(x.id) + ' L' + x.level).join(', ')})`);
     failures = 0; tick++;
     if (tick <= TICKS) { if (FWD) await forward(FWD); else await sleep(EVERY * 1000); }

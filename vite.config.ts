@@ -41,5 +41,7 @@ export default defineConfig({
   resolve: { alias: { buffer: 'buffer/' } },
   optimizeDeps: { include: ['buffer', 'near-api-js'] },
   server: { host: '127.0.0.1', port: 5173, strictPort: true },
+  // two pages: the landing at the root (static, plus public/ files) and the app at /play/
+  build: { rollupOptions: { input: { main: resolve(__dirname, 'index.html'), play: resolve(__dirname, 'play/index.html') } } },
   test: { globals: true, environment: 'node', include: ['src/**/*.test.ts'] },
 });
