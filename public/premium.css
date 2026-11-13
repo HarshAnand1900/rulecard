@@ -132,3 +132,47 @@ section[style*="rgba(19,18,9"] { background: linear-gradient(180deg, rgba(19, 14
   section[aria-labelledby] { padding-top: 48px; padding-bottom: 48px; }
   html, body { overflow-x: clip; }
 }
+
+/* ---------------------------------------------------------------- closing curtain and glowing wordmark footer */
+:root:root .close { background: transparent !important; border-top: 0; padding: 32px 0 0; }
+.curtain {
+  position: relative; overflow: hidden; border-radius: 22px; border: 1px solid rgba(255, 139, 37, .22); isolation: isolate;
+  padding: clamp(56px, 9vw, 120px) clamp(20px, 6vw, 72px); text-align: center; background: #0A0605;
+  box-shadow: 0 0 40px -14px rgba(255, 75, 0, .45), inset 0 0 60px rgba(0, 0, 0, .7);
+}
+/* velvet folds: vertical bands of deep red and ember, brighter toward the right and the bottom */
+.curtain::before {
+  content: ""; position: absolute; inset: 0; z-index: -2;
+  background:
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, .62) 0 10px, rgba(120, 30, 10, .16) 26px, rgba(0, 0, 0, .55) 44px),
+    linear-gradient(90deg, rgba(0, 0, 0, .92) 0%, rgba(24, 7, 3, .7) 42%, rgba(176, 46, 20, .62) 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, .3), rgba(255, 90, 20, .2) 100%);
+  background-blend-mode: normal, normal, screen;
+}
+/* film grain */
+.curtain::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; opacity: .35; mix-blend-mode: overlay; pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+.curtain .close-in { align-items: center; margin: 0 auto; max-width: 720px; gap: 20px; text-shadow: none; }
+.curtain h2 { color: #F5EFE6; font-size: clamp(34px, 5vw, 64px) !important; }
+.curtain p { color: #C9B8A8; max-width: 520px; margin: 0; }
+.curtain .caption-2 { color: #A8927F; position: relative; z-index: 1; }
+.spark { position: absolute; left: var(--x); top: var(--y); width: 11px; height: 11px; opacity: .7; pointer-events: none; }
+.spark::before, .spark::after { content: ""; position: absolute; background: #FFC98A; left: 50%; top: 50%; translate: -50% -50%; }
+.spark::before { width: 1px; height: 11px; } .spark::after { width: 11px; height: 1px; }
+footer { padding-bottom: 0; overflow: hidden; }
+.wordmark {
+  font-family: var(--head); font-weight: 600; text-align: center; line-height: .8; letter-spacing: -.05em; user-select: none; white-space: nowrap;
+  font-size: clamp(64px, 19vw, 300px); margin: 24px 0 -.12em; padding-bottom: .06em;
+  background: linear-gradient(180deg, rgba(255, 110, 20, 0) 8%, rgba(255, 110, 20, .5) 55%, #FF8A2A 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 45%); mask-image: linear-gradient(180deg, transparent 0%, #000 45%);
+  filter: drop-shadow(0 0 28px rgba(255, 75, 0, .35));
+}
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes twinkle { 0%, 100% { opacity: .25; scale: .8; } 50% { opacity: .95; scale: 1.15; } }
+  .spark { animation: twinkle 3.6s ease-in-out var(--t, 0s) infinite; }
+  @keyframes folds { from { background-position: 0 0, 0 0, 0 0; } to { background-position: 88px 0, 0 0, 0 0; } }
+  .curtain::before { animation: folds 40s linear infinite; }
+}
