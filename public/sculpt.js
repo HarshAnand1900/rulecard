@@ -1,27 +1,20 @@
-/* Hero scene: a glossy black booster pack that tears open and fans out five cards, on a loop. Real 3D slabs, decorative only. */
+/* A spiral of glossy cards built from real 3D slabs: it turns slowly and leans toward the pointer. Decorative only. */
 (function () {
   var spin = document.getElementById('sculpt-spin');
   if (!spin) return;
-  var art = ['1-common-grin', '2-rare-laugh', '3-epic-wink', '4-mythic-starry', '5-wild-shades'];
-  var tone = ['#FFB45A', '#FF9A3C', '#FFD08A', '#FF7A1A', '#FFC27A'];
-  var html = '<div class="burst"></div>';
-  // five cards sit inside the pack and rise out of it
-  for (var i = 0; i < 5; i++) {
-    html += '<div class="pcard" style="--i:' + i + ';--tone:' + tone[i] + '">' +
-      '<i class="cf"><span class="sym" style="--m:url(/bg/jokers/' + art[i] + '.png)"></span><b>' + ['♠', '♦', '♣', '♥', '★'][i] + '</b></i>' +
-      '<i class="ck"></i><i class="ce1"></i><i class="ce2"></i><i class="ce3"></i><i class="ce4"></i></div>';
+  var N = 9, glyphs = ['♠', '♦', '♣', '♥'];
+  for (var i = 0; i < N; i++) {
+    var d = document.createElement('div');
+    d.className = 'slab' + (i % 3 === 0 ? ' hot' : '');
+    d.style.transform = 'translateY(' + ((i - (N - 1) / 2) * 30) + 'px) rotateY(' + (i * 42) + 'deg) translateZ(128px) rotateX(-6deg)';
+    d.innerHTML = '<i class="f"><b>' + glyphs[i % 4] + '</b><u>' + glyphs[i % 4] + '</u></i><i class="k"></i><i class="e1"></i><i class="e2"></i><i class="e3"></i><i class="e4"></i>';
+    spin.appendChild(d);
   }
-  // the pack: front, back, four sides, and the top flap that tears away
-  html += '<div class="pack">' +
-    '<i class="pf"><span class="crimp t"></span><span class="foil"></span><em class="pmark">RULECARD</em><em class="plabel">PACK · 5 CARDS</em><span class="crimp b"></span><span class="pshine"></span></i>' +
-    '<i class="pb"></i><i class="ps l"></i><i class="ps r"></i><i class="ps t"></i><i class="ps u"></i>' +
-    '<i class="pflap"><span class="crimp t"></span></i></div>';
-  spin.innerHTML = html;
   var rig = spin.parentNode;
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   addEventListener('pointermove', function (e) {
     var x = e.clientX / innerWidth - 0.5, y = e.clientY / innerHeight - 0.5;
-    rig.style.transform = 'rotateX(' + (-10 + y * -10) + 'deg) rotateZ(' + (x * 6) + 'deg)';
+    rig.style.transform = 'rotateX(' + (-14 + y * -10) + 'deg) rotateZ(' + (x * 8) + 'deg)';
   }, { passive: true });
 })();
 
