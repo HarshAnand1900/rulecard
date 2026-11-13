@@ -38,6 +38,7 @@ export interface Proposal {
 }
 export interface Duel { id: number; a: string; b: string; stake: string; a_yes: boolean; phase: number; created: number; start: number; end: number; snapshot: string; result: string; }
 export interface Pledge { account: string; amount: string; }
+export interface Payout { account: string; tokens: string; pack: boolean; at: number; what: string; }
 export interface Bounty { id: number; sponsor: string; question: Question; snapshot: string; created: number; end: number; pledges: Pledge[]; total: string; phase: number; result: string; }
 export interface RaidResult { outcome: number; rounds: number[]; mine: string[]; theirs: string[]; spoils: string; }
 export interface RaidView {

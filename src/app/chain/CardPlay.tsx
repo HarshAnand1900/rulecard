@@ -13,7 +13,7 @@ const short = (a: string) => a.split('.')[0].toUpperCase();
 
 export default function CardPlay({ card, call, busy, table, me, coins, selfId, price, raidOn }: Props) {
   const use = USE_OF[card], name = CARD_TEXT[card].name;
-  const [q, setQ] = useState<'Tide' | 'Line' | 'Crowd' | 'Vault'>('Tide');
+  const [q, setQ] = useState<'Tide' | 'Line' | 'Crowd' | 'Vault'>(card === 'Bounty' ? 'Crowd' : 'Tide');
   const [qv, setQv] = useState(7);
   const [target, setTarget] = useState('');
   const [opp, setOpp] = useState('');
@@ -22,10 +22,11 @@ export default function CardPlay({ card, call, busy, table, me, coins, selfId, p
   const [pid, setPid] = useState('');
   const question = (): Question => q === 'Tide' ? 'Tide' : q === 'Line' ? { Line: { price: ((BigInt(price) * BigInt(100 + qv)) / 100n).toString() } } : q === 'Crowd' ? { Crowd: { n: qv } } : { Vault: { bps: qv * 100 } };
   const others = coins.filter(x => x.account_id !== selfId);
+  const noTide = card === 'Bounty'; // a single buy would make a Tide bounty true
   const qpick = (
     <div className="stack small">
       <select value={q} onChange={e => setQ(e.target.value as any)} aria-label="Question">
-        <option value="Tide">Tide: net buying?</option><option value="Line">Line: price above +X%?</option><option value="Crowd">Crowd: N new buyers?</option><option value="Vault">Vault: locked share +X points?</option>
+        {!noTide && <option value="Tide">Tide: net buying?</option>}<option value="Line">Line: price above +X%?</option><option value="Crowd">Crowd: N new buyers?</option><option value="Vault">Vault: locked share +X points?</option>
       </select>
       {q !== 'Tide' && <input className="tiny" type="number" value={qv} onChange={e => setQv(Number(e.target.value))} title={q === 'Line' ? '5–10 (%) above, or -10 to -5 below' : q === 'Crowd' ? '3–30 wallets' : '1–10 points'} />}
     </div>

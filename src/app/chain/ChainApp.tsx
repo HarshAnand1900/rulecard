@@ -9,7 +9,7 @@ import Onboard from './Onboard';
 import Guide, { guideWarVisited, markWarVisited } from './Guide';
 import { play, sfxForCall, isMuted, setMuted, onMuteChange, getVolume, setVolume, SFX_LIST } from './sound';
 import type {
-  CoinEntry, CoinView, HolderView, Ritual, LevelView, LogEntry, HandView, Proposal, RaidView, Card, Question, BuyQuote, OmenView, Duel, Bounty,
+  CoinEntry, CoinView, HolderView, Ritual, LevelView, LogEntry, HandView, Proposal, RaidView, Card, Question, BuyQuote, OmenView, Duel, Bounty, Payout,
 } from './types';
 import { TIER_OF, TIER_NAME, CARD_TEXT, CARD_SYMBOL, RULE_TEXT, LEVEL_NAME } from './types';
 import PriceChart, { type PricePoint, toMicro } from './PriceChart';
@@ -298,7 +298,7 @@ function Discover({ ch, coins, tick, go }: Ctx) {
 }
 
 // ------------------------------------------------------------------ Coin page
-interface CoinData { c: CoinView; h: HolderView | null; r: Ritual; lv: LevelView; hand: HandView | null; table: Proposal[]; hist: Proposal[]; raid: RaidView | null; raids: RaidView[]; log: LogEntry[]; plan: number[]; prices: PricePoint[]; omen: OmenView | null; duels: Duel[]; bounties: Bounty[]; }
+interface CoinData { c: CoinView; h: HolderView | null; r: Ritual; lv: LevelView; hand: HandView | null; table: Proposal[]; hist: Proposal[]; raid: RaidView | null; raids: RaidView[]; log: LogEntry[]; plan: number[]; prices: PricePoint[]; omen: OmenView | null; duels: Duel[]; bounties: Bounty[]; pending: Payout[]; }
 
 function CoinPage(p: Ctx & { id: string }) {
   const { ch, me, act, busy, tick, id } = p;
@@ -309,14 +309,15 @@ function CoinPage(p: Ctx & { id: string }) {
     (async () => {
       const acc = ch.me(); const v = <T,>(m: string, a: object = {}) => ch.view<T>(id, m, a);
       const mine = <T,>(m: string): Promise<T | null> => (acc ? v<T>(m, { account_id: acc }) : Promise.resolve(null));
-      const [c, h, r, lv, hand, table, hist, raid, raids, log, plan, prices, omen, duels, bounties] = await Promise.all([
+      const [c, h, r, lv, hand, table, hist, raid, raids, log, plan, prices, omen, duels, bounties, pending] = await Promise.all([
         v<CoinView>('get_coin'), mine<HolderView>('get_holder'), v<Ritual>('get_ritual'), v<LevelView>('get_level_progress'),
         mine<HandView>('get_hand'), v<Proposal[]>('get_table'), v<Proposal[]>('get_history'), v<RaidView | null>('get_raid'), v<RaidView[]>('get_raids'),
         v<LogEntry[]>('get_log', { limit: 100 }), mine<number[]>('get_my_plan').then(x => x ?? []), v<PricePoint[]>('get_prices'),
         v<OmenView>('get_omen').catch(() => null), // coins launched before Omens existed don't have it
         v<Duel[]>('get_duels').catch(() => [] as Duel[]), v<Bounty[]>('get_bounties').catch(() => [] as Bounty[]),
+        mine<Payout[]>('get_pending').catch(() => [] as Payout[]).then(x => x ?? []),
       ]);
-      setD({ c, h, r, lv, hand, table, hist, raid, raids, log, plan, prices, omen, duels, bounties });
+      setD({ c, h, r, lv, hand, table, hist, raid, raids, log, plan, prices, omen, duels, bounties, pending });
     })().catch(() => {});
   }, [ch, me, id, tick]);
   const prev = useRef<CoinData | null>(null), prevId = useRef(id), lastBurn = useRef(0);
@@ -692,10 +693,12 @@ function DuelsAndBounties({ d, now, me, busy, call }: { d: CoinData; now: number
   const [amt, setAmt] = useState(20);
   const duels = d.duels.filter(x => x.phase < 2), bounties = d.bounties.filter(x => x.phase === 0);
   const goal = (q: Question) => typeof q === 'string' ? 'the coin is a net buyer' : 'Line' in q ? `price above ${toMicro(q.Line.price).toFixed(3)} N/1M` : 'Crowd' in q ? `${q.Crowd.n}+ new buyers` : `Vault share +${q.Vault.bps / 100} points`;
-  if (!duels.length && !bounties.length && !d.duels.length && !d.bounties.length) return null;
+  const owed = d.pending.reduce((s, x) => s + BigInt(x.tokens), 0n), pack = d.pending.some(x => x.pack);
+  if (!duels.length && !bounties.length && !d.duels.length && !d.bounties.length && !d.pending.length) return null;
   return (
     <div className="panel stack">
       <h2>Duels and bounties</h2>
+      {d.pending.length > 0 && <div className="table-row row between wrap"><strong>Payouts waiting for you: {fmtTok(toTok(owed.toString()))}{pack ? ' + a ready pack' : ''}</strong><button className="btn small primary" disabled={!!busy} onClick={() => call('Claim payouts', 'claim_payouts', {}, 0n, 'Payouts claimed')}>Claim payouts</button></div>}
       {duels.map(x => <div key={x.id} className="table-row"><div className="row between wrap"><strong>Duel: {short(x.a)} vs {short(x.b)}</strong><span className="small muted">{fmtTok(toTok(x.stake))} each · {x.a_yes ? `${short(x.a)} says net buyer` : `${short(x.a)} says not a net buyer`} · {x.phase === 0 ? `waiting, ${dur(x.created + 15 * MIN / TS - now)} left` : `ends in ${dur(x.end - now)}`}</span></div>
         {x.phase === 0 && x.b === me && <button className="btn small primary" disabled={!!busy} onClick={() => call('Accept duel', 'duel_accept', { id: x.id }, 0n, 'Duel accepted')}>Accept the duel</button>}</div>)}
       {bounties.map(x => <div key={x.id} className="table-row"><div className="row between wrap"><strong>Bounty by {short(x.sponsor)}</strong><span className="small muted">goal: {goal(x.question)} · {fmtTok(toTok(x.total))} pledged by {x.pledges.length} · ends in {dur(x.end - now)}</span></div>

@@ -1,6 +1,7 @@
 // Shared helpers for sandbox scripts: connect with the local test keys, call and view contracts, move time.
 import { connect, keyStores, KeyPair, utils } from 'near-api-js';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
+const gasMax = {};
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -38,6 +39,11 @@ export const coinId = (symbol, mode = 'real') => `${symbol.toLowerCase()}.${keys
 export async function call(name, contractId, methodName, args = {}, deposit = 0n) {
   const a = await acct(name);
   const r = await a.functionCall({ contractId, methodName, args, gas: gasFor(methodName), attachedDeposit: deposit });
+  if (process.env.RULECARD_GAS_LOG) { // gas probe: remember the most gas each method has burned (Tgas, summed over all receipts)
+    const g = [r.transaction_outcome, ...(r.receipts_outcome ?? [])].reduce((t, o) => t + BigInt(o.outcome.gas_burnt), 0n);
+    const t = Number(g / 10n ** 9n) / 1000; gasMax[methodName] = Math.max(gasMax[methodName] ?? 0, t);
+    writeFileSync(process.env.RULECARD_GAS_LOG, JSON.stringify(gasMax, null, 1));
+  }
   const v = r.status?.SuccessValue; return v ? JSON.parse(Buffer.from(v, 'base64').toString()) : null;
 }
 export async function view(contractId, methodName, args = {}) { const a = await acct(keys.accounts.you ? 'you' : Object.keys(keys.accounts)[0]); return a.viewFunction({ contractId, methodName, args }); }
