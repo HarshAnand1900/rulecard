@@ -25,7 +25,7 @@ const ATTEMPTS: Attempt[] = [
   { id: 'escrow', title: 'Claim the creator escrow before graduation', why: 'The creator fee is paid only when the curve sells out.', run: (ch, c) => ch.call(c, 'claim_creator_escrow', {}, 0n).then(() => {}) },
 ];
 
-export default function Cheat({ ch, coins }: { ch: Net; coins: CoinEntry[] }) {
+export default function Cheat({ ch, coins, onPractice }: { ch: Net; coins: CoinEntry[]; onPractice?: () => void }) {
   const [res, setRes] = useState<Record<string, { state: 'busy' | 'rejected' | 'accepted'; text: string }>>({});
   const coin = coins[coins.length - 1]?.account_id;
   const canSend = ch.mode !== 'wallet' && !!ch.me();
@@ -39,7 +39,9 @@ export default function Cheat({ ch, coins }: { ch: Net; coins: CoinEntry[] }) {
     <div className="panel stack">
       <h2>Try to cheat it</h2>
       <p className="small muted">Each button sends a real transaction to {coin ? <code>{coin}</code> : 'a coin'} that the contract has to refuse. You see NEAR's own error, not ours.
-        {!canSend && ' Open the app with Practice mode (or sign in) first; with your own wallet each one would ask you to approve it.'}</p>
+        {ch.mode === 'wallet' && ' You are signed in with your own wallet, so every test would open a wallet approval. They run with no popups in Practice mode.'}
+        {ch.mode !== 'wallet' && !ch.me() && ' Open the app first so there is a wallet to send them from.'}</p>
+      {ch.mode === 'wallet' && onPractice && <div className="row gap wrap"><button className="btn primary" onClick={onPractice}>Switch to Practice mode to run them</button><span className="small muted">Your own wallet stays as it is; you can switch back from the menu.</span></div>}
       {ATTEMPTS.map(a => {
         const r = res[a.id];
         return (

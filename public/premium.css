@@ -366,3 +366,20 @@ section[style*="rgba(19,18,9"]::before {
   box-shadow: 0 8px 22px -8px rgba(255, 75, 0, .65), inset 0 1px 0 rgba(255, 255, 255, .5), inset 0 -2px 0 rgba(150, 38, 0, .35) !important; transform: translateY(-1px);
 }
 :root:root .seg button[aria-pressed="false"]:hover, :root:root .seg button:not([aria-pressed]):hover { color: #FFD9B0; }
+
+/* the landing and inner pages use the same logo mark */
+.logo .mark-img { display: block; width: 26px; height: 26px; border-radius: 8px; box-shadow: 0 0 14px -2px rgba(255, 110, 20, .6); }
+
+/* while an omen is active the page itself picks up its colour */
+html.omen-on .panel, html.omen-on .coin-hero, html.omen-on .top { border-color: color-mix(in srgb, var(--omen) 38%, rgba(245, 239, 230, .1)) !important; transition: border-color 1200ms var(--ease), box-shadow 1200ms var(--ease); }
+html.omen-on .coin-hero { box-shadow: 0 0 46px -14px var(--omen), inset 0 0 40px -22px var(--omen) !important; }
+html.omen-on .tabbar, html.omen-on .trade-panel { box-shadow: 0 0 34px -16px var(--omen) !important; }
+
+/* the omen's colour floods the screen edges, on top of the page, so it can be felt and not only seen in the background */
+#omen-glow { position: fixed; inset: 0; z-index: 60; pointer-events: none; opacity: 0; transition: opacity 1400ms var(--ease);
+  box-shadow: inset 0 0 200px 24px color-mix(in srgb, var(--omen, #FF7A1A) 42%, transparent), inset 0 0 46px 3px color-mix(in srgb, var(--omen, #FF7A1A) 70%, transparent); }
+html.omen-on #omen-glow { opacity: 1; }
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes omenBreath { 0%, 100% { opacity: .62; } 50% { opacity: 1; } }
+  html.omen-on #omen-glow { animation: omenBreath 4.5s ease-in-out infinite; }
+}

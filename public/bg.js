@@ -13,7 +13,7 @@
   const toHex = c => '#' + c.map(v => v.toString(16).padStart(2, '0')).join('');
   let TG = null, TA = 0, TT = 0, TQ = 0; // target colour, current amount, target amount, amount in steps of 0.2 (keeps the sprite cache small)
   const mixHex = (hex, k) => (TG && TQ > 0 ? toHex(mixc(hex2rgb(hex), TG, TQ * k)) : hex);
-  window.__rcbg.tint = hex => { if (hex) { TG = hex2rgb(hex); TT = 1; } else TT = 0; if (reduce) { TA = TT; TQ = Math.round(TA * 5) / 5; draw(performance.now()); } };
+  window.__rcbg.tint = hex => { if (hex) { TG = hex2rgb(hex); TT = 1; document.documentElement.style.setProperty('--omen', hex); } else TT = 0; document.documentElement.classList.toggle('omen-on', !!hex); if (!document.getElementById('omen-glow')) { const g = document.createElement('div'); g.id = 'omen-glow'; g.setAttribute('aria-hidden', 'true'); document.body.appendChild(g); } if (reduce) { TA = TT; TQ = Math.round(TA * 5) / 5; draw(performance.now()); } };
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const cv = document.createElement('canvas'); cv.id = 'bg'; cv.setAttribute('aria-hidden', 'true');
@@ -88,8 +88,8 @@
     ctx.lineWidth = 1; ctx.beginPath();
     const edge = (a, b) => { const gl = (a.glow + b.glow) / 2, gd = Math.max(a.gold, b.gold), al = 0.08 + gl * 0.4 + gd * 0.35; if (al < 0.14 && gd < 0.1) { ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); } else hot.push([a, b, al, gd]); };
     for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) { const p = P[j * cols + i]; if (i < cols - 1) edge(p, P[j * cols + i + 1]); if (j < rows - 1) edge(p, P[(j + 1) * cols + i]); }
-    ctx.strokeStyle = 'rgba(' + tcs + ',0.11)'; ctx.stroke();
-    for (const [a, b, al, gd] of hot) { ctx.strokeStyle = gd > 0.15 ? 'rgba(' + gcs + ',' + Math.min(0.7, al) + ')' : 'rgba(' + tcs + ',' + Math.min(0.6, al) + ')'; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+    ctx.strokeStyle = 'rgba(' + tcs + ',' + (0.11 + 0.24 * TA) + ')'; ctx.lineWidth = 1 + 0.6 * TA; ctx.stroke(); ctx.lineWidth = 1;
+    for (const [a, b, al, gd] of hot) { ctx.strokeStyle = gd > 0.15 ? 'rgba(' + gcs + ',' + Math.min(0.7, al) + ')' : 'rgba(' + tcs + ',' + Math.min(0.95, al + 0.3 * TA) + ')'; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
 
     // icons at the nodes
     for (const p of P) {
@@ -98,15 +98,25 @@
       const isJ = p.kind === 1, isC = p.kind === 4;
       const col = p.gold > 0.15 ? mixHex(GOLD, 0.8) : isJ ? mixHex(JT[p.ti], 0.8) : isC ? mixHex(p.ct, 0.8) : (p.glow > 0.45 ? mixHex('#E9E3FF', 0.85) : mixHex(LILAC, 0.9));
       const im = tint(p.key, col, 0, isC ? 100 : 110); if (!im) continue;
-      const base = isJ ? 40 : isC ? 34 : 22, sc = (1 + p.glow * 0.7 + p.gold * 0.35) * base / im.width * (isJ || isC ? 1 : 1.2), al = Math.min(0.95, (isJ ? 0.34 : isC ? 0.3 : 0.26) + p.glow * 0.8 + p.gold * 0.6);
+      const base = isJ ? 40 : isC ? 34 : 22, sc = (1 + p.glow * 0.7 + p.gold * 0.35) * base / im.width * (isJ || isC ? 1 : 1.2), al = Math.min(0.95, (isJ ? 0.34 : isC ? 0.3 : 0.26) + p.glow * 0.8 + p.gold * 0.6 + TA * 0.3);
       const bob = reduce ? 0 : Math.sin(t * 0.9 + p.ph) * 3, flip = p.gold > 0.05 ? Math.cos(p.gold * Math.PI * 2) : 1, rot = (reduce ? 0 : Math.sin(t * 0.5 + p.ph) * 0.1) + (m.x - p.x) / w * p.glow * 0.8;
       ctx.save(); ctx.translate(p.x, p.y + bob); ctx.rotate(rot); ctx.scale(flip, 1); ctx.globalAlpha = al;
-      if (p.glow > 0.4 || p.gold > 0.3) { ctx.shadowColor = col; ctx.shadowBlur = 14; }
+      if (p.glow > 0.4 || p.gold > 0.3 || (TA > 0.25 && (isJ || isC || p.glow > 0.1))) { ctx.shadowColor = col; ctx.shadowBlur = 14 + 12 * TA; }
       ctx.drawImage(im, -im.width * sc / 2, -im.height * sc / 2, im.width * sc, im.height * sc); ctx.restore();
     }
 
     for (const rp of ripples) { const age = Math.max(0, (now - rp.t) / 1000); ctx.strokeStyle = rp.gold ? 'rgba(' + gcs + ',' + (0.22 * (1 - age / 3.4)) + ')' : 'rgba(' + tcs + ',' + (0.2 * (1 - age / 3.4)) + ')'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(rp.x, rp.y, age * 430, 0, 6.29); ctx.stroke(); }
     if (m.x > -999) { const gr = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, sig); gr.addColorStop(0, 'rgba(' + tcs + ',0.11)'); gr.addColorStop(1, 'rgba(' + tcs + ',0)'); ctx.fillStyle = gr; ctx.fillRect(m.x - sig, m.y - sig, sig * 2, sig * 2); }
+    // an omen floods the room with its colour: a breathing glow from the edges and a bloom from the top of the page
+    if (TG && TA > 0.02) {
+      const pulse = 0.82 + 0.18 * Math.sin(t * 1.5), rgb = TG.join(',');
+      const eg = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.22, w / 2, h / 2, Math.max(w, h) * 0.72);
+      eg.addColorStop(0, 'rgba(' + rgb + ',0)'); eg.addColorStop(1, 'rgba(' + rgb + ',' + (0.34 * TA * pulse) + ')');
+      ctx.fillStyle = eg; ctx.fillRect(0, 0, w, h);
+      const tg = ctx.createRadialGradient(w * 0.5, -h * 0.05, 0, w * 0.5, -h * 0.05, Math.max(w, h) * 0.6);
+      tg.addColorStop(0, 'rgba(' + rgb + ',' + (0.28 * TA * pulse) + ')'); tg.addColorStop(1, 'rgba(' + rgb + ',0)');
+      ctx.fillStyle = tg; ctx.fillRect(0, 0, w, h);
+    }
     const v = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.8); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.5)'); ctx.fillStyle = v; ctx.fillRect(0, 0, w, h);
   }
 

@@ -5,11 +5,11 @@
   var nav = links.map(function (l) { return '<a href="' + l[0] + '"' + (cur === l[0] ? ' aria-current="page"' : '') + '>' + l[1] + '</a>'; }).join('');
   var sheet = links.map(function (l, i) { return '<a class="heading-4" href="' + l[0] + '" style="--n:' + i + '">' + l[1] + '</a>'; }).join('');
   var head = '<a class="skip body-5" href="#main">Skip to content</a>' +
-    '<header class="nav" id="nav"><a class="logo title-3" href="/" aria-label="Rulecard home"><span class="mark" aria-hidden="true"><i class="ph-bold ph-cards"></i></span>Rulecard</a>' +
+    '<header class="nav" id="nav"><a class="logo title-3" href="/" aria-label="Rulecard home"><img class="mark-img" src="/favicon.svg" width="26" height="26" alt="">Rulecard</a>' +
     '<nav class="nav-links body-5" aria-label="Main">' + nav + '</nav>' +
     '<div class="nav-end"><a class="btn button-sm" href="/enter/">Play</a><button class="toggle" id="toggle" aria-expanded="false" aria-controls="sheet" aria-label="Open menu"><span></span><span></span></button></div></header>' +
     '<div class="sheet" id="sheet" aria-hidden="true">' + sheet + '</div>';
-  var foot = '<footer><div class="wrap foot"><div style="display:flex;flex-direction:column;gap:var(--s75)"><a class="logo title-3" href="/"><span class="mark" aria-hidden="true"><i class="ph-bold ph-cards"></i></span>Rulecard</a><p class="caption-2 muted" style="max-width:420px">Built for the NEAR hackathon. Testnet only, not financial advice.</p></div>' +
+  var foot = '<footer><div class="wrap foot"><div style="display:flex;flex-direction:column;gap:var(--s75)"><a class="logo title-3" href="/"><img class="mark-img" src="/favicon.svg" width="26" height="26" alt="">Rulecard</a><p class="caption-2 muted" style="max-width:420px">Built for the NEAR hackathon. Testnet only, not financial advice.</p></div>' +
     '<ul class="body-5 muted"><li><a href="/enter/">Play</a></li><li><a href="/rules/">Rules</a></li><li><a href="/launch/">Launch a coin</a></li><li><a href="https://github.com/HarshAnand1900/rulecard">Source code</a></li><li><a href="/privacy.html">Privacy</a></li><li><a href="/terms.html">Terms</a></li></ul></div></footer>';
   document.body.insertAdjacentHTML('afterbegin', head);
   document.body.insertAdjacentHTML('beforeend', foot);

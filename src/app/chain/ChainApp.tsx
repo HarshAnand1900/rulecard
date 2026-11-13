@@ -87,7 +87,7 @@ export default function ChainApp() {
     <>
       <header className="top">
         <div className="tb-left">
-          <button className="logo linkish" onClick={() => setPage({ kind: 'discover' })}>RULECARD</button>
+          <a className="logo linkish" href="/" aria-label="Rulecard home: back to the landing page" title="Back to the landing page"><img className="logo-mark" src="/favicon.svg" width="26" height="26" alt="" />RULECARD</a>
           {me ? <button className={`profchip ${page.kind === 'profile' ? 'on' : ''}`} onClick={() => setPage({ kind: 'profile' })} title={`${me} · open your profile`} aria-label="Open your profile">
             <span className="pc-av" aria-hidden="true">{me.slice(0, 2).toUpperCase()}</span>
             <span className="pc-text"><b className="mono">{shortAcct(me)}</b><small className="mono">{fmtNear(bal)} NEAR · {practice ? 'Practice' : ch.mode === 'sandbox' ? 'Sandbox' : 'Wallet'}</small></span>
@@ -154,7 +154,7 @@ export default function ChainApp() {
         {page.kind === 'docs' && <Docs />}
         {page.kind === 'profile' && <Profile ch={ch} me={me} bal={bal} coins={coins} tick={tick} go={id => setPage({ kind: 'coin', id })} onBackup={() => setModal('key')} onSwitch={() => switchDoor(practice ? 'wallet' : 'practice')}
           onReset={() => { if (confirm('Start over with a brand-new practice wallet? The current one is forgotten.')) { ch.resetWallet!(); location.reload(); } }} onGuide={openGuide} />}
-        {page.kind === 'proof' && <Proof ch={ch} coins={coins} tick={tick} />}
+        {page.kind === 'proof' && <Proof ch={ch} coins={coins} tick={tick} onPractice={() => switchDoor('practice')} />}
         {page.kind === 'war' && <WarMap ch={ch} coins={coins} tick={tick} go={id => setPage({ kind: 'coin', id })} arena={id => setPage({ kind: 'arena', id })} />}
         {page.kind === 'arena' && <RaidArena ch={ch} me={me} id={page.id} coins={coins} tick={tick} act={act} busy={busy} back={() => setPage({ kind: 'coin', id: page.id })} go={id => setPage({ kind: 'coin', id })} />}
         {page.kind === 'coin' && <CoinPage {...ctx} id={page.id} />}

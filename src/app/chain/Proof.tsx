@@ -14,7 +14,7 @@ const explorer = (ch: Net, id: string) => (ch.explorer ? `${ch.explorer}/address
 const STORAGE_PER_BYTE = 10n ** 19n;
 const fmt = (y: bigint) => (Number(y / 10n ** 18n) / 1e6).toFixed(3);
 
-export default function Proof({ ch, coins, tick }: { ch: Net; coins: CoinEntry[]; tick: number }) {
+export default function Proof({ ch, coins, tick, onPractice }: { ch: Net; coins: CoinEntry[]; tick: number; onPractice?: () => void }) {
   const [f, setF] = useState<FactoryProof | null>(null);
   const [rows, setRows] = useState<CoinProof[]>([]);
   const [err, setErr] = useState('');
@@ -78,7 +78,7 @@ export default function Proof({ ch, coins, tick }: { ch: Net; coins: CoinEntry[]
           </tbody>
         </table>
       </div>
-      <Cheat ch={ch} coins={coins} />
+      <Cheat ch={ch} coins={coins} onPractice={onPractice} />
       <h2>Live proof</h2>
       <p className="muted">Read live from the chain every few seconds, not from this app's own state. Click any address to check it on the explorer yourself.</p>
       {err && <div className="warn">{err}</div>}

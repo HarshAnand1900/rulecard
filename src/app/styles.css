@@ -1124,3 +1124,19 @@ button.cl-row:hover { transform: translateX(4px); border-color: var(--accent); }
 .ar-metrics b { font-weight: 500; }
 .ar-tactics { display: flex; justify-content: space-between; gap: 8px; color: #B7B2AA; }
 @media (max-width: 900px) { .arena-hero { grid-template-columns: 1fr; } .vs-col { flex-direction: row; justify-content: center; gap: 12px; } .arena-rounds { grid-template-columns: 1fr; } .fighter.right { flex-direction: row; text-align: left; } .fighter.right .f-stats { justify-content: flex-start; } }
+
+/* the real logo mark replaces the plain orange square, and the logo is a link to the landing page */
+.logo::before { display: none !important; }
+a.logo { display: inline-flex; align-items: center; gap: 9px; text-decoration: none; color: var(--ink); }
+.logo-mark { display: block; width: 26px; height: 26px; border-radius: 8px; box-shadow: 0 0 14px -2px rgba(255, 110, 20, .6); }
+a.logo:hover .logo-mark { transform: rotate(-6deg) scale(1.06); transition: transform 300ms var(--ease); }
+
+/* chart: drag to move through time */
+.chart-pro svg { touch-action: pan-y; cursor: grab; user-select: none; -webkit-user-select: none; }
+.chart-pro svg.dragging { cursor: grabbing; }
+.chart-pro .now-line { stroke: rgba(255, 180, 90, .35); stroke-dasharray: 1 5; }
+.chart-pro .chart-nav button { min-width: 32px; padding: 0 9px; font-size: 15px; line-height: 1; }
+.chart-pro .chart-nav button:last-child { font-size: 12px; }
+.chart-pro .chart-nav button:disabled { opacity: .4; }
+.chart-pro .chart-wrap { position: relative; }
+.chart-pro .chart-empty { position: absolute; inset: 40% 0 auto 0; text-align: center; pointer-events: none; }

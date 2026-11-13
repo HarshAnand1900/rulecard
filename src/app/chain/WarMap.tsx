@@ -47,7 +47,7 @@ const ago = (ms: number) => { const m = Math.max(0, Math.round(ms / 60_000)); re
 
 export default function WarMap({ ch, coins, tick, go, arena }: { ch: Net; coins: CoinEntry[]; tick: number; go: (id: string) => void; arena?: (id: string) => void }) {
   const [rows, setRows] = useState<Row[]>([]);
-  const [view, setView] = useState<'arena' | 'tiles'>('tiles');
+  const [view, setView] = useState<'blocks' | 'tiles'>('tiles');
   useEffect(() => {
     let live = true;
     (async () => {
@@ -95,6 +95,7 @@ export default function WarMap({ ch, coins, tick, go, arena }: { ch: Net; coins:
   assignColors(rows.map(r => r.id));
   const now = rows[0]?.c.now ?? 0;
   const tag = ch.scale === 'demo' ? TAG_MS / 12 : TAG_MS;
+  const lastLoss = (id: string) => [...events].reverse().find(e => e.loser === id && now - e.at < tag);
   const lastWin = (id: string) => [...events].reverse().find(e => e.winner === id && now - e.at < tag);
   const champion = blocks.length > 1 && blocks[0].v > blocks[1].v ? blocks[0].id : blocks.length === 1 ? blocks[0].id : undefined; // only a strict leader is crowned
   const feed = [...events].reverse().slice(0, 12);
@@ -103,7 +104,7 @@ export default function WarMap({ ch, coins, tick, go, arena }: { ch: Net; coins:
   return (
     <section>
       <div className="row between wrap"><h1>War Map</h1>
-        <div className="seg" role="group" aria-label="Map style"><button aria-pressed={view === 'arena'} onClick={() => setView('arena')}>Arena</button><button aria-pressed={view === 'tiles'} onClick={() => setView('tiles')}>Tiles</button></div>
+        <div className="seg" role="group" aria-label="Map style"><button aria-pressed={view === 'blocks'} onClick={() => setView('blocks')}>Blocks</button><button aria-pressed={view === 'tiles'} onClick={() => setView('tiles')}>Tiles</button></div>
       </div>
       <p className="muted">Coins fight coins. Points: 10 to join, +3 for every level above L1, and each raid moves its level in points (L2 = 2, L3 = 3, L4 = 4) from the loser to the winner. Nobody drops below 4.</p>
       {!!rows.length && <div className="panel strip war-strip">
@@ -130,7 +131,34 @@ export default function WarMap({ ch, coins, tick, go, arena }: { ch: Net; coins:
       {!!rows.length && view === 'tiles' && <Tiles coins={rows.map(r => ({ id: r.id, sym: r.sym, mcap: r.c.mcap, color: accent(r.id) }))}
         events={events.map(e => ({ at: e.at, winner: e.winner, loser: e.loser, level: e.level }))} champion={champion} go={go} recent={id => !!lastWin(id)} />}
 
-      {!!rows.length && view === 'arena' && <Arena blocks={blocks} rows={rows} events={events} liveRaids={liveRaids} champion={champion} go={go} />}
+      {!!rows.length && view === 'blocks' && <div className="treemap" role="img" aria-label="War Map: each coin's block is sized by its points">
+        {blocks.map(b => {
+          const r = rows.find(x => x.id === b.id)!, win = lastWin(b.id), loss = lastLoss(b.id), raiding = r.raid?.phase === 2;
+          const big = b.w > 22 && b.h > 28;
+          return (
+            <button key={b.id} className={`tm-block ${raiding ? 'raiding' : ''} ${b.id === champion ? 'champ' : ''}`} onClick={() => go(b.id)}
+              style={{ left: `${b.x}%`, top: `${b.y}%`, width: `${b.w}%`, height: `${b.h}%`, ...art(b.id) }}
+              title={`$${b.sym}: ${b.v} points. ${r.won}–${r.lost} in raids.`}>
+              <span className="tm-in">
+                <span className="tm-art" aria-hidden="true" />
+                <span className="tm-head">
+                  {r.icon ? <img className="tm-icon" src={r.icon} alt="" width={big ? 36 : 22} height={big ? 36 : 22} /> : null}
+                  <strong className="tm-sym">${b.sym}</strong>
+                  {b.id === champion && <span className="tm-crown">Leader</span>}
+                </span>
+                <span className="tm-pts mono">{b.v}<small>pts</small></span>
+                {big && <span className="tm-chips"><span className="tm-chip">L{r.c.level} {LEVEL_NAME[r.c.level]}</span><span className="tm-chip">streak {r.r.streak}</span><span className="tm-chip">{r.won}W {r.lost}L</span></span>}
+                <span className="tm-tags">
+                  {raiding && <span className="tm-tag hot">{r.raid!.attacking ? 'Attacking' : 'Defending'} ${sym(r.raid!.attacking ? r.raid!.defender : r.raid!.attacker)}</span>}
+                  {win && <span className="tm-tag up">+{win.level} from ${sym(win.loser)}</span>}
+                  {loss && <span className="tm-tag down">Conquered by ${sym(loss.winner)} · {ago(now - loss.at)}</span>}
+                  {r.c.graduated && <span className="tm-tag">Graduated</span>}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>}
 
       <div className="panel">
         <h2>Standings</h2>
@@ -214,38 +242,3 @@ function Chronicle({ r, now }: { r: Row; now: number }) {
   );
 }
 
-function Arena({ blocks, rows, events, liveRaids, champion, go }: { blocks: Block[]; rows: Row[]; events: Event[]; liveRaids: Row[]; champion?: string; go: (id: string) => void }) {
-  const W = 900, H = 440, cx = W / 2, cy = H / 2, rx = Math.min(330, 130 + blocks.length * 40), ry = Math.min(150, 70 + blocks.length * 18);
-  const maxV = Math.max(...blocks.map(b => b.v), 1);
-  const pos = new Map<string, { x: number; y: number; r: number; v: number }>();
-  blocks.forEach((b, i) => {
-    const a = -Math.PI / 2 + (i / Math.max(blocks.length, 1)) * Math.PI * 2;
-    pos.set(b.id, { x: blocks.length === 1 ? cx : cx + Math.cos(a) * rx, y: blocks.length === 1 ? cy : cy + Math.sin(a) * ry, r: 34 + 36 * Math.sqrt(b.v / maxV), v: b.v });
-  });
-  const recent = events.slice(-10);
-  return (
-    <div className="panel arena">
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="War Map arena: coins as circles sized by war points, lines show raids">
-        <ellipse cx={cx} cy={cy} rx={rx} ry={ry} className="ar-ring" /><ellipse cx={cx} cy={cy} rx={rx * 0.55} ry={ry * 0.55} className="ar-ring faint" />
-        {recent.map((e, i) => { const a = pos.get(e.winner), b = pos.get(e.loser); if (!a || !b) return null; return <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} className="ar-hist" style={{ ['--ac' as any]: accent(e.winner), opacity: 0.18 + (i / recent.length) * 0.4 }} />; })}
-        {liveRaids.map(r => { const a = pos.get(r.raid!.attacker), b = pos.get(r.raid!.defender); if (!a || !b) return null; return <g key={r.id}><line x1={a.x} y1={a.y} x2={b.x} y2={b.y} className="ar-live" /><circle cx={(a.x + b.x) / 2} cy={(a.y + b.y) / 2} r={6} className="ar-spark" /></g>; })}
-        {blocks.map(b => {
-          const q = pos.get(b.id)!, r = rows.find(x => x.id === b.id)!, col = accent(b.id), raiding = r.raid?.phase === 2;
-          return (
-            <g key={b.id} className={`ar-node ${b.id === champion ? 'champ' : ''} ${raiding ? 'raiding' : ''}`} transform={`translate(${q.x},${q.y})`} onClick={() => go(b.id)} tabIndex={0} role="button" aria-label={`$${b.sym}, ${b.v} points`} onKeyDown={e => { if (e.key === 'Enter') go(b.id); }}>
-              <circle r={q.r + 8} className="ar-halo" style={{ fill: col }} />
-              <circle r={q.r} className="ar-disc" style={{ stroke: col, fill: `color-mix(in srgb, ${col} 14%, #0b0b0e)` }} />
-              {r.icon
-                ? <><clipPath id={`ic-${b.sym}`}><circle r={q.r - 2} /></clipPath><image href={r.icon} x={-q.r} y={-q.r} width={q.r * 2} height={q.r * 2} clipPath={`url(#ic-${b.sym})`} preserveAspectRatio="xMidYMid slice" opacity="0.5" /></>
-                : <image href={`/bg/jokers/${JOKERS[hsh(b.id) % JOKERS.length]}.png`} x={-q.r * 0.7} y={-q.r * 0.9} width={q.r * 1.4} height={q.r * 1.4} opacity="0.16" />}
-              <text y={-2} textAnchor="middle" className="ar-sym">${b.sym}</text>
-              <text y={q.r * 0.42} textAnchor="middle" className="ar-pts" style={{ fill: col }}>{b.v}</text>
-              {b.id === champion && <text y={-q.r - 12} textAnchor="middle" className="ar-crown">LEADER</text>}
-            </g>
-          );
-        })}
-      </svg>
-      <div className="ar-legend small muted"><span><i className="lg live" />Live raid</span><span><i className="lg hist" />Past raid, winner to loser</span><span>Circle size is war points. Click a coin to open it.</span></div>
-    </div>
-  );
-}
