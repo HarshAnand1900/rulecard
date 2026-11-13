@@ -16,8 +16,9 @@ a rule or print an admin.
 ```
 
 **Live on NEAR testnet (demo scale):**
-- Factory: [`demo2.harshtest1.testnet`](https://testnet.nearblocks.io/address/demo2.harshtest1.testnet) (zero access keys: its only key was deleted in the deploy transaction)
-- Coins: [`frog.demo2.harshtest1.testnet`](https://testnet.nearblocks.io/address/frog.demo2.harshtest1.testnet) · [`moth.demo2.harshtest1.testnet`](https://testnet.nearblocks.io/address/moth.demo2.harshtest1.testnet) · [`zap.demo2.harshtest1.testnet`](https://testnet.nearblocks.io/address/zap.demo2.harshtest1.testnet) (each has zero access keys and no admin; its icon is drawn by the contract from the coin's own state)
+- Factory: [`demo3.harshtest1.testnet`](https://testnet.nearblocks.io/address/demo3.harshtest1.testnet) (zero access keys: its only key was deleted in the deploy transaction). This is the full 29-card / 13-Omen build, deployed on 2026-11-13.
+- Coins: [`frog.demo3.harshtest1.testnet`](https://testnet.nearblocks.io/address/frog.demo3.harshtest1.testnet) · [`moth.demo3.harshtest1.testnet`](https://testnet.nearblocks.io/address/moth.demo3.harshtest1.testnet) · [`zap.demo3.harshtest1.testnet`](https://testnet.nearblocks.io/address/zap.demo3.harshtest1.testnet) (each has zero access keys and no admin; its icon is drawn by the contract from the coin's own state)
+- Earlier world (v1, 9 cards / 4 Omens, kept for reference and no longer updated): [`demo2.harshtest1.testnet`](https://testnet.nearblocks.io/address/demo2.harshtest1.testnet)
 - App: **https://rulecard-lime.vercel.app** (press PLAY: no wallet, no sign-up). To run it yourself: `npx vite --mode testnet`, see [docs/deploy.md](docs/deploy.md)
 
 Track: **Memecoins With Mechanics** (NEAR).
@@ -200,7 +201,7 @@ Values below are **Real mode**. Demo mode divides every game NEAR amount by 100 
 - **Contracts can't gm.** Tokens held by another contract (an escrow, a future DEX pool, NEAR Intents) are a normal holder here and would idle-burn. The coin's own reserves (curve stock, reward pool, DEX reserve, Vault, bets) are never burned. Exempting pool accounts is part of the Ref Finance graduation work.
 - A whale can split a bag across many wallets. Per-wallet caps then apply per wallet; it costs gas and storage, not much more.
 - A bot can gm every 6h forever and never be idle. That is allowed: being there is the ritual. The Vault exists so humans can be safe without being online.
-- **A coin's own open raid proposal no longer shields it**: if it is raided first, the proposal is cancelled (v2 deck; the live demo2 world still has the old rule).
+- **A coin's own open raid proposal no longer shields it**: if it is raided first, the proposal is cancelled (the live demo3 world; the old demo2 world still has the old rule).
 - **The on-chain log is a rolling window** (the latest 200 entries per coin). Every entry is also a NEP-297 event, so an indexer can rebuild the full history, but the app only shows the window.
 - Raid plans are hidden from the app, but contract state is public: a determined player can read the other side's plan. Commit-reveal is on the roadmap.
 - **Raids trust sibling coins**, i.e. accounts directly under the factory. That's safe only because the factory has no key and deploys one fixed code; the defender also works out the spoils rate itself and never takes it from the caller.
@@ -279,7 +280,7 @@ Every parameter above came out of a simulator in [`research/`](research) (Node, 
 
 ## What's in this build vs the roadmap
 
-> **Status:** the live world (`demo2`) runs the earlier 9-card / 4-Omen build. The 29-card / 13-Omen build described below is on branch `cards-v2` and is not deployed until its own factory exists; the live demo2 coins still settle a Prophecy for all bettors in one transaction (up to 100) and still block raiding a coin with its own open raid proposal.
+> **Status:** the live world (`demo3`) runs the full 29-card / 13-Omen build on this branch. The earlier `demo2` world runs the 9-card / 4-Omen build and is kept only as a reference; it still settles a Prophecy for all bettors in one transaction (up to 100) and blocks raiding a coin with its own open raid proposal.
 
 **Built and tested** (`npm test`: 116 coin tests and 7 factory tests, each run at real and demo scale, plus two fuzz runs): factory, NEP-141 coins, curve and fees,
 gm, Energy, Daily Ritual, levels and level drops, Vault, idle burn, the daily cap, packs, deck limits, Fade, make-room-first, tags and bet locks, raids with plans,

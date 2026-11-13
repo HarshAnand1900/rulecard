@@ -22,6 +22,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const arg = (k, d) => { const i = process.argv.indexOf(`--${k}`); return i > 0 ? process.argv[i + 1] : d; };
 const YES = process.argv.includes('--yes');
 const REUSE = process.argv.includes('--reuse-bots');
+const BOT_OFFSET = Number(arg('bot-offset', '0')); // new bots are named bot{1+offset}.. when earlier ones exist and their keys are gone
 const TOPUP_TO = Number(arg('topup-to', '0')); // bring each kept bot up to this many NEAR (sends only the difference)
 const TOPUP = Number(arg('topup', '0')); // NEAR sent to each kept bot (3 coins need more than 2)
 const FACTORY_NAME = arg('factory-name', 'demo');
@@ -76,7 +77,7 @@ console.log(`\nRulecard testnet deploy (demo scale) ${YES ? '' : '— DRY RUN, n
   your account      ${ACCOUNT}: ${fmt(acct.amount)} NEAR available
   credentials       ${existsSync(credPath) ? 'found at ' + credPath : 'NOT FOUND at ' + credPath}
   1. create         ${factoryId} with ${FACTORY_NEAR} NEAR, deploy the demo factory, store the demo coin code and delete its key (one transaction)
-  2. bots           ${REUSE ? `keep ${Math.min(BOTS, reusable.length)} existing bots, create ${newBots} new` : `create ${BOTS} bots bot1..bot${BOTS}.${ACCOUNT}`} with ${BOT_NEAR} NEAR each (= ${(newBots * BOT_NEAR).toFixed(1)} NEAR)${topupTotal ? `, and top up ${Object.keys(topups).length} of them${TOPUP_TO ? ` to ${TOPUP_TO} NEAR each` : ` by ${TOPUP} each`} (= ${topupTotal.toFixed(2)} NEAR)` : ''}
+  2. bots           ${REUSE ? `keep ${Math.min(BOTS, reusable.length)} existing bots, create ${newBots} new` : `create ${BOTS} bots bot${1 + BOT_OFFSET}..bot${BOTS + BOT_OFFSET}.${ACCOUNT}`} with ${BOT_NEAR} NEAR each (= ${(newBots * BOT_NEAR).toFixed(1)} NEAR)${topupTotal ? `, and top up ${Object.keys(topups).length} of them${TOPUP_TO ? ` to ${TOPUP_TO} NEAR each` : ` by ${TOPUP} each`} (= ${topupTotal.toFixed(2)} NEAR)` : ''}
   3. launch         ${COINS_META.map(c => '$' + c[1]).join(', ')} from ${ACCOUNT}: ${coinDeposit} NEAR each (5 storage + ${COIN_SEED} seed)
   4. write          sandbox/.keys/testnet.json (keys of the new accounts only; gitignored) and print your .env.testnet
   protocol fees go to ${ACCOUNT}. Estimated total ${total.toFixed(1)} NEAR (+ gas).
@@ -86,7 +87,7 @@ console.log(`\nRulecard testnet deploy (demo scale) ${YES ? '' : '— DRY RUN, n
 if (BigInt(acct.amount) < N(total.toFixed(3))) console.log(`  ⚠ not enough NEAR: get about ${(total - Number(fmt(acct.amount))).toFixed(1)} more from the faucet, or use --coins 1 / --bots 5 / --bot-near 0.6\n`);
 if (!YES) { console.log('Add --yes to send these transactions.'); process.exit(0); }
 if (!existsSync(credPath)) { console.error('No credentials file. See the top of this script.'); process.exit(1); }
-if (await exists(factoryId)) { console.error(`${factoryId} already exists. Delete it or deploy from another account.`); process.exit(1); }
+if (!process.argv.includes("--resume") && await exists(factoryId)) { console.error(`${factoryId} already exists. Delete it, deploy from another account, or add --resume to finish a half-done deploy.`); process.exit(1); }
 
 const cred = JSON.parse(readFileSync(credPath, 'utf8'));
 const ks = new keyStores.InMemoryKeyStore();
@@ -104,10 +105,20 @@ async function make(id, amount) {
 }
 
 console.log(`1. ${factoryId}`);
+let factory = await near.account(factoryId);
+let resumed = false;
+if (await exists(factoryId)) {
+  // a previous run already created this factory: resume only if it is the finished, keyless kind
+  const left0 = await rpc('query', { request_type: 'view_access_key_list', finality: 'final', account_id: factoryId });
+  const p0 = await factory.viewFunction({ contractId: factoryId, methodName: 'get_params', args: {} }).catch(() => null);
+  if (left0.keys.length !== 0 || !p0 || !p0.code_stored) { console.error(`${factoryId} exists but is not a finished keyless factory: pick another --factory-name`); process.exit(1); }
+  resumed = true; console.log(`   ${factoryId} already exists with 0 keys and its code stored: resuming`);
+}
+if (!resumed) {
 const fkp = KeyPair.fromRandom('ed25519');
 await me.createAccount(factoryId, fkp.getPublicKey(), N(FACTORY_NEAR));
 await ks.setKey('testnet', factoryId, fkp);
-const factory = await near.account(factoryId);
+factory = await near.account(factoryId);
 // One transaction: deploy, init, store the coin code, then DELETE the factory's only key. After this nobody can sign
 // for the factory, so nobody can create an impostor <name>.<factory> account or change the code new coins run.
 await factory.signAndSendTransaction({ receiverId: factoryId, actions: [
@@ -116,13 +127,14 @@ await factory.signAndSendTransaction({ receiverId: factoryId, actions: [
   transactions.functionCall('store_code', new Uint8Array(coinWasm), TGAS(250), 0n),
   transactions.deleteKey(fkp.getPublicKey()),
 ] });
+}
 const left = await rpc('query', { request_type: 'view_access_key_list', finality: 'final', account_id: factoryId });
 console.log(`   access keys left on ${factoryId}: ${left.keys.length} (explorer: https://testnet.nearblocks.io/address/${factoryId})`);
 const params = await factory.viewFunction({ contractId: factoryId, methodName: 'get_params', args: {} });
 console.log(`   mode ${params.mode}, code stored ${params.code_stored}, admin ${params.admin}, coin storage ${fmt(params.deploy_deposit)} NEAR`);
 
 console.log(`2. ${BOTS} bots`);
-for (let i = 1; i <= BOTS; i++) { if (keys.accounts[`bot${i}`]) { const t = topups[`bot${i}`]; if (t) await me.sendMoney(`bot${i}.${ACCOUNT}`, N(t)); console.log(`   bot${i}: kept${t ? `, +${t} NEAR` : ''}`); continue; } keys.accounts[`bot${i}`] = await make(`bot${i}.${ACCOUNT}`, BOT_NEAR); save(); }
+for (let i = 1; i <= BOTS; i++) { if (keys.accounts[`bot${i}`]) { const t = topups[`bot${i}`]; if (t) await me.sendMoney(`bot${i + BOT_OFFSET}.${ACCOUNT}`, N(t)); console.log(`   bot${i}: kept${t ? `, +${t} NEAR` : ''}`); continue; } keys.accounts[`bot${i}`] = await make(`bot${i + BOT_OFFSET}.${ACCOUNT}`, BOT_NEAR); save(); }
 
 console.log('3. coins');
 for (const [name, symbol, rules] of COINS_META) {
