@@ -131,6 +131,41 @@ final market cap, graduation time, burns, raid record, creator escrow). Graduate
 still sell back to the curve. Moving graduated liquidity into a Ref Finance pool is the next roadmap step.
 Real mode is the same game with the numbers we'd ship. Storage deposits are real NEAR in both.
 
+## Testnet today, mainnet later: what changes and what doesn't
+
+**Nothing in this repo touches mainnet.** The live world (`demo3.harshtest1.testnet`) is NEAR testnet at demo scale. The same
+contract code can be built at full scale (the `real` build, tested at both scales) and deployed to mainnet; this section shows
+how the two compare so you can judge how the game would behave with real money.
+
+| | Testnet today (demo build) | Mainnet (real build, not deployed) |
+|---|---|---|
+| Network | NEAR testnet, free faucet NEAR | NEAR mainnet, real NEAR |
+| Build | `rulecard_*_demo.wasm`: `near_scale: 100`, `time_scale: 12` | `rulecard_*_real.wasm`: `near_scale: 1`, `time_scale: 1` |
+| Rules, percentages, caps, odds, cards, Omens | identical | identical |
+| Seed to launch a coin | 0.05 to 1 NEAR (plus a 7 NEAR storage deposit) | 5 to 100 NEAR (plus the same storage deposit) |
+| gm / Ritual day / raid rounds | every 30 min / 2 hours / ~100 s | every 6 hours / one UTC day / 20 min |
+| Level 2 needs | 27.25 NEAR market cap, 6.25 in the curve, 9 volume, 15 check-ins | 2,725 market cap, 625 in the curve, 900 volume, 15 check-ins |
+| Level 3 needs | 54.5 market cap, 14.6 in the curve, 36 volume, 40 check-ins | 5,450 market cap, 1,461 in the curve, 3,600 volume, 40 check-ins |
+| Level 4 needs | 95.4 market cap, 23.8 in the curve, 95 volume, 100 check-ins | 9,537 market cap, 2,382 in the curve, 9,500 volume, 100 check-ins |
+| Graduation (curve sells out) | about 39.5 NEAR in the curve (about 191 market cap) | about 3,946 NEAR in the curve (about 19,074 market cap) |
+| Players | practice wallet funded by the faucet, or your own testnet wallet | your own wallet only (there is no faucet) |
+| Bots | 16 labelled bots keep the world alive | optional; they would need real NEAR |
+| Keys | no admin key on the factory or any coin | the same: a bug can't be patched, only replaced by a new factory |
+| Audit | none | needed first |
+
+**What stays the same.** The contracts are the same source. A demo build only changes two constants: the NEAR scale and the time
+scale. The check-in and holder counts are not scaled (15, 40 and 100 check-ins still need real crowds), and storage deposits are
+real NEAR on both networks. Every test runs at both scales, so the rules you see on testnet are the rules mainnet would run.
+
+**What a mainnet launch would still need.** An independent audit of the contracts (they are not audited), legal advice for the
+countries served (Prophecy bets and a launchpad can count as gambling or securities activity), the full-size factory deployed
+and its coins launched with real seeds, and Ref Finance liquidity for graduated coins (still on the roadmap). The estimated cost
+of the chain side is in [docs/mainnet-cost.md](docs/mainnet-cost.md): about 6 to 7 NEAR for the factory, plus per-coin storage
+that the creator pays.
+
+**Why we did not launch on mainnet.** It would put real money into contracts that have not been audited and cannot be changed
+once deployed. Testnet at demo scale shows the whole game, with every number checkable on chain, without that risk.
+
 ## How the track requirements are met
 
 | Requirement | Where |

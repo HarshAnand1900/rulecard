@@ -28,7 +28,7 @@ Locked NEAR is not spent: it stays in the account for as long as the code is sto
 
 ## The costs that matter more
 
-- **Audit.** Contracts that hold other people's NEAR should be audited first. Independent audits of a codebase this size typically run from 15,000 to 60,000 USD. The tests here (56 coin tests, 7 factory tests, a 12,000 operation fuzz run) are not a substitute.
+- **Audit.** Contracts that hold other people's NEAR should be audited first. Independent audits of a codebase this size typically run from 15,000 to 60,000 USD. The tests here (116 coin tests and 7 factory tests at both scales, plus long random fuzz runs that play every card, stake and omen) are not a substitute.
 - **Legal.** Prophecy bets and a launchpad can count as gambling or securities activity in some places. Get advice for the countries you serve.
 - **Immutability.** There is no admin key, so a bug cannot be patched. A fix means a new factory and new coins.
 
