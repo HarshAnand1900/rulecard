@@ -138,6 +138,7 @@ impl Coin {
         self.touch(now);
         if self.level < level || self.level < 2 || self.raid_blocked(now, false).is_some() { return false; }
         if matches!(&self.ally, Some((a, u)) if *a == att && now < *u) { return false; } // allied
+        if self.raid.as_ref().map(|r| r.attacking && r.phase == 0).unwrap_or(false) { self.end_raid(now, "cancelled: the coin was raided first"); }
         self.raid_seq += 1;
         let mut r = self.new_raid(self.raid_seq, id, att.clone(), env::current_account_id(), false, now, vec![], 0);
         r.war = war || self.has(Rule::WarCoin);
@@ -435,7 +436,8 @@ impl Coin {
         if self.graduated { return Some("graduated"); }
         if self.level < 2 { return Some("raids start at L2"); }
         if self.has(Rule::PeaceCoin) && self.level < 3 { return Some("Peace Coin: no raids before L3"); }
-        if self.raid.as_ref().map(|r| r.phase < 4 && !(attacking && r.attacking && r.phase == 0)).unwrap_or(false) { return Some("already in a raid"); }
+        // a coin whose own raid proposal is still gathering signers can still be raided: accepting cancels the proposal
+        if self.raid.as_ref().map(|r| r.phase < 4 && !(r.attacking && r.phase == 0)).unwrap_or(false) { return Some("already in a raid"); }
         if self.last_raid_start > 0 && now < self.last_raid_start + RAID_GAP { return Some("one raid per 8h"); }
         let shield = if self.has(Rule::WarCoin) { WAR_SHIELD } else { SHIELD };
         if !attacking && self.last_raid_end > 0 && now < self.last_raid_end + shield { return Some("shielded after its last raid"); }

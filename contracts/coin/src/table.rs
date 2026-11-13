@@ -23,7 +23,7 @@ pub const SIGN_EVERY: u64 = 30 * MIN;
 pub const BET_MIN_VALUE: u128 = GN / 2;
 pub const BET_MAX_VALUE: u128 = 25 * GN;
 pub const PROPHECY_MIN_WALLETS: usize = 8;
-pub const MAX_BETTORS: usize = 100;
+pub const MAX_BETTORS: usize = 40;
 pub const TAG_FEE_BPS: u128 = 1_000;
 pub const FAIL_COOLDOWN: u64 = HOUR;
 pub const EPICS_PER_DAY: u32 = 3;
@@ -34,6 +34,8 @@ pub const SQUEEZE_MATCH_BPS: u128 = 5_000; // Squeeze: 50%
 pub const RUSH_MATCH_WALLETS: usize = 10;
 pub const RUSH_POT_CAP_BPS: u128 = 3_000; // a match never takes more than 30% of the pot
 pub const THROW_WINDOW: u64 = 15 * MIN;
+pub const HOLE_MAX_THROWS: usize = 40;
+pub const HOLE_RETURN_CAP: u128 = SUPPLY / 500; // a Black Hole returns at most 0.2% of supply from the reward pool
 pub const SUPERNOVA_SIGNERS: [u32; 4] = [8, 8, 8, 12];
 pub const HARVEST_WINDOW: u64 = HOUR;
 pub const HARVEST_CLAIMS: u32 = 25;
@@ -293,7 +295,7 @@ impl Coin {
         self.touch(now);
         let i = self.find(id); let p = &self.table[i];
         require!(p.card == Card::BlackHole && p.phase == 1 && now < p.phase_end, "the throwing window is closed");
-        require!(p.bets.len() < 150, "the hole is full");
+        require!(p.bets.len() < HOLE_MAX_THROWS, "the hole is full");
         let mut h = self.settle(&a, now);
         require!(h.bal >= amount.0, "not enough unlocked balance");
         require!(self.pool().value(amount.0) >= GN / 10, "minimum throw 0.1 NEAR worth");
@@ -588,16 +590,16 @@ impl Coin {
         let me = env::current_account_id();
         self.bets_held -= total;
         if total > 0 { self.burn_circ(now, &me, total, "Black Hole"); }
-        let ret = bps(total, 4_000 + 500 * self.heat_now(now) as u128).min(self.reward_pool);
+        let ret = bps(total, 4_000 + 500 * self.heat_now(now) as u128).min(HOLE_RETURN_CAP).min(self.reward_pool);
         if ret > 0 { self.reward_pool -= ret; self.with_pool(|q| q.release(ret)); }
         let mut by: Vec<(AccountId, u128)> = vec![];
         for b in &p.bets { match by.iter_mut().find(|x| x.0 == b.account) { Some(x) => x.1 += b.amount.0, None => by.push((b.account.clone(), b.amount.0)) } }
-        for (acct, thrown) in &by {
-            let share = if total > 0 { mul_div(ret, *thrown, total) } else { 0 };
-            if share > 0 { let mut h = self.settle(acct, now); h.bal += share; if h.since == 0 { h.since = now; } self.save(acct, h); events::ft_transfer(&me, acct, share, Some("black hole return")); }
-        }
         by.sort_by(|a, b| b.1.cmp(&a.1));
-        for (acct, _) in by.iter().take(3) { let mut h = self.settle(acct, now); h.next_pack = 0; self.save(acct, h); }
+        // nobody is settled here: each thrower collects its share (and, for the 3 biggest, a ready pack) with `claim_payouts`
+        for (k, (acct, thrown)) in by.iter().enumerate() {
+            let share = if total > 0 { mul_div(ret, *thrown, total) } else { 0 };
+            self.push_payout(now, acct, share, k < 3, "Black Hole");
+        }
         self.free_stock(p.card, p.card_exp);
         let what = format!("{} tokens burned, {} returned from the reward pool", total, ret);
         let t = &mut self.table[i]; t.phase = 3; t.result = what.clone();

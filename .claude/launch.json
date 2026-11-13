@@ -33,6 +33,30 @@
         "5175"
       ],
       "port": 5175
+    },
+    {
+      "name": "site",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5180",
+        "--directory",
+        "site"
+      ],
+      "port": 5180
+    },
+    {
+      "name": "dist",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5182",
+        "--directory",
+        "dist"
+      ],
+      "port": 5182
     }
   ]
 }

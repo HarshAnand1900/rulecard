@@ -12,7 +12,9 @@ pub const DUEL_MIN_VALUE: u128 = GN / 2;
 pub const DUEL_MAX_VALUE: u128 = 25 * GN;
 pub const DUEL_BURN_BPS: u128 = 1_000;
 pub const BOUNTY_LEN: u64 = 6 * HOUR;
-pub const BOUNTY_MAX_PLEDGES: usize = 50;
+pub const BOUNTY_MAX_PLEDGES: usize = 20;
+pub const BOUNTY_BONUS_CAP: u128 = SUPPLY / 2_000; // a met Bounty adds at most 0.05% of supply, and only once a day
+pub const PAYOUT_KEEP: u64 = 3 * DAY;
 pub const BOUNTY_BONUS_BPS: u128 = 1_000;
 pub const BOUNTY_MISS_BURN_BPS: u128 = 1_000;
 
@@ -22,11 +24,18 @@ pub const BOUNTY_MISS_BURN_BPS: u128 = 1_000;
 pub struct Duel {
     pub id: u32, pub a: AccountId, pub b: AccountId, pub stake: U128, pub a_yes: bool,
     pub phase: u8, pub created: u64, pub start: u64, pub end: u64, pub snapshot: U128, pub result: String,
+    /// the challenger's own trade lock before this duel, restored if the duel is never accepted
+    pub a_prev_lock: u64,
 }
 
 #[near(serializers = [borsh, json])]
 #[derive(Clone)]
 pub struct Pledge { pub account: AccountId, pub amount: U128 }
+
+/// Tokens (and maybe a ready pack) waiting for a wallet to collect with `claim_payouts`.
+#[near(serializers = [borsh, json])]
+#[derive(Clone)]
+pub struct Payout { pub account: AccountId, pub tokens: U128, pub pack: bool, pub at: u64, pub what: String }
 
 /// phase: 0 open, 1 done
 #[near(serializers = [borsh, json])]
@@ -56,12 +65,13 @@ impl Coin {
         require!(now >= h.no_trade_until, "you have a live bet");
         require!(h.bal >= stake.0, "not enough unlocked balance");
         let exp = self.take_card(&mut h, Card::Duel, now); self.free_stock(Card::Duel, exp);
+        let prev_lock = h.no_trade_until;
         h.bal -= stake.0; h.no_trade_until = h.no_trade_until.max(now + DUEL_OPEN + DUEL_LEN);
         self.save(&a, h);
         self.energy -= Card::Duel.energy();
         self.bets_held += stake.0;
         let id = self.next_duel; self.next_duel += 1;
-        self.duels.push(Duel { id, a: a.clone(), b: opponent.clone(), stake, a_yes: yes, phase: 0, created: now, start: 0, end: 0, snapshot: U128(0), result: String::new() });
+        self.duels.push(Duel { id, a: a.clone(), b: opponent.clone(), stake, a_yes: yes, phase: 0, created: now, start: 0, end: 0, snapshot: U128(0), result: String::new(), a_prev_lock: prev_lock });
         events::ft_transfer(&a, &env::current_account_id(), stake.0, Some("duel stake"));
         events::rulecard("duel_challenged", json!({ "id": id, "a": a, "b": opponent, "stake": stake, "a_yes": yes }));
         id
@@ -96,6 +106,7 @@ impl Coin {
         require!(!self.graduated, "the game ended at graduation");
         self.touch(now);
         self.check_question(&question);
+        require!(question != Question::Tide, "a Bounty can't ask the Tide question: a single buy would make it true");
         require!(self.energy >= Card::Bounty.energy(), "not enough Energy");
         require!(self.bounties.iter().filter(|b| b.phase == 0).count() < 2, "two bounties are already open");
         let v = self.pool().value(amount.0);
@@ -122,9 +133,11 @@ impl Coin {
         let i = self.bounties.iter().position(|b| b.id == id).unwrap_or_else(|| env::panic_str("no such bounty"));
         require!(self.bounties[i].phase == 0 && now < self.bounties[i].end, "this bounty is closed");
         require!(self.pool().value(amount.0) >= GN / 10, "minimum pledge 0.1 NEAR worth");
+        let mine: u128 = self.bounties[i].pledges.iter().filter(|p| p.account == a).map(|p| p.amount.0).sum();
+        require!(self.pool().value(mine + amount.0) <= DUEL_MAX_VALUE, "at most 25 NEAR worth per wallet");
         let mut h = self.settle(&a, now);
         require!(h.bal >= amount.0, "not enough unlocked balance");
-        require!(self.bounties[i].pledges.len() < BOUNTY_MAX_PLEDGES || self.bounties[i].pledges.iter().any(|p| p.account == a), "this bounty has 50 pledges already");
+        require!(self.bounties[i].pledges.len() < BOUNTY_MAX_PLEDGES || self.bounties[i].pledges.iter().any(|p| p.account == a), "this bounty has 20 pledges already");
         h.bal -= amount.0; self.save(&a, h);
         self.bets_held += amount.0;
         let b = &mut self.bounties[i];
@@ -133,18 +146,51 @@ impl Coin {
         events::ft_transfer(&a, &env::current_account_id(), amount.0, Some("bounty pledge"));
     }
 
+    /// Collect everything waiting for you from Black Holes and Bounties (and a ready pack if you were a top thrower).
+    pub fn claim_payouts(&mut self) -> U128 {
+        let now = env::block_timestamp_ms();
+        let a = env::predecessor_account_id();
+        self.touch(now);
+        let mine: Vec<Payout> = self.pending.iter().filter(|p| p.account == a).cloned().collect();
+        require!(!mine.is_empty(), "nothing to claim");
+        let total: u128 = mine.iter().map(|p| p.tokens.0).sum();
+        let pack = mine.iter().any(|p| p.pack);
+        self.pending.retain(|p| p.account != a);
+        self.pending_held -= total;
+        let mut h = self.settle(&a, now);
+        h.bal += total; if h.since == 0 { h.since = now; }
+        if pack { h.next_pack = 0; }
+        self.save(&a, h);
+        events::ft_transfer(&env::current_account_id(), &a, total, Some("payout"));
+        U128(total)
+    }
+
+    pub fn get_pending(&self, account_id: AccountId) -> Vec<Payout> { self.pending.iter().filter(|p| p.account == account_id).cloned().collect() }
+
     pub fn get_duels(&self) -> Vec<Duel> { self.duels.clone() }
     pub fn get_bounties(&self) -> Vec<Bounty> { self.bounties.clone() }
 }
 
 impl Coin {
+    /// Queue a payout for a wallet to collect. Payouts nobody collects for 3 days are burned, so the list can't grow forever.
+    pub(crate) fn push_payout(&mut self, now: u64, account: &AccountId, tokens: u128, pack: bool, what: &str) {
+        let me = env::current_account_id();
+        let (keep, old): (Vec<Payout>, Vec<Payout>) = std::mem::take(&mut self.pending).into_iter().partition(|p| now < p.at + PAYOUT_KEEP);
+        self.pending = keep;
+        let lost: u128 = old.iter().map(|p| p.tokens.0).sum();
+        if lost > 0 { self.pending_held -= lost; self.burn_circ(now, &me, lost, "unclaimed payout"); }
+        if tokens == 0 && !pack { return; }
+        self.pending_held += tokens;
+        self.pending.push(Payout { account: account.clone(), tokens: U128(tokens), pack, at: now, what: what.to_string() });
+    }
+
     /// Close every duel and bounty whose time has come.
     pub(crate) fn step_stakes(&mut self, now: u64) {
         let me = env::current_account_id();
         for i in 0..self.duels.len() {
             let d = self.duels[i].clone();
             if d.phase == 0 && now >= d.created + DUEL_OPEN {
-                let mut h = self.settle(&d.a, now); h.bal += d.stake.0; self.save(&d.a, h);
+                let mut h = self.settle(&d.a, now); h.bal += d.stake.0; h.no_trade_until = d.a_prev_lock; self.save(&d.a, h); // trading is free again
                 self.bets_held -= d.stake.0;
                 events::ft_transfer(&me, &d.a, d.stake.0, Some("duel refund"));
                 let x = &mut self.duels[i]; x.phase = 2; x.result = "refunded: not accepted".into();
@@ -167,11 +213,14 @@ impl Coin {
             let met = self.answer(&b.question, b.snapshot.0);
             let total = b.total.0;
             let (mut paid, mut bonus) = (0u128, 0u128);
-            if met { bonus = bps(total, BOUNTY_BONUS_BPS).min(self.reward_pool); if bonus > 0 { self.reward_pool -= bonus; self.with_pool(|q| q.release(bonus)); } }
+            // the bonus is capped per Bounty and only one Bounty a day gets it, so it can't be farmed
+            if met && now >= self.bounty_bonus_at + DAY {
+                bonus = bps(total, BOUNTY_BONUS_BPS).min(BOUNTY_BONUS_CAP).min(self.reward_pool);
+                if bonus > 0 { self.reward_pool -= bonus; self.with_pool(|q| q.release(bonus)); self.bounty_bonus_at = now; }
+            }
             for p in &b.pledges {
                 let back = if met { p.amount.0 + mul_div(bonus, p.amount.0, total.max(1)) } else { p.amount.0 - bps(p.amount.0, BOUNTY_MISS_BURN_BPS) };
-                let mut h = self.settle(&p.account, now); h.bal += back; self.save(&p.account, h);
-                events::ft_transfer(&me, &p.account, back, Some("bounty payout"));
+                self.push_payout(now, &p.account, back, false, "Bounty");
                 paid += back;
             }
             self.bets_held -= total;

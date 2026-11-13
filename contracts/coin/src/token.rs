@@ -101,7 +101,7 @@ impl Coin {
 
 impl Coin {
     /// Tokens held by the contract itself: unsold curve stock, reward pool, DEX reserve, Vault locks and Vault rewards.
-    pub(crate) fn contract_balance(&self) -> u128 { self.pool().room() + self.reward_pool + DEX_RESERVE + self.vault_locked + self.vault_rewards + self.bets_held }
+    pub(crate) fn contract_balance(&self) -> u128 { self.pool().room() + self.reward_pool + DEX_RESERVE + self.vault_locked + self.vault_rewards + self.bets_held + self.pending_held }
 
     pub(crate) fn register(&mut self, a: &AccountId, now: u64) {
         if self.is_registered(a) { return; }

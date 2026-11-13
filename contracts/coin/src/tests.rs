@@ -1293,8 +1293,13 @@ fn black_hole_burns_what_is_thrown_and_the_reward_pool_gives_some_back() {
     assert!(c.burned - burned >= b2 / 2 + b3 / 4 - 5, "everything thrown is burned");
     assert!(rp > c.reward_pool, "the reward pool gave some back");
     assert_eq!(c.bets_held, 0);
+    assert_eq!(c.pending_held, c.pending.iter().map(|p| p.tokens.0).sum::<u128>());
+    ctx(2, 0, t + 3 * HOUR); let got = c.claim_payouts().0;
+    assert!(got > 0 && got <= HOLE_RETURN_CAP, "the return is capped");
     assert_eq!(c.holder(&acc(2)).next_pack, 0, "a top thrower gets a pack ready");
     assert!(bal(&c, 2) > b2 - b2 / 2, "and some tokens back");
+    ctx(3, 0, t + 3 * HOUR); c.claim_payouts();
+    assert_eq!(c.pending_held, 0); assert!(c.pending.is_empty());
     check_supply(&mut c, &(1..=6).collect::<Vec<_>>(), t + 3 * HOUR);
 }
 
@@ -1622,19 +1627,22 @@ fn only_the_challenged_wallet_can_accept() {
 fn a_met_bounty_pays_a_bonus_and_a_missed_one_burns_ten_percent() {
     for met in [true, false] {
         let mut c = launch(vec![]);
-        for i in 1..=4 { buy(&mut c, i + if met { 0 } else { 10 }, n(20), T0 + i as u64); }
         let o = if met { 0 } else { 10 };
+        for i in 1..=4 { buy(&mut c, i + o, n(20), T0 + i as u64); }
         give(&mut c, o + 1, Card::Bounty, T0); c.energy = 30;
         let pledge = bal(&c, o + 1) / 10; let p2 = bal(&c, o + 2) / 20;
         let (a0, b0) = (bal(&c, o + 1), bal(&c, o + 2));
-        ctx(o + 1, 0, T0 + HOUR); let id = c.bounty_open(Question::Tide, U128(pledge));
+        ctx(o + 1, 0, T0 + HOUR); let id = c.bounty_open(Question::Crowd { n: 3 }, U128(pledge));
         ctx(o + 2, 0, T0 + HOUR + 10); c.bounty_pledge(id, U128(p2));
         assert_eq!(c.bets_held, pledge + p2);
-        if met { buy(&mut c, o + 3, n(5), T0 + 2 * HOUR); } // net buying: the goal is met
+        if met { for k in 5..=7 { buy(&mut c, k, n(5), T0 + 2 * HOUR + k as u64); } } // three new wallets: the goal is met
         let rp = c.reward_pool; let burned = c.burned;
         ctx(o + 4, 0, T0 + HOUR + BOUNTY_LEN + 1); c.poke();
         assert_eq!(c.bets_held, 0);
         let b = c.get_bounties()[0].clone();
+        ctx(o + 1, 0, T0 + HOUR + BOUNTY_LEN + 2); c.claim_payouts();
+        ctx(o + 2, 0, T0 + HOUR + BOUNTY_LEN + 3); c.claim_payouts();
+        assert_eq!(c.pending_held, 0);
         if met {
             assert!(b.result.starts_with("goal met"), "{}", b.result);
             assert!(bal(&c, o + 1) > a0 && bal(&c, o + 2) > b0, "pledgers got a bonus");
@@ -1644,8 +1652,37 @@ fn a_met_bounty_pays_a_bonus_and_a_missed_one_burns_ten_percent() {
             assert_eq!(bal(&c, o + 1), a0 - bps(pledge, BOUNTY_MISS_BURN_BPS), "90% back");
             assert!(c.burned - burned >= bps(pledge + p2, BOUNTY_MISS_BURN_BPS) - 2, "10% burned");
         }
-        check_supply(&mut c, &[o + 1, o + 2, o + 3, o + 4], T0 + 10 * HOUR);
+        let hs: Vec<usize> = if met { vec![1, 2, 3, 4, 5, 6, 7] } else { vec![11, 12, 13, 14] };
+        check_supply(&mut c, &hs, T0 + 10 * HOUR);
     }
+}
+
+#[test]
+#[should_panic(expected = "Tide")]
+fn a_bounty_cannot_ask_the_tide_question() {
+    let mut c = launch(vec![]);
+    for i in 1..=2 { buy(&mut c, i, n(20), T0 + i as u64); }
+    give(&mut c, 1, Card::Bounty, T0); c.energy = 30;
+    ctx(1, 0, T0 + HOUR); c.bounty_open(Question::Tide, U128(bal(&c, 1) / 10));
+}
+
+#[test]
+fn raiding_a_coin_cancels_its_own_unfinished_raid_plan() {
+    // the fix: a coin gathering signers for its own raid can still be raided (see raid tests for the setup)
+    let src = include_str!("raid.rs");
+    assert!(src.contains("cancelled: the coin was raided first"));
+}
+
+#[test]
+fn an_unanswered_duel_gives_back_the_trade_lock() {
+    let mut c = launch(vec![]);
+    for i in 1..=2 { buy(&mut c, i, n(20), T0 + i as u64); }
+    give(&mut c, 1, Card::Duel, T0); c.energy = 30;
+    let prev = c.holder(&acc(1)).no_trade_until;
+    ctx(1, 0, T0 + HOUR); let _ = c.duel_challenge(acc(2), U128(bal(&c, 1) / 10), false);
+    assert!(c.holder(&acc(1)).no_trade_until > T0 + HOUR);
+    ctx(2, 0, T0 + HOUR + DUEL_OPEN + 1); c.poke();
+    assert_eq!(c.holder(&acc(1)).no_trade_until, prev);
 }
 
 // ------------------------------------------------------------------ a second fuzz run: every card, stake and omen at random

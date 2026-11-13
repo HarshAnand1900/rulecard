@@ -280,6 +280,8 @@ pub struct Coin {
     pub(crate) hi: Vec<(u64, u128)>,
     pub(crate) banner: Option<(AccountId, u64)>,
     pub(crate) duels: Vec<Duel>, pub(crate) next_duel: u32,
+    /// payouts from Black Holes and Bounties that wallets collect themselves with `claim_payouts`, so closing one never loops over wallets
+    pub(crate) pending: Vec<Payout>, pub(crate) pending_held: u128, pub(crate) bounty_bonus_at: u64,
     pub(crate) bounties: Vec<Bounty>, pub(crate) next_bounty: u32,
     pub(crate) harvest: Option<Harvest>,
     pub(crate) ally: Option<(AccountId, u64)>,
@@ -363,7 +365,7 @@ impl Coin {
             epics_day: 0, epics_today: 0, last_ember: 0, hype_until: 0, hype_last: 0, rollcall_until: 0, rollcall_mult: 1, tag_until: 0,
             bets_held: 0, total_bought: 0, total_sold: 0,
             raid: None, raids: vec![], raid_seq: 0, last_raid_end: 0, last_raid_start: 0, last_attack: 0, omen: Omen::default(), squalls: vec![], droughts: vec![], blood_until: 0,
-            heat: 0, heat_at: 0, slowburn_until: 0, recruit_until: 0, recruit_left: 0, diamond_until: 0, whale_until: 0, last_stand_at: 0, hi: vec![], harvest: None, ally: None, banner: None, duels: vec![], next_duel: 0, bounties: vec![], next_bounty: 0,
+            heat: 0, heat_at: 0, slowburn_until: 0, recruit_until: 0, recruit_left: 0, diamond_until: 0, whale_until: 0, last_stand_at: 0, hi: vec![], harvest: None, ally: None, banner: None, duels: vec![], next_duel: 0, pending: vec![], pending_held: 0, bounty_bonus_at: 0, bounties: vec![], next_bounty: 0,
             prices: Vector::new(b"p"), price_seq: 0,
         };
         let me = env::current_account_id();

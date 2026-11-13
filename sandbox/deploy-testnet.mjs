@@ -54,7 +54,7 @@ const factoryId = `${FACTORY_NAME}.${ACCOUNT}`;
 const old = REUSE && existsSync(keyFile) ? JSON.parse(readFileSync(keyFile, 'utf8')) : null;
 const reusable = old ? Object.keys(old.accounts ?? {}).filter(k => /^bot\d+$/.test(k)) : [];
 const newBots = Math.max(0, BOTS - reusable.length);
-const coinDeposit = 5 + COIN_SEED; // the demo factory asks 5 NEAR storage (each coin carries its own code) + the seed
+const coinDeposit = 7 + COIN_SEED; // the full factory asks 7 NEAR storage (each coin carries its own code) + the seed
 const keptBots = Math.min(BOTS, reusable.length);
 const balOf = async id => { try { return BigInt((await rpc('query', { request_type: 'view_account', finality: 'final', account_id: id })).amount); } catch { return 0n; } };
 const topups = {}; // bot name -> NEAR to send

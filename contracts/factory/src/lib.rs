@@ -13,7 +13,7 @@ pub const ONE_NEAR: u128 = 1_000_000_000_000_000_000_000_000;
 /// Storage for the new coin account (its state grows with holders; buyers pay 0.0125 NEAR each on top).
 pub const DEPLOY_DEPOSIT: u128 = ONE_NEAR;
 /// Without a global contract each coin carries its own copy of the code (~390 KB of storage).
-pub const DEPLOY_DEPOSIT_FULL: u128 = 5 * ONE_NEAR;
+pub const DEPLOY_DEPOSIT_FULL: u128 = 7 * ONE_NEAR;
 /// Demo factories launch demo-scale coins: seeds (like every game NEAR amount) are 1/100. Storage is real NEAR either way.
 #[cfg(feature = "demo")]
 pub const NEAR_SCALE: u128 = 100;
