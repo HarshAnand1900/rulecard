@@ -220,6 +220,7 @@ details .ans { padding: 0 var(--s300) var(--s300); color: var(--muted); animatio
 
 <main id="main">
 <section class="hero" id="top" aria-labelledby="h1">
+  <div class="sculpt" id="sculpt" aria-hidden="true"><div class="sculpt-glow"></div><div class="sculpt-rig"><div class="sculpt-spin" id="sculpt-spin"></div></div></div>
   <div class="wrap hero-grid">
     <div class="hero-copy">
       <h1 class="heading-1 grad" id="h1">The memecoin game<br>where coins <span class="hl">raid each other</span></h1>
@@ -230,6 +231,10 @@ details .ans { padding: 0 var(--s300) var(--s300); color: var(--muted); animatio
       </div>
       <p class="proof caption-1"><span><i class="ph-fill ph-check-circle i" aria-hidden="true"></i>3 coins live on NEAR testnet</span><span><i class="ph-fill ph-check-circle i" aria-hidden="true"></i>No admin key</span><span><i class="ph-fill ph-check-circle i" aria-hidden="true"></i>16 labelled bots</span></p>
     </div>
+  </div>
+</section>
+
+<section class="arena" aria-label="A hand and a raid"><div class="wrap">
     <div class="stage" id="table" aria-label="Three coins as cards: FROG raiding MOTH, ZAP at peace">
       <div class="hand">
         <article class="bc l" style="--tc:var(--epic)"><div class="top"><span class="caption-3">LEVEL 2</span><span class="status caption-4"><span class="dot"></span>Raiding</span></div><div class="art"><span class="sym" style="--m:url(/bg/jokers/3-epic-wink.png)" aria-hidden="true"></span></div><div><h2 class="heading-5">FROG</h2><p class="caption-4 muted">Frog Pond</p></div><div class="pts"><span class="heading-4 mono">13</span><span class="caption-4 muted">war points</span></div></article>
@@ -241,8 +246,7 @@ details .ans { padding: 0 var(--s300) var(--s300); color: var(--muted); animatio
       </div>
       <p class="caption-2 muted" style="text-align:center">An example of a hand and a raid. Open the War Map in the app to see the live ones.</p>
     </div>
-  </div>
-</section>
+</div></section>
 
 <div class="strip">
   <div class="wrap grid cols-4">
@@ -433,6 +437,8 @@ details .ans { padding: 0 var(--s300) var(--s300); color: var(--muted); animatio
   </div>
 </section>
 </main>
+<a class="fab" id="fab" href="/enter/" tabindex="-1" aria-hidden="true">Play free<i class="ph-bold ph-arrow-up-right" aria-hidden="true"></i></a>
+<script src="/sculpt.js" defer></script>
 
 <footer>
   <div class="wrap foot">

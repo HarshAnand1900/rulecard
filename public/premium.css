@@ -176,3 +176,65 @@ footer { padding-bottom: 0; overflow: hidden; }
   @keyframes folds { from { background-position: 0 0, 0 0, 0 0; } to { background-position: 88px 0, 0 0, 0 0; } }
   .curtain::before { animation: folds 40s linear infinite; }
 }
+
+/* ---------------------------------------------------------------- 3D card spiral in the hero */
+.hero { position: relative; }
+.sculpt { position: absolute; right: -2%; top: 2%; width: min(560px, 46vw); aspect-ratio: 1; perspective: 1400px; pointer-events: none; z-index: 0; }
+.hero-grid { position: relative; z-index: 1; }
+.sculpt-glow { position: absolute; inset: 12%; border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 90, 20, .34), rgba(255, 75, 0, .1) 55%, transparent 72%); filter: blur(10px); }
+.sculpt-rig { position: absolute; inset: 0; transform-style: preserve-3d; transform: rotateX(-14deg); transition: transform 900ms var(--ease); display: grid; place-items: center; }
+.sculpt-spin { position: relative; width: 0; height: 0; transform-style: preserve-3d; }
+.slab { position: absolute; width: 112px; height: 156px; left: -56px; top: -78px; transform-style: preserve-3d; }
+.slab > i { position: absolute; display: block; }
+.slab .f, .slab .k { inset: 0; border-radius: 10px; }
+.slab .f {
+  transform: translateZ(5px); background: linear-gradient(150deg, #2A2B31 0%, #0E0F13 46%, #050607 100%);
+  border: 1px solid rgba(245, 239, 230, .2); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), inset 0 0 22px rgba(0, 0, 0, .7);
+}
+.slab .k { transform: translateZ(-5px) rotateY(180deg); background: linear-gradient(210deg, #1A1B20, #050607); border: 1px solid rgba(255, 139, 37, .25); }
+.slab .f b, .slab .f u { position: absolute; font: 600 22px/1 var(--head); text-decoration: none; color: rgba(245, 239, 230, .78); }
+.slab .f b { left: 10px; top: 8px; } .slab .f u { right: 10px; bottom: 8px; transform: rotate(180deg); }
+.slab.hot .f { border-color: rgba(255, 139, 37, .75); box-shadow: 0 0 18px rgba(255, 75, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .25), inset 0 0 22px rgba(255, 90, 20, .22); }
+.slab.hot .f b, .slab.hot .f u { color: #FFB45A; }
+/* the 10px thickness: four edge strips */
+.slab .e1, .slab .e2 { left: 0; right: 0; height: 10px; background: linear-gradient(90deg, #3A3B42, #121318); }
+.slab .e1 { top: -5px; transform: rotateX(90deg); }
+.slab .e2 { bottom: -5px; transform: rotateX(90deg); }
+.slab .e3, .slab .e4 { top: 0; bottom: 0; width: 10px; background: linear-gradient(180deg, #34353C, #101116); }
+.slab .e3 { left: -5px; transform: rotateY(90deg); }
+.slab .e4 { right: -5px; transform: rotateY(90deg); }
+.slab.hot .e1, .slab.hot .e3 { background: linear-gradient(90deg, #FFB45A, #FF5A14); box-shadow: 0 0 10px rgba(255, 90, 20, .7); }
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes spinY { to { transform: rotateY(360deg); } }
+  .sculpt-spin { animation: spinY 46s linear infinite; }
+  @keyframes bob { 0%, 100% { translate: 0 -6px; } 50% { translate: 0 8px; } }
+  .sculpt-rig { animation: bob 9s ease-in-out infinite; }
+}
+@media (max-width: 1023px) { .sculpt { right: -14%; top: 6%; width: 78vw; opacity: .55; } }
+
+/* ---------------------------------------------------------------- floating play button in the curtain style */
+.fab {
+  position: fixed; left: 50%; bottom: 22px; z-index: 40; display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 22px 0 24px;
+  border-radius: 999px; font: 600 16px/1 var(--font); color: #1A0B00; text-decoration: none; border: 1px solid rgba(255, 196, 82, .6);
+  background: var(--btn-grad); box-shadow: 0 0 26px rgba(255, 75, 0, .5), 0 0 4px rgba(255, 196, 82, .9), inset 0 1px 0 rgba(255, 255, 255, .45), 0 14px 30px -12px #000;
+  opacity: 0; translate: -50% 24px; pointer-events: none; transition: opacity 500ms var(--ease), translate 500ms var(--ease), box-shadow 300ms var(--ease);
+}
+.fab.show { opacity: 1; translate: -50% 0; pointer-events: auto; }
+.fab:hover { box-shadow: 0 0 38px rgba(255, 75, 0, .7), 0 0 5px rgba(255, 210, 120, 1), inset 0 1px 0 rgba(255, 255, 255, .55), 0 14px 30px -12px #000; }
+.fab:focus-visible { outline: 2px solid #FFE3B0; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .fab { transition: opacity 200ms linear; translate: -50% 0; } }
+
+/* ---------------------------------------------------------------- the velvet folds reach the other bands, quietly */
+section[style*="rgba(19,18,9"] { position: relative; isolation: isolate; }
+section[style*="rgba(19,18,9"]::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: .5;
+  background: repeating-linear-gradient(90deg, rgba(0, 0, 0, .5) 0 10px, rgba(120, 30, 10, .12) 26px, rgba(0, 0, 0, .45) 44px), linear-gradient(90deg, rgba(0, 0, 0, .9), rgba(150, 40, 15, .35));
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 30%, #000 70%, transparent); mask-image: linear-gradient(180deg, transparent, #000 30%, #000 70%, transparent);
+}
+
+/* the card hand and the raid bar now sit in their own band under the hero, so the 3D spiral can carry the top */
+.sculpt { right: 4%; top: 2%; width: min(600px, 44vw); }
+@media (min-width: 1024px) { .hero-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) !important; min-height: 560px; } }
+.arena { padding: 8px 0 56px; position: relative; z-index: 1; }
+.arena .stage { max-width: 760px; margin: 0 auto; }
+@media (max-width: 1023px) { .hero-grid { min-height: 0; } .sculpt { right: -12%; top: 8%; width: 80vw; opacity: .5; } }
