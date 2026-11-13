@@ -9,15 +9,16 @@ import Onboard from './Onboard';
 import Guide, { guideWarVisited, markWarVisited } from './Guide';
 import { play, sfxForCall, isMuted, setMuted, onMuteChange, getVolume, setVolume, SFX_LIST } from './sound';
 import type {
-  CoinEntry, CoinView, HolderView, Ritual, LevelView, LogEntry, HandView, Proposal, RaidView, Card, Question, BuyQuote, OmenView,
+  CoinEntry, CoinView, HolderView, Ritual, LevelView, LogEntry, HandView, Proposal, RaidView, Card, Question, BuyQuote, OmenView, Duel, Bounty,
 } from './types';
-import { TIER_OF, TIER_NAME, CARD_TEXT, RULE_TEXT, LEVEL_NAME } from './types';
+import { TIER_OF, TIER_NAME, CARD_TEXT, CARD_SYMBOL, RULE_TEXT, LEVEL_NAME } from './types';
 import PriceChart, { type PricePoint, toMicro } from './PriceChart';
 import Proof from './Proof';
 import WarMap from './WarMap';
 import Profile from './Profile';
 import Docs from './Docs';
 import Launch from './Launch';
+import CardPlay from './CardPlay';
 
 const MIN = 60_000, HOUR = 60 * MIN;
 const dur = (ms: number) => { ms = Math.max(0, ms); const d = Math.floor(ms / (24 * HOUR)), h = Math.floor((ms % (24 * HOUR)) / HOUR), m = Math.floor((ms % HOUR) / MIN); const sec = Math.floor((ms % MIN) / 1000); return d ? `${d}d ${h}h` : h ? (m ? `${h}h ${m}m` : `${h}h`) : sec ? `${m}m ${sec}s` : `${m}m`; };
@@ -28,7 +29,9 @@ const hrs = (h: number) => dur((h * HOUR) / TS);
 const shortAcct = (a: string) => (/^[0-9a-f]{64}$/.test(a) ? `${a.slice(0, 6)}…${a.slice(-4)}` : a);
 const short = (a: string) => (/^bot\d+\./.test(a) ? '🤖 ' + a.split('.')[0] : a.replace(/\.test\.near$/, '').replace(/\.rulecard$/, ''));
 const pct = (a: number, b: number) => (b > 0 ? Math.min(100, (a / b) * 100) : 0);
-const TACTIC = ['', 'Rally', 'Curse', 'Ward'];
+const TACTIC = ['', 'Rally', 'Curse', 'Ward', 'Mirror', 'Counterspell', 'Decoy'];
+const TACTIC_CARDS: Card[] = ['Rally', 'Curse', 'Ward', 'Mirror', 'Counterspell', 'Decoy'];
+const SIGNED: Card[] = ['Inferno', 'BlackHole', 'Harvest', 'WhaleTax', 'Alliance', 'Supernova'];
 const tacticName = (code: number) => (code ? `${TACTIC[Math.floor(code / 10)]} ×${['1', '2', '3'][code % 10]}` : '—');
 
 type Page = { kind: 'discover' } | { kind: 'profile' } | { kind: 'docs' } | { kind: 'launch' } | { kind: 'proof' } | { kind: 'war' } | { kind: 'coin'; id: string };
@@ -295,7 +298,7 @@ function Discover({ ch, coins, tick, go }: Ctx) {
 }
 
 // ------------------------------------------------------------------ Coin page
-interface CoinData { c: CoinView; h: HolderView | null; r: Ritual; lv: LevelView; hand: HandView | null; table: Proposal[]; hist: Proposal[]; raid: RaidView | null; raids: RaidView[]; log: LogEntry[]; plan: number[]; prices: PricePoint[]; omen: OmenView | null; }
+interface CoinData { c: CoinView; h: HolderView | null; r: Ritual; lv: LevelView; hand: HandView | null; table: Proposal[]; hist: Proposal[]; raid: RaidView | null; raids: RaidView[]; log: LogEntry[]; plan: number[]; prices: PricePoint[]; omen: OmenView | null; duels: Duel[]; bounties: Bounty[]; }
 
 function CoinPage(p: Ctx & { id: string }) {
   const { ch, me, act, busy, tick, id } = p;
@@ -306,13 +309,14 @@ function CoinPage(p: Ctx & { id: string }) {
     (async () => {
       const acc = ch.me(); const v = <T,>(m: string, a: object = {}) => ch.view<T>(id, m, a);
       const mine = <T,>(m: string): Promise<T | null> => (acc ? v<T>(m, { account_id: acc }) : Promise.resolve(null));
-      const [c, h, r, lv, hand, table, hist, raid, raids, log, plan, prices, omen] = await Promise.all([
+      const [c, h, r, lv, hand, table, hist, raid, raids, log, plan, prices, omen, duels, bounties] = await Promise.all([
         v<CoinView>('get_coin'), mine<HolderView>('get_holder'), v<Ritual>('get_ritual'), v<LevelView>('get_level_progress'),
         mine<HandView>('get_hand'), v<Proposal[]>('get_table'), v<Proposal[]>('get_history'), v<RaidView | null>('get_raid'), v<RaidView[]>('get_raids'),
         v<LogEntry[]>('get_log', { limit: 100 }), mine<number[]>('get_my_plan').then(x => x ?? []), v<PricePoint[]>('get_prices'),
         v<OmenView>('get_omen').catch(() => null), // coins launched before Omens existed don't have it
+        v<Duel[]>('get_duels').catch(() => [] as Duel[]), v<Bounty[]>('get_bounties').catch(() => [] as Bounty[]),
       ]);
-      setD({ c, h, r, lv, hand, table, hist, raid, raids, log, plan, prices, omen });
+      setD({ c, h, r, lv, hand, table, hist, raid, raids, log, plan, prices, omen, duels, bounties });
     })().catch(() => {});
   }, [ch, me, id, tick]);
   const prev = useRef<CoinData | null>(null), prevId = useRef(id), lastBurn = useRef(0);
@@ -351,7 +355,7 @@ function CoinPage(p: Ctx & { id: string }) {
         <div className="ch-main">
           <span className="avatar" style={{ ['--m' as any]: jokerOf(c.symbol) }} aria-hidden="true"><b>{c.symbol.slice(0, 4)}</b></span>
           <div className="ch-id">
-            <div className="row gap wrap"><h1>${c.symbol}</h1><span className="muted small">{c.name}</span>{!c.graduated && <span className="live"><i />LIVE</span>}<span className={`lvl l${c.level}`}>L{c.level} {LEVEL_NAME[c.level]}</span>{c.graduated && <span className="chip gold">Graduated</span>}{c.rules.map(x => <span key={x} className="chip" title={RULE_TEXT[x]}>{x}</span>)}{c.hype_until > now && <span className="chip hot">Trending</span>}</div>
+            <div className="row gap wrap"><h1>${c.symbol}</h1><span className="muted small">{c.name}</span>{!c.graduated && <span className="live"><i />LIVE</span>}<span className={`lvl l${c.level}`}>L{c.level} {LEVEL_NAME[c.level]}</span>{c.graduated && <span className="chip gold">Graduated</span>}{c.rules.map(x => <span key={x} className="chip" title={RULE_TEXT[x]}>{x}</span>)}{c.hype_until > now && <span className="chip hot">Trending</span>}{c.heat > 0 && <span className="chip hot" title="Heat: pot cards spend 10% more per Heat">Heat {c.heat}</span>}{c.slowburn_until > now && <span className="chip" title="1% of every trade burns">Slow Burn {dur(c.slowburn_until - now)}</span>}{c.recruit_until > now && <span className="chip" title="First buys of 3 NEAR or more get +5%">Recruit {dur(c.recruit_until - now)}</span>}{c.diamond_until > now && <span className="chip" title="24h locks get x1.25 and +1%">Diamond Pool {dur(c.diamond_until - now)}</span>}{c.whale_until > now && <span className="chip down" title="Wallets over 2% pay +1% on sells">Whale Tax {dur(c.whale_until - now)}</span>}{c.ally && <span className="chip up" title="No raids between the two coins">Allied with ${c.ally.split('.')[0].toUpperCase()}</span>}{c.banner_by && c.banner_until > now && <span className="chip down" title="Lost a Hard Raid">Flying ${c.banner_by.split('.')[0].toUpperCase()}'s banner</span>}{c.harvest_until > now && <span className="chip up">Harvest open</span>}</div>
             <div className="ch-stats mono">
               <div><small>MCAP</small><b className="up">{fmtNear(toNear(c.mcap))} N</b></div>
               <div><small>PRICE</small><b title="NEAR per 1 million tokens">{toMicro(c.price).toFixed(3)} N/1M</b></div>
@@ -408,7 +412,6 @@ function CoinPage(p: Ctx & { id: string }) {
 
 type TabProps = Ctx & { id: string; d: CoinData; now: number; call: (label: string, m: string, a?: object, dep?: bigint, done?: string) => Promise<void> };
 
-const SYMB: Record<string, string> = { RollCall: 'rollcall', HypeSiren: 'siren', LastStand: 'laststand', SlowBurn: 'slowburn', BlackHole: 'blackhole' };
 
 function TradeTab({ ch, me, id, d, now, busy, act, onBought, setTab, below }: TabProps & { onBought: (t: bigint) => void; setTab: (t: Tab) => void; below: ReactNode }) {
   const [side, setSide] = useState<'buy' | 'sell'>('buy');
@@ -454,9 +457,9 @@ function TradeTab({ ch, me, id, d, now, busy, act, onBought, setTab, below }: Ta
           <div className="minis">
             {d.table.map(t => {
               const tier = TIER_OF[t.card], info = CARD_TEXT[t.card];
-              const phase = t.phase === 0 ? (t.card === 'Inferno' ? 'Being signed' : 'Being backed') : t.phase === 1 ? (t.card === 'Prophecy' ? 'Prophecy live' : 'Fuel window') : 'Resolving';
+              const phase = t.phase === 0 ? (SIGNED.includes(t.card) ? 'Being signed' : 'Being backed') : t.phase === 1 ? (t.card === 'Prophecy' ? 'Prophecy live' : t.card === 'BlackHole' ? 'Throwing' : t.card === 'Stampede' || t.card === 'Squeeze' ? 'Crowd window' : 'Fuel window') : 'Resolving';
               return (
-                <div key={t.id} role="button" tabIndex={0} className={`mini t${tier}`} style={{ ['--m' as any]: `url(/bg/symbols/${SYMB[t.card] ?? String(t.card).toLowerCase()}.png)` }} onClick={() => setTab('cards')} onKeyDown={e => { if (e.key === 'Enter') setTab('cards'); }}>
+                <div key={t.id} role="button" tabIndex={0} className={`mini t${tier}`} style={{ ['--m' as any]: `url(/bg/symbols/${CARD_SYMBOL[t.card]}.png)` }} onClick={() => setTab('cards')} onKeyDown={e => { if (e.key === 'Enter') setTab('cards'); }}>
                   <span className="mini-top mono"><span>{TIER_NAME[tier]}</span><span className="row gap"><span>{dur(t.phase_end - now)}</span><InfoDot title={info.name}><CardInfo card={t.card} /></InfoDot></span></span>
                   <span className="mini-art" aria-hidden="true" />
                   <strong>{info.name}</strong>
@@ -606,13 +609,12 @@ function TodayTab({ d, now }: TabProps) {
   );
 }
 
-const SYM: Record<string, string> = { RollCall: 'rollcall', HypeSiren: 'siren', LastStand: 'laststand', SlowBurn: 'slowburn', BlackHole: 'blackhole' };
 const JOKERS = ['1-common-grin', '2-rare-laugh', '3-epic-wink', '4-mythic-starry', '5-wild-shades'];
 const jokerOf = (s: string) => `url(/bg/jokers/${JOKERS[[...s].reduce((a, ch) => a + ch.charCodeAt(0), 0) % 5]}.png)`;
 function CardTile({ card, count, exp, now, actions }: { card: Card; count?: number; exp?: number; now: number; actions?: ReactNode }) {
   const t = TIER_OF[card]; const info = CARD_TEXT[card];
   return (
-    <div className={`card t${t}`} style={{ ['--m' as any]: `url(/bg/symbols/${SYM[card] ?? String(card).toLowerCase()}.png)` }}>
+    <div className={`card t${t}`} style={{ ['--m' as any]: `url(/bg/symbols/${CARD_SYMBOL[card]}.png)` }}>
       <span className="sym" aria-hidden="true" />
       <div className="row between small"><span className="energy">⚡{info.energy}</span><span className="row gap"><span className="muted">{info.way}</span><InfoDot title={info.name}><CardInfo card={card} /></InfoDot></span></div>
       <div className="card-name">{info.name}{count && count > 1 ? <span className="count">×{count}</span> : null}</div>
@@ -624,7 +626,7 @@ function CardTile({ card, count, exp, now, actions }: { card: Card; count?: numb
   );
 }
 
-function CardsTab({ ch, me, id, d, now, busy, call }: TabProps) {
+function CardsTab({ ch, me, id, d, now, busy, call, coins }: TabProps) {
   const { hand, c } = d;
   const [snap, setSnap] = useState<HandView | null>(null);
   const [dealt, setDealt] = useState<Card[] | null>(null);
@@ -637,12 +639,8 @@ function CardsTab({ ch, me, id, d, now, busy, call }: TabProps) {
     for (const x of hand.cards) if (!had.has(`${x.card}:${x.exp}`)) out.push(x.card);
     setDealt(out); setSnap(null);
   }, [hand, snap]);
-  const [q, setQ] = useState<'Tide' | 'Line' | 'Crowd' | 'Vault'>('Tide');
-  const [qv, setQv] = useState(7);
   const commons = hand ? hand.commons.filter(([, n]) => n > 0) : [];
   const held = commons.reduce((a, [, n]) => a + n, 0);
-  const question = (): Question => q === 'Tide' ? 'Tide' : q === 'Line' ? { Line: { price: ((BigInt(c.price) * BigInt(100 + qv)) / 100n).toString() } } : q === 'Crowd' ? { Crowd: { n: qv } } : { Vault: { bps: qv * 100 } };
-  const play = (card: Card) => card === 'Prophecy' ? call('Play Prophecy', 'play_card', { card, question: question() }) : call(`Play ${CARD_TEXT[card].name}`, 'play_card', { card, question: null });
   const levelDrops = [2, 3, 4].filter(l => l <= c.level && hand && !(hand.drops_claimed & (1 << l)));
   return (
     <div className="stack">
@@ -668,15 +666,11 @@ function CardsTab({ ch, me, id, d, now, busy, call }: TabProps) {
         <h2>Your hand</h2>
         {!commons.length && !hand?.cards.length && <p className="muted">No cards yet: gm, then claim a pack.</p>}
         <div className="hand">
-          {commons.map(([card, n]) => <CardTile key={card} card={card} count={n} now={now} actions={['Ember', 'RollCall', 'HypeSiren'].includes(card) ? <>
-            <button className="btn small" disabled={!!busy} onClick={() => play(card)}>Play</button>
-            <button className="btn small ghost" disabled={!!busy} onClick={() => call('Drop', 'drop_card', { card })}>Drop</button></> : <button className="btn small ghost" disabled={!!busy} onClick={() => call('Drop', 'drop_card', { card })}>Drop</button>} />)}
+          {commons.map(([card, n]) => <CardTile key={card} card={card} count={n} now={now} actions={<>
+            <CardPlay card={card} call={call} busy={busy} table={d.table} me={ch.me() ?? ''} coins={coins} selfId={id} price={c.price} raidOn={d.raid?.phase === 2} />
+            <button className="btn small ghost" disabled={!!busy} onClick={() => call('Drop', 'drop_card', { card })}>Drop</button></>} />)}
           {hand?.cards.map((x, i) => <CardTile key={i} card={x.card} exp={x.exp} now={now} actions={<>
-            {x.card === 'Prophecy' && <div className="stack small">
-              <select value={q} onChange={e => setQ(e.target.value as any)}><option value="Tide">Tide: net buying in 2h?</option><option value="Line">Line: price above +X% in 2h?</option><option value="Crowd">Crowd: N new buyers (≥ 1 NEAR)?</option><option value="Vault">Vault: locked share +X points?</option></select>
-              {q !== 'Tide' && <input className="tiny" type="number" value={qv} onChange={e => setQv(Number(e.target.value))} title={q === 'Line' ? '5–10 (%) above, or -10 to -5 below' : q === 'Crowd' ? '3–30 wallets' : '1–10 points'} />}
-            </div>}
-            <button className="btn small" disabled={!!busy} onClick={() => play(x.card)}>Play</button>
+            <CardPlay card={x.card} call={call} busy={busy} table={d.table} me={ch.me() ?? ''} coins={coins} selfId={id} price={c.price} raidOn={d.raid?.phase === 2} />
             <button className="btn small ghost" disabled={!!busy} onClick={() => call('Drop', 'drop_card', { card: x.card })}>Drop</button></>} />)}
         </div>
       </div>
@@ -686,14 +680,36 @@ function CardsTab({ ch, me, id, d, now, busy, call }: TabProps) {
         {d.table.map(t => <TableRow key={t.id} t={t} now={now} me={(ch.me() ?? '')} busy={busy} call={call} />)}
         {!!d.hist.length && <><h3>Recent</h3>{d.hist.slice().reverse().map(t => <div key={t.id} className="small row between"><span>{CARD_TEXT[t.card].name} by {short(t.proposer)}</span><span className="muted">{t.result}</span></div>)}</>}
       </div>
+      {c.harvest_until > now && <div className="panel row between wrap"><div><h2>Harvest is open</h2><p className="small muted">{c.harvest_claims} of 25 shares taken · ends in {dur(c.harvest_until - now)} · you need a gm in the last 24h</p></div>
+        <button className="btn primary" disabled={!!busy || c.harvest_claims >= 25} onClick={() => call('Harvest', 'harvest_claim', {}, 0n, 'Share taken from the reward pool')}>Take my share</button></div>}
+      <DuelsAndBounties d={d} now={now} me={ch.me() ?? ''} busy={busy} call={call} />
+    </div>
+  );
+}
+
+/** Open duels and bounties: accept a duel against you, pledge to a bounty. */
+function DuelsAndBounties({ d, now, me, busy, call }: { d: CoinData; now: number; me: string; busy: string; call: TabProps['call'] }) {
+  const [amt, setAmt] = useState(20);
+  const duels = d.duels.filter(x => x.phase < 2), bounties = d.bounties.filter(x => x.phase === 0);
+  const goal = (q: Question) => typeof q === 'string' ? 'the coin is a net buyer' : 'Line' in q ? `price above ${toMicro(q.Line.price).toFixed(3)} N/1M` : 'Crowd' in q ? `${q.Crowd.n}+ new buyers` : `Vault share +${q.Vault.bps / 100} points`;
+  if (!duels.length && !bounties.length && !d.duels.length && !d.bounties.length) return null;
+  return (
+    <div className="panel stack">
+      <h2>Duels and bounties</h2>
+      {duels.map(x => <div key={x.id} className="table-row"><div className="row between wrap"><strong>Duel: {short(x.a)} vs {short(x.b)}</strong><span className="small muted">{fmtTok(toTok(x.stake))} each · {x.a_yes ? `${short(x.a)} says net buyer` : `${short(x.a)} says not a net buyer`} · {x.phase === 0 ? `waiting, ${dur(x.created + 15 * MIN / TS - now)} left` : `ends in ${dur(x.end - now)}`}</span></div>
+        {x.phase === 0 && x.b === me && <button className="btn small primary" disabled={!!busy} onClick={() => call('Accept duel', 'duel_accept', { id: x.id }, 0n, 'Duel accepted')}>Accept the duel</button>}</div>)}
+      {bounties.map(x => <div key={x.id} className="table-row"><div className="row between wrap"><strong>Bounty by {short(x.sponsor)}</strong><span className="small muted">goal: {goal(x.question)} · {fmtTok(toTok(x.total))} pledged by {x.pledges.length} · ends in {dur(x.end - now)}</span></div>
+        <div className="row gap small"><input className="tiny" type="number" value={amt} onChange={e => setAmt(Number(e.target.value))} title="tokens (thousands)" /> k tokens <button className="btn small" disabled={!!busy} onClick={() => call('Pledge', 'bounty_pledge', { id: x.id, amount: tokToUnits(amt * 1000).toString() }, 0n, 'Pledged')}>Pledge</button></div></div>)}
+      {[...d.duels.filter(x => x.phase === 2), ...d.bounties.filter(x => x.phase === 1)].slice(-4).map((x, i) => <div key={i} className="small row between"><span>{'a' in x ? `Duel ${short(x.a)} vs ${short(x.b)}` : `Bounty by ${short(x.sponsor)}`}</span><span className="muted">{x.result}</span></div>)}
     </div>
   );
 }
 
 function TableRow({ t, now, me, busy, call }: { t: Proposal; now: number; me: string; busy: string; call: TabProps['call'] }) {
-  const [amt, setAmt] = useState(t.card === 'Ember' ? 2 / NS : 5 / NS);
+  const [amt, setAmt] = useState(t.card === 'Ember' ? 2 / NS : t.card === 'BlackHole' ? 50 : 5 / NS);
   const [yes, setYes] = useState(true);
-  const phaseName = t.phase === 0 ? (t.card === 'Inferno' ? 'signing' : 'backing') : t.phase === 1 ? (t.card === 'Prophecy' ? 'betting' : 'fuel window') : t.card === 'Prophecy' ? 'waiting for the answer' : 'fires within 2 min';
+  const signed = SIGNED.includes(t.card), rush = t.card === 'Stampede' || t.card === 'Squeeze';
+  const phaseName = t.phase === 0 ? (signed ? 'signing' : 'backing') : t.phase === 1 ? (t.card === 'Prophecy' ? 'betting' : t.card === 'BlackHole' ? 'throwing window' : rush ? 'crowd window' : 'fuel window') : t.card === 'Prophecy' ? 'waiting for the answer' : 'fires within 2 min';
   const mine = t.backers.includes(me) || t.proposer === me;
   const yesT = t.bets.filter(b => b.yes).reduce((a, b) => a + toTok(b.amount), 0), noT = t.bets.filter(b => !b.yes).reduce((a, b) => a + toTok(b.amount), 0);
   return (
@@ -703,10 +719,13 @@ function TableRow({ t, now, me, busy, call }: { t: Proposal; now: number; me: st
         <span className="small muted">by {short(t.proposer)} · {phaseName} · {dur(t.phase_end - now)}</span>
       </div>
       {t.question && <div className="small">Q: {typeof t.question === 'string' ? 'Will the coin be a net buyer over 2h?' : 'Line' in t.question ? `Price above ${toMicro(t.question.Line.price).toFixed(3)} N/1M?` : 'Crowd' in t.question ? `${t.question.Crowd.n}+ new buyers (≥ 1 NEAR each)?` : `Vault share +${t.question.Vault.bps / 100} points?`}</div>}
-      {t.phase === 0 && <div className="row gap small"><Bar label={t.card === 'Inferno' ? 'signers' : t.card === 'Ember' ? 'copies' : 'backers'} value={t.backers.length} max={t.needed} text={`${t.backers.length}/${t.needed}`} />
-        {!mine && <button className="btn small" disabled={!!busy} onClick={() => call(t.card === 'Inferno' ? 'Sign' : 'Back', t.card === 'Inferno' ? 'sign' : 'back', { id: t.id }, 0n, 'Thanks: your next pack comes 10 min sooner')}>{t.card === 'Inferno' ? 'Sign' : t.card === 'Ember' ? 'Add my Ember' : 'Back'}</button>}</div>}
+      {t.phase === 0 && <div className="row gap small"><Bar label={signed ? 'signers' : t.card === 'Ember' ? 'copies' : 'backers'} value={t.backers.length} max={t.needed} text={`${t.backers.length}/${t.needed}`} />
+        {!mine && <button className="btn small" disabled={!!busy} onClick={() => call(signed ? 'Sign' : 'Back', signed ? 'sign' : 'back', { id: t.id }, 0n, 'Thanks: your next pack comes 10 min sooner')}>{signed ? 'Sign' : t.card === 'Ember' ? 'Add my Ember' : 'Back'}</button>}</div>}
       {t.card === 'Ember' && t.phase === 0 && <div className="row gap small">Stoke: <input className="tiny" type="number" value={amt} onChange={e => setAmt(Number(e.target.value))} /> NEAR (max {nearAmt(5)}) <button className="btn small" disabled={!!busy} onClick={() => call('Stoke', 'stoke', { id: t.id }, nearToYocto(amt))}>Stoke</button> <span className="muted">stoked {fmtNear(toNear(t.chip_total))}</span></div>}
       {t.card === 'Inferno' && t.phase === 1 && <div className="row gap small">Fuel: <input className="tiny" type="number" value={amt} onChange={e => setAmt(Number(e.target.value))} /> NEAR (max {nearAmt(20)}) <button className="btn small" disabled={!!busy} onClick={() => call('Fuel', 'fuel', { id: t.id }, nearToYocto(amt), `Fuelled: locked ${hrs(24)} with +5%`)}>Fuel</button> <span className="muted">{fmtNear(toNear(t.chip_total))} N from {t.chips.length} wallets</span></div>}
+      {t.target && <div className="small">Pact with ${short(t.target).split('.')[0].toUpperCase()}</div>}
+      {rush && t.phase === 1 && <div className="row gap small">Put in: <input className="tiny" type="number" value={amt} onChange={e => setAmt(Number(e.target.value))} /> NEAR (max {nearAmt(10)}) <button className="btn small" disabled={!!busy} onClick={() => call('Join the batch', 'rush', { id: t.id }, nearToYocto(amt), 'You are in the batch')}>Join</button> <span className="muted">{fmtNear(toNear(t.chip_total))} in · pot adds {t.card === 'Squeeze' ? '50%' : '20%'} with 10+ wallets</span></div>}
+      {t.card === 'BlackHole' && t.phase === 1 && <div className="row gap small">Throw: <input className="tiny" type="number" value={amt} onChange={e => setAmt(Number(e.target.value))} title="tokens (thousands)" />k tokens <button className="btn small" disabled={!!busy} onClick={() => call('Throw in', 'throw_in', { id: t.id, amount: tokToUnits(amt * 1000).toString() }, 1n, 'Thrown in')}>Throw in</button> <span className="muted">{fmtTok(t.bets.reduce((a, b) => a + toTok(b.amount), 0))} thrown</span></div>}
       {t.card === 'Prophecy' && t.phase >= 1 && <div className="row gap small wrap">
         <span>Yes {fmtTok(yesT)} · No {fmtTok(noT)} · {new Set(t.bets.map(b => b.account)).size} wallets (min 8)</span>
         {t.phase === 1 && <><select value={yes ? 'y' : 'n'} onChange={e => setYes(e.target.value === 'y')}><option value="y">Yes</option><option value="n">No</option></select>
@@ -757,8 +776,9 @@ function RaidTab({ ch, id, d, now, busy, call, coins, act, me }: TabProps) {
   const [target, setTarget] = useState('');
   const others = coins.filter(x => x.account_id !== id);
   const [slots, setSlots] = useState<(Card | null)[]>([null, null, null]);
-  useEffect(() => { setSlots(d.plan.length === 3 ? d.plan.map(x => (x ? (['Rally', 'Curse', 'Ward'][x - 1] as Card) : null)) : [null, null, null]); }, [d.plan.join()]);
-  const tactics = hand ? hand.commons.filter(([k]) => ['Rally', 'Curse', 'Ward'].includes(k)) : [];
+  useEffect(() => { setSlots(d.plan.length === 3 ? d.plan.map(x => (x ? TACTIC_CARDS[x - 1] : null)) : [null, null, null]); }, [d.plan.join()]);
+  const tactics: [Card, number][] = [...(hand ? hand.commons.filter(([k]) => TACTIC_CARDS.includes(k)) : []), ...TACTIC_CARDS.filter(k => TIER_OF[k] === 1).map(k => [k, hand?.cards.filter(x => x.card === k).length ?? 0] as [Card, number])].filter(([, n]) => n > 0);
+  const has = (k: Card) => !!hand && (hand.commons.some(([x, n]) => x === k && n > 0) || hand.cards.some(x => x.card === k));
   const roundStart = (i: number) => raid ? raid.muster_end + i * 25 * MIN : 0;
   const phase = raid ? (raid.phase === 0 ? 'signing' : raid.phase === 1 ? 'waiting for the target' : raid.phase === 3 ? 'settling' : now < raid.muster_end ? `Muster: ${dur(raid.muster_end - now)}` : raid.round !== null ? `Round ${raid.round + 1}: ${dur(roundStart(raid.round) + 20 * MIN - now)}` : now >= raid.end ? 'over: settle it' : 'break') : '';
   const other = raid ? (raid.attacking ? raid.defender : raid.attacker) : '';
@@ -766,13 +786,15 @@ function RaidTab({ ch, id, d, now, busy, call, coins, act, me }: TabProps) {
     <div className="stack">
       {!raid && <div className="panel stack">
         <h2>Start a raid</h2>
-        <p className="small muted">Needs {[0, 0, 3, 5, 8][c.level] || 3} signers at L{c.level}. No card, no Energy. The target can't decline if it's the same level or higher, not shielded and not near graduation.</p>
+        <p className="small muted">Needs {[0, 0, 3, 5, 8][c.level] || 3} signers at L{c.level}. A normal raid needs no card and no Energy. The target can't decline if it's the same level or higher, not shielded and not near graduation. A Friendly Raid (no spoils) or Hard Raid (double spoils, a banner) uses its card.</p>
         <div className="row gap"><select value={target} onChange={e => setTarget(e.target.value)}><option value="">Pick a coin…</option>{others.map(o => <option key={o.account_id} value={o.account_id}>${o.symbol}</option>)}</select>
-          <button className="btn primary" disabled={!target || !!busy || c.level < 2} onClick={() => call('Propose raid', 'start_raid', { target })}>Propose raid</button></div>
+          <button className="btn primary" disabled={!target || !!busy || c.level < 2} onClick={() => call('Propose raid', 'start_raid', { target })}>Propose raid</button>
+          {has('FriendlyRaid') && <button className="btn" disabled={!target || !!busy || c.level < 2} onClick={() => call('Friendly raid', 'start_friendly_raid', { target })}>Friendly raid</button>}
+          {has('HardRaid') && <button className="btn" disabled={!target || !!busy || c.level < 2} onClick={() => call('Hard raid', 'start_hard_raid', { target })}>Hard raid</button>}</div>
         {c.level < 2 && <p className="small down">Raids start at L2.</p>}
       </div>}
       {raid && <div className="panel stack">
-        <div className="row between wrap"><h2>{raid.attacking ? `$${c.symbol} ⚔ ${short(other).split('.')[0].toUpperCase()}` : `${short(other).split('.')[0].toUpperCase()} ⚔ $${c.symbol}`}</h2><span className="chip hot">{phase}</span></div>
+        <div className="row between wrap"><h2>{raid.attacking ? `$${c.symbol} ⚔ ${short(other).split('.')[0].toUpperCase()}` : `${short(other).split('.')[0].toUpperCase()} ⚔ $${c.symbol}`}</h2><span className="row gap">{raid.kind === 1 && <span className="chip">Friendly</span>}{raid.kind === 2 && <span className="chip hot">Hard</span>}<span className="chip hot">{phase}</span></span></div>
         {raid.phase === 0 && <div className="row gap"><Bar label="signers" value={raid.backers} max={raid.needed} text={`${raid.backers}/${raid.needed}`} />
           <button className="btn" disabled={!!busy} onClick={() => call('Sign raid', 'sign_raid')}>Sign</button>
           <button className="btn primary" disabled={!!busy} onClick={() => call('Launch raid', 'launch_raid', {}, 0n, 'Raid sent to the target')}>Launch</button></div>}
@@ -782,15 +804,17 @@ function RaidTab({ ch, id, d, now, busy, call, coins, act, me }: TabProps) {
             <div className="mono">{(Number(raid.live_base[i]) / 100).toFixed(1)}</div>
             <div className="small">Buy {(raid.buy[i] / 100).toFixed(1)} · Crowd {raid.crowd[i]} · Lock {(raid.lock[i] / 100).toFixed(1)}</div>
             <div className="small">{raid.tactic[i] ? `tactic: ${tacticName(raid.tactic[i])}` : 'tactic hidden'}</div>
+            {raid.scout[i] ? <div className="small gold">scouted: {raid.scout[i] === 255 ? 'no tactic' : tacticName(raid.scout[i])}</div> : null}
           </div>)}</div>
           <h3>Your plan <span className="muted small">({raid.planners} wallets have plans)</span></h3>
           <div className="row gap wrap">{slots.map((s, i) => <label key={i} className="small">R{i + 1}{' '}
             <select disabled={now >= roundStart(i)} value={s ?? ''} onChange={e => setSlots(x => x.map((y, j) => (j === i ? ((e.target.value || null) as Card | null) : y)))}>
-              <option value="">empty</option>{['Rally', 'Curse', 'Ward'].map(k => <option key={k} value={k}>{k}</option>)}
+              <option value="">empty</option>{TACTIC_CARDS.map(k => <option key={k} value={k}>{k}</option>)}
             </select></label>)}
             <button className="btn" disabled={!!busy} onClick={() => call('Save plan', 'set_plan', { slots })}>Save plan</button>
             <span className="small muted">In hand: {tactics.map(([k, n]) => `${k} ×${n}`).join(', ') || 'none'}</span></div>
-          <div className="row gap"><button className="btn primary" disabled={!!busy || raid.round === null} onClick={() => call('Battle cry', 'battle_cry', {}, 0n, 'Battle cry! +Crowd')}>📯 Battle cry</button>
+          <div className="row gap wrap"><button className="btn primary" disabled={!!busy || raid.round === null} onClick={() => call('Battle cry', 'battle_cry', {}, 0n, 'Battle cry! +Crowd')}>📯 Battle cry</button>
+            {has('Scout') && <button className="btn" disabled={!!busy} onClick={() => call('Scout', 'scout', {}, 0n, 'Scouting: the answer lands in a few seconds')}>Scout the next round</button>}
             {now >= raid.end && raid.attacking && <button className="btn" disabled={!!busy} onClick={() => call('Settle', 'settle_raid', {}, 0n, 'Raid settled')}>Settle raid</button>}
             {now >= raid.end && !raid.attacking && <button className="btn" disabled={!!busy} onClick={() => act('Settle', () => ch.call(other, 'settle_raid'), 'Raid settled')}>Settle raid</button>}</div>
         </>}

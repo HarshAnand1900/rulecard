@@ -1145,7 +1145,7 @@ fn recruit_gives_a_first_big_buy_five_percent_locked_for_6h() {
     buy(&mut c, 2, n(5), T0 + HOUR + 200);
     assert_eq!(c.get_holder(acc(2)).unwrap().locked.0, bps(t, 500), "only the first buy");
     let h1 = c.get_holder(acc(1)).unwrap(); assert_eq!(h1.locked.0, 0, "an existing holder is not recruited");
-    buy(&mut c, 3, n(1), T0 + HOUR + 300);
+    buy(&mut c, 3, n(2), T0 + HOUR + 300);
     assert_eq!(c.get_holder(acc(3)).unwrap().locked.0, 0, "under 3 NEAR gets nothing");
     check_supply(&mut c, &[1, 2, 3], T0 + 2 * HOUR);
 }
@@ -1645,5 +1645,93 @@ fn a_met_bounty_pays_a_bonus_and_a_missed_one_burns_ten_percent() {
             assert!(c.burned - burned >= bps(pledge + p2, BOUNTY_MISS_BURN_BPS) - 2, "10% burned");
         }
         check_supply(&mut c, &[o + 1, o + 2, o + 3, o + 4], T0 + 10 * HOUR);
+    }
+}
+
+// ------------------------------------------------------------------ a second fuzz run: every card, stake and omen at random
+const ALL_CARDS: [Card; 29] = [
+    Card::Rally, Card::Curse, Card::Ward, Card::Ember, Card::RollCall, Card::HypeSiren, Card::Kindle, Card::Scout, Card::Decoy, Card::Hedge,
+    Card::Prophecy, Card::Mirror, Card::Counterspell, Card::LastStand, Card::SlowBurn, Card::Duel, Card::DiamondPool, Card::Bounty, Card::FriendlyRaid, Card::Recruit, Card::Stampede,
+    Card::Inferno, Card::BlackHole, Card::Harvest, Card::HardRaid, Card::WhaleTax, Card::Alliance, Card::Squeeze, Card::Supernova,
+];
+
+/// Tokens set aside for bets, throws, duels and bounties must always add up to what the coin says it holds aside.
+fn escrow_matches(c: &Coin, what: &str) {
+    let table: u128 = c.table.iter().filter(|p| p.phase < 3).flat_map(|p| p.bets.iter()).map(|b| b.amount.0).sum();
+    let duels: u128 = c.duels.iter().map(|d| match d.phase { 0 => d.stake.0, 1 => 2 * d.stake.0, _ => 0 }).sum();
+    let bounties: u128 = c.bounties.iter().filter(|b| b.phase == 0).map(|b| b.total.0).sum();
+    assert_eq!(c.bets_held, table + duels + bounties, "{what}: tokens set aside don't match the open bets, duels and bounties");
+}
+
+fn quiet<R>(f: impl FnOnce() -> R) { let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| { f(); })); }
+
+#[test]
+fn random_card_operations_keep_every_invariant() {
+    let users: Vec<usize> = (1..=12).collect();
+    let env = |k: &str, d: u64| std::env::var(k).ok().and_then(|v| v.parse().ok()).unwrap_or(d);
+    let (seeds, steps) = (env("RULECARD_FUZZ_SEEDS", 3), env("RULECARD_FUZZ_STEPS", 300) as u32);
+    for seed in 0..seeds {
+        fresh_storage();
+        let mut c = launch(vec![]);
+        let mut rng = Rng(0xC0FF_EE11 ^ (seed + 1) * 104_729);
+        let mut ms = T0 + 1000;
+        for i in 1..=12 { buy(&mut c, i, n(25), ms + i as u64); }
+        ms += 4 * HOUR;
+        c.level = 3; while c.level_at.len() < 3 { c.level_at.push(T0 + HOUR); }
+        c.energy = 100;
+        for step in 0..steps {
+            ms += 500 + rng.below(20 * 60_000);
+            let u = 1 + rng.below(12) as usize;
+            let v = 1 + rng.below(12) as usize;
+            let what = format!("seed {seed} step {step} user {u}");
+            let card = ALL_CARDS[rng.below(29) as usize];
+            match rng.below(100) {
+                0..=9 => { give(&mut c, u, card, ms); }
+                10..=14 => { c.energy = 40 + rng.below(61) as u32; }
+                15..=34 => {
+                    ctx(u, 0, ms);
+                    let q = match rng.below(4) { 0 => Question::Tide, 1 => Question::Crowd { n: 3 + rng.below(10) as u32 }, 2 => Question::Vault { bps: 100 + rng.below(500) as u32 }, _ => Question::Tide };
+                    match card {
+                        Card::Alliance => quiet(|| { c.play_alliance(moth()); }),
+                        Card::Prophecy | Card::Ember | Card::Inferno | Card::BlackHole | Card::Harvest | Card::WhaleTax | Card::Supernova | Card::Stampede | Card::Squeeze
+                        | Card::Kindle | Card::SlowBurn | Card::Recruit | Card::DiamondPool | Card::LastStand | Card::RollCall | Card::HypeSiren => quiet(|| { c.play_card(card, Some(q.clone())); }),
+                        Card::Duel => { let a = c.ft_balance_of(acc(u)).0 / 20; quiet(|| { c.duel_challenge(acc(v), U128(a), rng.below(2) == 0); }) }
+                        Card::Bounty => { let a = c.ft_balance_of(acc(u)).0 / 20; quiet(|| { c.bounty_open(q.clone(), U128(a)); }) }
+                        _ => {}
+                    }
+                }
+                35..=44 => { // join whatever is on the table
+                    if let Some(p) = c.table.get(rng.below(c.table.len().max(1) as u64) as usize).cloned() {
+                        match p.card {
+                            Card::Ember | Card::Prophecy => { ctx(u, 0, ms); quiet(|| c.back(p.id)); }
+                            Card::Squeeze | Card::Stampede => { ctx(u, n(1), ms); quiet(|| c.rush(p.id)); }
+                            Card::BlackHole => { ctx(u, 1, ms); let a = c.ft_balance_of(acc(u)).0 / 30; quiet(|| c.throw_in(p.id, U128(a))); }
+                            _ => { ctx(u, 0, ms); quiet(|| c.sign(p.id)); }
+                        }
+                        if p.card == Card::Ember { ctx(v, n(2), ms); quiet(|| c.stoke(p.id)); }
+                        if p.card == Card::Inferno { ctx(v, n(3), ms); quiet(|| c.fuel(p.id)); }
+                        if p.card == Card::Prophecy { ctx(v, 1, ms); let a = c.ft_balance_of(acc(v)).0 / 40; quiet(|| c.bet(p.id, rng.below(2) == 0, U128(a))); ctx(v, 0, ms); quiet(|| c.hedge(p.id)); }
+                        ctx(v, 0, ms); quiet(|| c.counterspell_card(p.id));
+                    }
+                }
+                45..=49 => { ctx(u, 0, ms); if let Some(d) = c.duels.get(rng.below(c.duels.len().max(1) as u64) as usize).cloned() { ctx_as(d.b.clone(), 0, ms, vec![]); quiet(|| c.duel_accept(d.id)); } }
+                50..=54 => { if let Some(b) = c.bounties.get(rng.below(c.bounties.len().max(1) as u64) as usize).cloned() { ctx(u, 0, ms); let a = c.ft_balance_of(acc(u)).0 / 60; quiet(|| c.bounty_pledge(b.id, U128(a))); } }
+                55..=59 => { ctx(u, 0, ms); quiet(|| { c.harvest_claim(); }); }
+                60..=69 => { ctx(u, 0, ms); quiet(|| c.gm()); }
+                70..=76 => { let amount = GN * (1 + rng.below(40)) as u128 + STORAGE_COST; ctx(u, amount, ms); quiet(|| { c.buy(None); }); }
+                77..=82 => { ctx(u, 1, ms); let b = c.ft_balance_of(acc(u)).0; let a = b / 100 * (1 + rng.below(100)) as u128; if a > 0 { quiet(|| { c.sell(U128(a), None); }); } }
+                83..=86 => { ctx(u, 1, ms); let b = c.ft_balance_of(acc(u)).0; let a = b / 100 * (1 + rng.below(40)) as u128; if a > 0 { quiet(|| { c.lock(U128(a), [6u8, 24, 72][rng.below(3) as usize]); }); } }
+                87..=89 => { ctx(u, 0, ms); quiet(|| { c.claim_pack(); }); }
+                90..=94 => { ctx(u, 0, ms); c.poke(); }
+                _ => { ms += rng.below(30) * 3_600_000; }
+            }
+            invariants(&c, &users, &what);
+            escrow_matches(&c, &what);
+            if step % 25 == 24 { vault_sums(&c, &users, &what); }
+            if step % 100 == 99 { check_supply(&mut c, &users, ms); }
+        }
+        ctx(1, 0, ms + 30 * HOUR); c.poke();
+        invariants(&c, &users, &format!("seed {seed} end"));
+        escrow_matches(&c, &format!("seed {seed} end"));
     }
 }

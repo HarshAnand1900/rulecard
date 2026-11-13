@@ -26,7 +26,15 @@ const HOW: Record<string, string> = {
   'Needs 3 copies': 'Play it from your hand. It only fires once enough copies are on the table, and anyone can add theirs or stoke it with NEAR.',
   'Play alone': 'Play it yourself from your hand. It fires on its own and costs Energy.',
   'Needs 2–3 backers': 'Play it, then other holders back it. Once it has backers, the crowd bets Yes or No on your question.',
-  'Needs signers': 'Play it, then enough holders must sign. After that comes a fuel window, then it fires.',
+  'Needs signers': 'Put it on the table and enough qualified holders must sign. Then it acts, after a short random delay. Some Epics (Inferno, Black Hole) open a crowd window first.',
+  'Needs many signers': 'Put it on the table: it needs 8 signers (12 at level 4) from qualified holders, and a level 3 coin.',
+  'Raid action': 'Use it from the Raids tab during a raid. It asks the enemy coin about its plan, and the answer is written into the raid.',
+  'On your bet': 'Attach it to one of your bets on an open Prophecy. It cuts what you lose, and trims what you win.',
+  'Raid tactic or on a card': 'Plan it in a raid to cancel the enemy tactic that round, or use it from your hand to cancel a Common or Rare card that is still gathering backers.',
+  'Challenge a holder': 'Name a holder, stake tokens and pick a side. They have 15 minutes to accept with the same stake.',
+  'Pledge to a goal': 'Choose a goal and pledge tokens. Other holders can add theirs for 6 hours.',
+  'Starts a raid': 'Pick a target coin from the Raids tab or from the card. It needs the usual raid signers and uses this card and its Energy.',
+  'Opens a crowd window': 'Play it and for 10 minutes any holder can put in NEAR. It all buys as one batch at one average price.',
 };
 
 export function CardInfo({ card }: { card: Card }) {

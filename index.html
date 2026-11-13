@@ -310,8 +310,17 @@ details .ans { padding: 0 var(--s300) var(--s300); color: var(--muted); animatio
       <div class="grid cols-4">
         <div class="omen rv" style="--d:0"><i class="ph-bold ph-moon-stars i" aria-hidden="true"></i><div class="title-2">Full Moon</div><p class="body-6 muted">Every gm and every buy gives the coin double Energy.</p></div>
         <div class="omen rv" style="--d:1"><i class="ph-bold ph-cloud-lightning i" aria-hidden="true"></i><div class="title-2">Thunder</div><p class="body-6 muted">Sells pay 1% more, and the pot keeps it.</p></div>
-        <div class="omen rv" style="--d:2"><i class="ph-bold ph-fire i" aria-hidden="true"></i><div class="title-2">Ghost Ember</div><p class="body-6 muted">The coin plays a card on itself and the pot burns 3%.</p></div>
-        <div class="omen rv" style="--d:3"><i class="ph-bold ph-gift i" aria-hidden="true"></i><div class="title-2">Treasure</div><p class="body-6 muted">One wallet that checks in this hour gets a free pack.</p></div>
+        <div class="omen rv" style="--d:2"><i class="ph-bold ph-fire i" aria-hidden="true"></i><div class="title-2">Ghost Ember</div><p class="body-6 muted">The pot burns 3% of itself.</p></div>
+        <div class="omen rv" style="--d:3"><i class="ph-bold ph-gift i" aria-hidden="true"></i><div class="title-2">Treasure</div><p class="body-6 muted">One wallet that checks in gets a free pack.</p></div>
+        <div class="omen rv" style="--d:0"><i class="ph-bold ph-wind i" aria-hidden="true"></i><div class="title-2">Squall</div><p class="body-6 muted">A mini storm hits 1% of unlocked bags.</p></div>
+        <div class="omen rv" style="--d:1"><i class="ph-bold ph-eye i" aria-hidden="true"></i><div class="title-2">Oracle</div><p class="body-6 muted">The coin opens a Prophecy on itself.</p></div>
+        <div class="omen rv" style="--d:2"><i class="ph-bold ph-lock-key i" aria-hidden="true"></i><div class="title-2">Iron Vault</div><p class="body-6 muted">New locks get x1.25 weight.</p></div>
+        <div class="omen rv" style="--d:3"><i class="ph-bold ph-coins i" aria-hidden="true"></i><div class="title-2">Windfall</div><p class="body-6 muted">The next pot card spends 25% more.</p></div>
+        <div class="omen rv" style="--d:0"><i class="ph-bold ph-star i" aria-hidden="true"></i><div class="title-2">Gold Rush</div><p class="body-6 muted">The next pack opens with a Rare.</p></div>
+        <div class="omen rv" style="--d:1"><i class="ph-bold ph-sun i" aria-hidden="true"></i><div class="title-2">Drought</div><p class="body-6 muted">Idle burn is doubled for the hour.</p></div>
+        <div class="omen rv" style="--d:2"><i class="ph-bold ph-waves i" aria-hidden="true"></i><div class="title-2">Low Tide</div><p class="body-6 muted">Cards get half the backing time.</p></div>
+        <div class="omen rv" style="--d:3"><i class="ph-bold ph-moon i" aria-hidden="true"></i><div class="title-2">Blood Moon</div><p class="body-6 muted">A raid lost soon after pays double spoils.</p></div>
+        <div class="omen rv" style="--d:0"><i class="ph-bold ph-cloud-fog i" aria-hidden="true"></i><div class="title-2">Fog</div><p class="body-6 muted">Live raid scores are hidden.</p></div>
       </div>
     </div>
   </div>
@@ -436,21 +445,38 @@ details .ans { padding: 0 var(--s300) var(--s300); color: var(--muted); animatio
 
   /* data: only what the contracts really do, the rest is marked soon */
   var CARDS = [
-    ['common', 'Rally', 'rally', 0, 'Raid tactic', 'Your raid score x1.05 to 1.10. Beats Ward, loses to Curse.'],
-    ['common', 'Curse', 'curse', 0, 'Raid tactic', 'Their score x0.95 to 0.90 and cancels their Rally. Loses to Ward.'],
-    ['common', 'Ward', 'ward', 0, 'Raid tactic', 'Turns their Curse back on them. Loses to Rally.'],
+    ['common', 'Rally', 'rally', 0, 'Raid plan', 'Your raid score x1.05 to 1.10. Beats Ward, loses to Curse.'],
+    ['common', 'Curse', 'curse', 0, 'Raid plan', 'Their score x0.95 to 0.90 and cancels their Rally. Loses to Ward.'],
+    ['common', 'Ward', 'ward', 0, 'Raid plan', 'Turns their Curse back on them. Loses to Rally.'],
     ['common', 'Ember', 'ember', 5, 'Needs 3 copies', 'The pot burns 1%, 2% or 3% at 3, 6 or 10 copies. Anyone can stoke it.'],
     ['common', 'Roll Call', 'rollcall', 5, 'Play alone', 'For 1 hour every gm gives double Energy.'],
     ['common', 'Hype Siren', 'siren', 5, 'Play alone', 'Pins the coin on Trending for 15 minutes.'],
+    ['common', 'Kindle', 'wildcard', 5, 'Play alone', 'Heat +1. Pot cards spend 10% more per Heat, and Heat cools 1 an hour.'],
+    ['common', 'Scout', 'way-signed', 5, 'In a raid', 'Ask the enemy coin what it planned for the next round.'],
+    ['common', 'Decoy', 'way-solo', 0, 'Raid plan', 'A fake play that looks real to a Scout and does nothing.'],
+    ['common', 'Hedge', 'hedge', 5, 'On your bet', 'A lost Prophecy bet costs a quarter instead of half.'],
     ['rare', 'Prophecy', 'prophecy', 20, 'Needs 2 to 3 backers', 'Ask the crowd a 2 hour question. Losers lose half.'],
+    ['rare', 'Mirror', 'way-contested', 20, 'Raid plan', 'Copies the enemy tactic from the round before.'],
+    ['rare', 'Counterspell', 'counter', 20, 'Raid plan or a card', 'Cancels an enemy tactic, or a card still gathering backers.'],
+    ['rare', 'Last Stand', 'laststand', 20, 'Play alone', 'When the price is 25% below its high, the pot buys the dip.'],
+    ['rare', 'Slow Burn', 'slowburn', 20, 'Play alone', 'For 1 hour, 1% of the tokens in every trade burn.'],
+    ['rare', 'Duel', 'war', 20, 'Challenge a holder', 'Two holders stake on net buying for an hour. Winner takes both.'],
+    ['rare', 'Diamond Pool', 'diamond', 20, 'Play alone', 'For 24 hours, long locks get x1.25 weight and 1% extra tokens.'],
+    ['rare', 'Bounty', 'conquest', 20, 'Pledge to a goal', 'Pledge tokens to a goal. Met: a bonus. Missed: 10% burns.'],
+    ['rare', 'Friendly Raid', 'way-backed', 20, 'Starts a raid', 'A raid with no spoils either way.'],
+    ['rare', 'Recruit', 'recruit', 20, 'Play alone', 'New wallets get +5% bonus tokens on a first big buy.'],
+    ['rare', 'Stampede', 'storm', 20, 'Crowd window', 'Everyone buys as one batch at one price. The pot adds 20%.'],
     ['epic', 'Inferno', 'inferno', 50, 'Needs signers', 'The crowd fuels, locked for 24 hours. Then the pot burns 10% plus half the fuel.'],
-    ['epic', 'Storm', 'storm', 0, 'Soon', 'Idle wallets lose a slice. Half to the Vault, half burned.', 1],
-    ['epic', 'Black Hole', 'blackhole', 0, 'Soon', 'A huge burn that needs a crowd to sign it.', 1],
-    ['epic', 'Heist', 'heist', 0, 'Soon', 'Raid a rival pot with a plan.', 1],
-    ['mythic', 'Supernova', 'supernova', 0, 'Soon', 'The pot spends its full daily cap at once.', 1]
+    ['epic', 'Black Hole', 'blackhole', 50, 'Needs signers', 'Holders throw tokens in and they burn. The reward pool gives some back.'],
+    ['epic', 'Harvest', 'harvest', 50, 'Needs signers', '25 wallets that checked in take a share of the reward pool.'],
+    ['epic', 'Hard Raid', 'way-raid', 50, 'Starts a raid', 'Double spoils both ways, and the loser flies a banner.'],
+    ['epic', 'Whale Tax', 'whale', 50, 'Needs signers', 'For 2 hours wallets over 2% of supply pay more on sells.'],
+    ['epic', 'Alliance', 'alliance', 50, 'Needs signers', 'A 6 hour no raid pact with another coin.'],
+    ['epic', 'Squeeze', 'heist', 50, 'Crowd window', 'A lopsided Prophecy opens a Stampede where the pot adds 50%.'],
+    ['mythic', 'Supernova', 'supernova', 100, 'Needs many signers', 'The pot spends its full daily cap at once.']
   ];
   var TIER = { common: ['Common', 'var(--common)'], rare: ['Rare', 'var(--rare)'], epic: ['Epic', 'var(--epic)'], mythic: ['Mythic', 'var(--mythic)'] };
-  var tier = 'all';
+  var tier = 'common';
 
   function deck() {
     var g = $('#deck-grid'); g.classList.remove('in');

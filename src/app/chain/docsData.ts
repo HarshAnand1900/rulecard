@@ -95,28 +95,55 @@ export const DOCS: DocPage[] = [
     ],
   },
   {
-    id: 'cards', group: 'Play', title: 'Rule cards', summary: 'The deck, packs and the Table.',
+    id: 'cards', group: 'Play', title: 'Rule cards', summary: 'All 29 cards: how they are used and what they do.',
     parts: [
       { id: 'deck', title: 'The deck', blocks: [
-        { p: 'Each coin has its own limited deck. Cards come in four rarities: Common, Rare, Epic and Mythic. The Deck figure on a coin shows how many of each are out.' },
-        { table: { head: ['Card', 'Rarity', 'Energy', 'What it does'], rows: [
-          ['Rally', 'Common', '0', 'Your raid score ×1.05 to 1.10. Beats Ward, loses to Curse.'],
-          ['Curse', 'Common', '0', 'Their score ×0.95 to 0.90 and cancels their Rally. Loses to Ward.'],
-          ['Ward', 'Common', '0', 'Turns their Curse back on them. Loses to Rally.'],
-          ['Ember', 'Common', '5', 'The pot burns 1%, 2% or 3% at 3, 6 or 10 copies. Anyone can stoke it.'],
-          ['Roll Call', 'Common', '5', 'For 1 hour every gm gives double Energy.'],
-          ['Hype Siren', 'Common', '5', 'Pins the coin on Trending for 15 minutes.'],
-          ['Prophecy', 'Rare', '20', 'Ask the crowd a 2 hour question. Losers lose half.'],
-          ['Inferno', 'Epic', '50', 'The crowd fuels, locked for 24 hours. Then the pot burns 10% plus half the fuel.'] ] } },
-        { note: 'Storm, Black Hole, Heist and Supernova are planned and not built yet.' } ] },
+        { p: 'Each coin has its own limited deck of 29 cards in four rarities: 10 Commons, 11 Rares, 7 Epics and 1 Mythic. The Deck figure on a coin shows how many of each rarity are out. Energy is the coin\'s shared budget: a card costs the coin that much Energy when it is played.' },
+        { table: { head: ['Card', 'Rarity', 'Energy', 'How it is used', 'What it does'], rows: [
+          ['Rally', 'Common', '0', 'Raid plan', 'Your raid score ×1.05 to 1.10. Beats Ward, loses to Curse.'],
+          ['Curse', 'Common', '0', 'Raid plan', 'Their score ×0.95 to 0.90 and cancels their Rally. Loses to Ward.'],
+          ['Ward', 'Common', '0', 'Raid plan', 'Turns their Curse back on them. Loses to Rally.'],
+          ['Ember', 'Common', '5', 'Table, 3 copies', 'The pot burns 1%, 2% or 3% at 3, 6 or 10 copies. Anyone can stoke it.'],
+          ['Roll Call', 'Common', '5', 'Solo', 'For 1 hour every gm gives double Energy.'],
+          ['Hype Siren', 'Common', '5', 'Solo', 'Pins the coin on Trending for 15 minutes.'],
+          ['Kindle', 'Common', '5', 'Solo', 'Heat +1 (max 3, cools 1 an hour). Pot cards spend 10% more per Heat. Once per wallet per 6 hours.'],
+          ['Scout', 'Common', '5', 'In a raid', 'Ask the enemy coin what tactic it planned for the next round. A Decoy looks like a real card.'],
+          ['Decoy', 'Common', '0', 'Raid plan', 'A fake play: looks real to a Scout, does nothing and does not protect you.'],
+          ['Hedge', 'Common', '5', 'On your bet', 'On a Prophecy bet: a loss costs a quarter instead of half, a win gains 25% less.'],
+          ['Pledge', 'Tokens a holder puts into a Bounty.'],
+        ['Prophecy', 'Rare', '20', 'Table, 2 to 3 backers', 'Ask the crowd a 2 hour question. Losers lose half: 60% of it to winners, 20% to you, 20% burned.'],
+          ['Mirror', 'Rare', '20', 'Raid plan', 'In round 2 or 3 it copies the enemy tactic from the round before.'],
+          ['Counterspell', 'Rare', '20', 'Raid plan, or on a card', 'Cancels the enemy tactic that round, or cancels a Common or Rare card still gathering backers.'],
+          ['Last Stand', 'Rare', '20', 'Solo', 'Only when the price is 25% below its 24 hour high: the pot buys and burns 10% of itself. Once a day.'],
+          ['Slow Burn', 'Rare', '20', 'Solo', 'For 1 hour, 1% of the tokens in every trade burn.'],
+          ['Duel', 'Rare', '20', 'Challenge a holder', 'Two holders stake the same tokens on "net buyer for 1 hour?". The winner takes both, minus 10% burned.'],
+          ['Diamond Pool', 'Rare', '20', 'Solo', 'For 24 hours, new locks of 24 hours or more get ×1.25 weight and +1% bonus tokens.'],
+          ['Bounty', 'Rare', '20', 'Pledge to a goal', 'Pledge tokens to a goal for 6 hours. Met: +10% from the reward pool. Missed: 10% burns.'],
+          ['Friendly Raid', 'Rare', '20', 'Starts a raid', 'A raid with no spoils either way. Winners still earn their win pack.'],
+          ['Recruit', 'Rare', '20', 'Solo', 'For 1 hour a wallet\'s first buy of 3 NEAR or more gets +5% bonus tokens, locked 6 hours.'],
+          ['Stampede', 'Rare', '20', 'Crowd window', '10 minutes: holders put in NEAR and it buys as one batch at one price. With 10 or more wallets the pot adds 20%.'],
+          ['Inferno', 'Epic', '50', 'Table, signers', 'The crowd fuels, locked 24 hours with +5%. Then the pot burns 10% plus half the fuel.'],
+          ['Black Hole', 'Epic', '50', 'Table, signers', 'Holders throw tokens in and all of it burns. The reward pool gives back 40% (+5% per Heat). The top 3 throwers get a pack ready.'],
+          ['Harvest', 'Epic', '50', 'Table, signers', 'For 1 hour wallets that checked in today take one share (0.01% of supply) from the reward pool. 25 shares.'],
+          ['Hard Raid', 'Epic', '50', 'Starts a raid', 'A raid with double spoils both ways. The loser flies the winner\'s banner for 12 hours.'],
+          ['Whale Tax', 'Epic', '50', 'Table, signers', 'For 2 hours wallets holding over 2% of supply pay +1% on sells, to the pot.'],
+          ['Alliance', 'Epic', '50', 'Table, signers', 'A 6 hour pact with another coin: no raids between the two.'],
+          ['Squeeze', 'Epic', '50', 'Crowd window', 'Only when an open Prophecy has No stakes over 1.5 times Yes. A Stampede where the pot adds 50%.'],
+          ['Supernova', 'Mythic', '100', 'Table, many signers', 'The pot spends as much as the daily cap allows in one go, and Heat jumps to 3. Level 3 coins, 8 signers.'] ] } } ] },
       { id: 'packs', title: 'Packs and your hand', blocks: [
-        { p: 'A pack arrives every few hours. You can hold up to 12 Commons, 3 Rares and 3 Epics. Cards expire if you sit on them, so play or drop what you do not need. Backing other people\'s cards makes your next pack come sooner, up to an hour in total.' } ] },
+        { p: 'A pack arrives every few hours. You can hold up to 12 Commons, 3 Rares, 3 Epics and 1 Mythic. Rare and better cards fade after 24 hours if you do not play them, so play or drop what you do not need. Backing and signing other people\'s cards makes your next pack come sooner, up to an hour in total. The Rare, Epic and Mythic limits grow with the number of eligible holders.' } ] },
       { id: 'table', title: 'The Table', blocks: [
-        { p: 'Cards that need other people (Ember, Prophecy, Inferno) go on the Table. Other holders back, sign, stoke or fuel them. Each card on the Table shows its phase and a countdown. Cards that act alone fire straight away.' } ] },
-      { id: 'prophecy', title: 'Prophecy in detail', blocks: [
-        { p: 'The player asks one of four questions: Tide (net buying in 2 hours), Line (price above or below a line), Crowd (a number of new buyers) or Vault (locked share up by some points). Holders bet tokens on Yes or No. Losers lose half of their bet: 30% goes to winners, 10% to the player and 10% is burned.' },
-        { note: 'A bet locks your trading until the question resolves.' } ] },
-      { id: 'inferno', title: 'Inferno in detail', blocks: [{ p: 'Enough holders sign. Then a fuel window opens where the crowd adds NEAR, locked for 24 hours with a 5% bonus. When it fires the pot burns 10% of itself plus half of the fuel.' }] },
+        { p: 'Cards that need other people go on the Table: Ember, Prophecy, the Epics and the Mythic. Other holders back, sign, stoke, fuel, throw in or join in. Each card on the Table shows its phase and a countdown. Only one Epic can be on the Table at a time, and three Epics can fire per day.' } ] },
+      { id: 'solo', title: 'Cards you play on your own', blocks: [
+        { ul: ['Kindle adds Heat. Heat lasts a few hours and makes every pot card spend 10% more per Heat, up to 30%.', 'Slow Burn burns 1% of every trade for an hour, on both buys and sells, which lifts the price a little each time.', 'Recruit rewards new wallets: for an hour their first buy of 3 NEAR or more comes with 5% extra tokens, locked for 6 hours.', 'Diamond Pool rewards patient holders: for 24 hours every lock of 24 hours or more gets ×1.25 weight and 1% extra tokens.', 'Last Stand fights a crash: when the price is 25% below its 24 hour high, the pot buys and burns 10% of itself.', 'Roll Call and Hype Siren boost Energy and Trending.'] } ] },
+      { id: 'crowd', title: 'Cards that need the crowd', blocks: [
+        { ul: ['Stampede and Squeeze open a 10 minute window. Every holder can put in up to 10 NEAR. At a random moment after it closes, all of it buys together at one average price, and everyone gets the same price. With 10 or more wallets the pot adds 20% (Squeeze 50%), never more than 30% of the pot.', 'Squeeze can only be played when an open Prophecy has No stakes over 1.5 times its Yes stakes.', 'Black Hole: holders throw tokens in. All of it burns. The reward pool gives back 40% of the amount (5% more per Heat), shared by what each wallet threw, and the three biggest throwers get a pack ready to open.', 'Harvest: after it fires, any wallet that did a gm in the last 24 hours can take one share, 0.01% of supply, from the reward pool. 25 shares in all.', 'Whale Tax, Alliance and Supernova act once their signers are in. Whale Tax adds 1% to sells by wallets over 2% of supply for 2 hours. Alliance makes a 6 hour no raid pact with another coin. Supernova spends the pot up to the daily cap.'] } ] },
+      { id: 'stakes', title: 'Stakes between wallets', blocks: [
+        { p: 'Prophecy: the player asks one of four questions: Tide (net buying in 2 hours), Line (price above or below a line), Crowd (a number of new buyers) or Vault (locked share up by some points). Holders bet tokens on Yes or No. A loser loses half of its bet, a hedged loser a quarter. Of what is lost, 60% goes to winners, 20% to the player and 20% is burned. A bet locks your trading until the question resolves, and with fewer than 8 wallets every bet is refunded.' },
+        { p: 'Duel: you and one named holder stake the same amount of tokens (0.5 to 25 NEAR worth). You pick a side on "will the coin be a net buyer over the next hour?". They have 15 minutes to accept. Neither of you can trade until it ends, so the answer comes from everyone else. The winner takes both stakes minus 10%, which burns.' },
+        { p: 'Bounty: you pledge tokens to a goal for 6 hours. Others can add theirs. If the goal is met, everyone gets their tokens back plus 10% more from the reward pool, shared by pledge. If it is missed, everyone gets 90% back and 10% burns.' } ] },
+      { id: 'raidcards', title: 'Cards for raids', blocks: [
+        { ul: ['Mirror, Counterspell and Decoy go in the raid plan next to Rally, Curse and Ward.', 'Scout asks the enemy coin for its planned tactic in the next round. The answer is written into the raid for your whole side.', 'Friendly Raid and Hard Raid start a raid from the Raids tab or from the card. They need the usual signers and spend the card and its Energy.'] } ] },
     ],
   },
   {
@@ -127,18 +154,36 @@ export const DOCS: DocPage[] = [
       { id: 'score', title: 'What makes a score', blocks: [
         { p: 'A round score is built from four things, and each side tries to be bigger than the other:' },
         { ul: ['Buy: net buying during the round.', 'Crowd: how many holders show up, including Battle cry.', 'Lock: NEAR locked in the Vault.', 'Tactic: the card you planned for that round (Rally, Curse or Ward).'] } ] },
-      { id: 'tactics', title: 'Tactics', blocks: [{ p: 'Plan your tactic cards in the Raids tab before a round starts. Rally beats Ward, Ward beats Curse and Curse beats Rally. Tactics cost no Energy.' }] },
+      { id: 'tactics', title: 'Tactics', blocks: [{ p: 'Plan your tactic cards in the Raids tab before a round starts. Rally beats Ward, Ward beats Curse and Curse beats Rally. Mirror copies the enemy tactic from the round before, Counterspell cancels the enemy tactic that round, and Decoy does nothing but looks real to a Scout. Scout asks the enemy coin what it planned for the next round. Rally, Curse, Ward and Decoy cost no Energy; Mirror and Counterspell are Rares.' }] },
+      { id: 'kinds', title: 'Friendly, Hard and allied raids', blocks: [{ ul: ['Friendly Raid: no spoils either way. Winners still earn their win pack.', 'Hard Raid: spoils are doubled both ways and the loser flies the winning coin banner for 12 hours.', 'Alliance: a 6 hour pact with another coin. Neither coin can raid the other until it ends.', 'Blood Moon (an Omen) doubles the spoils a coin pays if it loses a raid that starts within 8 hours.'] }] },
       { id: 'warmap', title: 'The War Map', blocks: [
         { p: 'The War Map ranks coins by war points. A coin gets 10 points to join and 3 for every level above L1. Each raid moves its level in points from the loser to the winner (L2 is 2, L3 is 3, L4 is 4). Nobody drops below 4. Anyone can recompute the map from the chain.' } ] },
       { id: 'coins', title: 'War rules', blocks: [{ ul: ['WarCoin: a 6 hour raid shield after a raid and spoils of 20% both ways.', 'PeaceCoin: no raids before level 3.'] }] },
     ],
   },
   {
-    id: 'omens', group: 'Play', title: 'Omens', summary: 'Short luck events.',
+    id: 'omens', group: 'Play', title: 'Omens', summary: 'All 13 luck events.',
     parts: [
-      { id: 'what', title: 'What they are', blocks: [
-        { p: 'From level 2, a coin gets omens every few hours: short luck events such as Full Moon, Thunder, Ghost Ember and Treasure. The top banner shows the omen that is incoming or active, with a countdown and an (i) that explains its effect.' } ] },
-      { id: 'fair', title: 'How they are chosen', blocks: [{ p: 'An omen comes from public chain randomness, so nobody can order one, and there is a warning before it starts. WildCoin makes wild omens more likely, 60% of the time.' }] },
+      { id: 'clock', title: 'How they run', blocks: [
+        { p: 'From level 2, a coin gets an Omen that lasts 1 hour, then a 2 hour break, and it repeats. The next Omen is rolled from public chain randomness and announced 15 minutes before it starts, so nobody can order one and everyone can plan. The top banner shows the one that is incoming or active, with a countdown and an (i) that explains it.' },
+        { p: 'There are two groups. Wild Omens (40% of rolls) are the coin acting on itself. Weather Omens (60%) change the rules for the hour. A coin with the WildCoin rule rolls Wild Omens 60% of the time instead.' } ] },
+      { id: 'list', title: 'The 13 Omens', blocks: [
+        { table: { head: ['Omen', 'Group', 'Chance', 'Effect'], rows: [
+          ['Ghost Ember', 'Wild', '12%', 'The pot burns 3% of itself at the first move of the hour.'],
+          ['Squall', 'Wild', '10%', 'A mini Storm: 1% of unlocked bags is hit when each wallet is next used. Half burns, half goes to the Vault. It counts toward the one 8% daily cap.'],
+          ['Treasure', 'Wild', '10%', 'One lucky wallet that does a gm this hour gets a free pack, ready to open.'],
+          ['Oracle', 'Wild', '8%', 'The coin opens a Prophecy on itself: will it be a net buyer over 2 hours? With fewer than 8 wallets all bets are refunded. The caster share burns.'],
+          ['Full Moon', 'Weather', '8%', 'Energy gains are doubled, from gm and from buying.'],
+          ['Iron Vault', 'Weather', '8%', 'New Vault locks get ×1.25 weight.'],
+          ['Windfall', 'Weather', '7%', 'The next Ember or Inferno that fires this hour spends 25% more from the pot.'],
+          ['Thunder', 'Weather', '7%', 'Sells pay 1% more, and it goes to the pot.'],
+          ['Gold Rush', 'Weather', '6%', 'The next pack claimed this hour rolls Rare or better on its first card, if the deck has stock.'],
+          ['Drought', 'Weather', '6%', 'Idle burn is doubled for the hour.'],
+          ['Low Tide', 'Weather', '6%', 'Cards played this hour get half the backing and fuel time, so the crowd has to be quick.'],
+          ['Blood Moon', 'Weather', '6%', 'If this coin loses a raid that starts within 8 hours, the spoils it pays are doubled.'],
+          ['Fog', 'Weather', '6%', 'Live raid scores are hidden this hour. With no raid on, locks get ×1.25 weight like Iron Vault.'] ] } } ] },
+      { id: 'limits', title: 'Limits', blocks: [
+        { ul: ['An Omen never stacks with itself.', 'Omens that spend the pot count toward the 75% daily cap.', 'Squall counts toward each wallet\'s one 8% a day loss cap.', 'Omens only run on coins at level 2 or higher.'] } ] },
     ],
   },
   {
@@ -233,7 +278,9 @@ export const DOCS: DocPage[] = [
         ['Energy', 'The coin\'s shared budget for cards, 0 to 100.'],
         ['Graduation', 'When a curve sells out and the coin\'s game ends.'],
         ['gm', 'A check in, once every 6 hours.'],
+        ['Harvest', 'An Epic that lets 25 wallets take a share from the reward pool.'],
         ['Hand', 'The cards you hold.'],
+        ['Heat', 'A 0 to 3 counter from Kindle that makes pot cards spend 10% more per point.'],
         ['Idle burn', 'Tokens burned from wallets that go silent.'],
         ['Level', 'Launched, Rising, Hot or Legendary.'],
         ['Muster', 'The preparation period before raid rounds.'],
@@ -244,6 +291,7 @@ export const DOCS: DocPage[] = [
         ['Ritual', 'The coin\'s daily target: gm count and locked NEAR.'],
         ['Seed', 'The creator\'s first liquidity in the curve.'],
         ['Spoils', 'What a raid winner takes from the loser\'s pot.'],
+        ['Stake', 'Tokens set aside for a bet, duel, throw or pledge until it resolves.'],
         ['Streak', 'Days in a row the coin made its Ritual.'],
         ['Table', 'Cards in play that need other holders.'],
         ['Vault', 'Locked tokens that are safe from burn and earn a share.'],
