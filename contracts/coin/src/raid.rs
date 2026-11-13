@@ -67,6 +67,7 @@ impl Coin {
         self.touch(now);
         require!(self.is_sibling(&target) && target != env::current_account_id(), "the target must be another Rulecard coin");
         require!(self.raid.is_none(), "a raid is already proposed or on");
+        require!(!matches!(&self.ally, Some((a, u)) if *a == target && now < *u), "allied: no raids between the two coins");
         self.require_can_raid(now, true);
         let mut h = self.settle(&a, now);
         require!(self.is_qualified(&h, now), "raiders must hold >= 2 NEAR for 1h");
@@ -116,6 +117,7 @@ impl Coin {
         require!(self.is_sibling(&att), "only Rulecard coins");
         self.touch(now);
         if self.level < level || self.level < 2 || self.raid_blocked(now, false).is_some() { return false; }
+        if matches!(&self.ally, Some((a, u)) if *a == att && now < *u) { return false; } // allied
         self.raid_seq += 1;
         let mut r = self.new_raid(self.raid_seq, id, att.clone(), env::current_account_id(), false, now, vec![], 0);
         r.war = war || self.has(Rule::WarCoin);

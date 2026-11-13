@@ -1182,3 +1182,213 @@ fn last_stand_needs_a_25_percent_dip_and_then_burns_from_the_pot() {
     assert!(c.pot < pot && c.burned > burned, "the pot bought and burned the dip");
     assert!(pot - c.pot <= bps(pot, LAST_STAND_BPS) + 1);
 }
+
+// ------------------------------------------------------------------ new cards, batch 2: the Table (Stampede, Squeeze, Supernova, Black Hole, Harvest, Whale Tax, Alliance)
+/// A coin with `holders` qualified wallets (30 NEAR each, held for hours), at the given level, with the Energy set.
+fn crowd(holders: usize, level: u8, energy: u32) -> (Coin, u64) {
+    let mut c = launch(vec![]);
+    for i in 1..=holders { buy(&mut c, i, n(30), T0 + i as u64); }
+    c.level = level; while c.level_at.len() < level as usize { c.level_at.push(T0 + HOUR); }
+    c.energy = energy;
+    (c, T0 + 3 * HOUR)
+}
+
+#[test]
+fn stampede_buys_as_one_batch_and_the_pot_matches_with_ten_wallets() {
+    let (mut c, t) = crowd(12, 2, 40);
+    give(&mut c, 1, Card::Stampede, T0);
+    ctx(1, 0, t); let id = c.play_card(Card::Stampede, None);
+    assert_eq!(c.get_table()[0].phase, 1, "the crowd window opens at once");
+    assert_eq!(c.energy, 20);
+    let (b0, b30) = (bal(&c, 2), bal(&c, 3));
+    for i in 2..=11 { ctx(i, n(1), t + 1000 + i as u64); c.rush(id); }
+    let pot = c.pot;
+    ctx(1, 0, t + RUSH_WINDOW + FIRE_JITTER_MS + 1); c.poke();
+    let h = c.get_history();
+    assert!(h[0].result.contains("10 wallets") && h[0].result.contains("the pot matched"), "{}", h[0].result);
+    assert!(c.pot < pot, "the pot paid its match");
+    let gain = bal(&c, 2) - b0;
+    let g3 = bal(&c, 3) - b30;
+    assert!(gain > 0);
+    assert!(gain.abs_diff(g3) <= gain / 100 + 2, "about one average price for everyone: {gain} vs {g3}");
+    check_supply(&mut c, &(1..=12).collect::<Vec<_>>(), t + 2 * HOUR);
+}
+#[test]
+fn stampede_with_fewer_than_ten_wallets_gets_no_match() {
+    let (mut c, t) = crowd(6, 2, 40);
+    give(&mut c, 1, Card::Stampede, T0);
+    ctx(1, 0, t); let id = c.play_card(Card::Stampede, None);
+    for i in 2..=5 { ctx(i, n(1), t + 1000 + i as u64); c.rush(id); }
+    let pot = c.pot;
+    ctx(1, 0, t + RUSH_WINDOW + FIRE_JITTER_MS + 1); c.poke();
+    assert!(!c.get_history()[0].result.contains("matched"));
+    assert!(c.pot >= pot, "nothing taken from the pot");
+    check_supply(&mut c, &(1..=6).collect::<Vec<_>>(), t + 2 * HOUR);
+}
+
+#[test]
+fn squeeze_needs_a_lopsided_prophecy_and_then_matches_half() {
+    let (mut c, t) = crowd(16, 3, 100);
+    give(&mut c, 1, Card::Prophecy, T0); give(&mut c, 2, Card::Squeeze, T0);
+    ctx(2, 0, t);
+    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| { c.play_card(Card::Squeeze, None); }));
+    assert!(r.is_err(), "no Prophecy yet");
+    ctx(1, 0, t); let pid = c.play_card(Card::Prophecy, Some(Question::Tide));
+    for i in 3..=5 { ctx(i, 0, t + 1000 + i as u64); c.back(pid); }
+    ctx(6, 0, t + BACK_WINDOW + 1); c.poke();
+    let stake = bal(&c, 6) / 20;
+    ctx(7, 1, t + BACK_WINDOW + 10); c.bet(pid, true, U128(stake));
+    ctx(8, 1, t + BACK_WINDOW + 11); c.bet(pid, false, U128(stake * 2));
+    ctx(2, 0, t + BACK_WINDOW + 20); let id = c.play_card(Card::Squeeze, None);
+    for i in (3..=6).chain(9..=14) { ctx(i, n(1), t + BACK_WINDOW + 30 + i as u64); c.rush(id); } // not the two bettors, who can't trade
+    let pot = c.pot;
+    ctx(2, 0, t + BACK_WINDOW + 20 + RUSH_WINDOW + FIRE_JITTER_MS + 1); c.poke();
+    let res = c.get_history().iter().find(|p| p.card == Card::Squeeze).unwrap().result.clone();
+    assert!(res.contains("the pot matched"), "{res}");
+    assert!(pot - c.pot <= bps(pot, RUSH_POT_CAP_BPS) + 1);
+}
+
+#[test]
+fn supernova_needs_signers_and_spends_what_the_daily_cap_allows() {
+    let (mut c, t) = crowd(10, 3, 100);
+    give(&mut c, 1, Card::Supernova, T0);
+    ctx(1, 0, t); let id = c.play_card(Card::Supernova, None);
+    for i in 2..=9 { ctx(i, 0, t + 1000 + i as u64); c.sign(id); }
+    let (pot, burned) = (c.pot, c.burned);
+    ctx(1, 0, t + BACK_WINDOW + FIRE_JITTER_MS + 1); c.poke();
+    assert!(c.get_table().is_empty(), "{:?}", c.get_history().last().map(|p| p.result.clone()));
+    assert!(c.burned > burned && c.pot < pot);
+    assert!(pot - c.pot <= bps(pot, POT_DAILY_BPS) + 1, "inside the 75% daily cap");
+    assert_eq!(c.get_coin().heat, HEAT_MAX);
+    assert_eq!(c.energy, 0);
+}
+
+#[test]
+fn supernova_fails_without_enough_signers_and_returns_the_card() {
+    let (mut c, t) = crowd(10, 3, 100);
+    give(&mut c, 1, Card::Supernova, T0);
+    ctx(1, 0, t); let id = c.play_card(Card::Supernova, None);
+    for i in 2..=4 { ctx(i, 0, t + 1000 + i as u64); c.sign(id); }
+    ctx(1, 0, t + BACK_WINDOW + 1); c.poke();
+    assert!(c.get_history()[0].result.starts_with("failed"));
+    assert!(c.get_hand(acc(1)).unwrap().cards.iter().any(|x| x.card == Card::Supernova), "the card is back");
+    assert_eq!(c.energy, 100, "no Energy was spent");
+}
+
+#[test]
+fn black_hole_burns_what_is_thrown_and_the_reward_pool_gives_some_back() {
+    let (mut c, t) = crowd(6, 2, 60);
+    give(&mut c, 1, Card::BlackHole, T0);
+    ctx(1, 0, t); let id = c.play_card(Card::BlackHole, None);
+    for i in 2..=4 { ctx(i, 0, t + 1000 + i as u64); c.sign(id); }
+    ctx(5, 0, t + BACK_WINDOW + 1); c.poke();
+    assert_eq!(c.get_table()[0].phase, 1, "the throwing window is open");
+    let (b2, b3) = (bal(&c, 2), bal(&c, 3));
+    ctx(2, 1, t + BACK_WINDOW + 10); c.throw_in(id, U128(b2 / 2));
+    ctx(3, 1, t + BACK_WINDOW + 11); c.throw_in(id, U128(b3 / 4));
+    assert_eq!(c.bets_held, b2 / 2 + b3 / 4);
+    let (burned, rp) = (c.burned, c.reward_pool);
+    ctx(5, 0, t + BACK_WINDOW + THROW_WINDOW + FIRE_JITTER_MS + 1); c.poke();
+    assert!(c.get_table().is_empty());
+    assert!(c.burned - burned >= b2 / 2 + b3 / 4 - 5, "everything thrown is burned");
+    assert!(rp > c.reward_pool, "the reward pool gave some back");
+    assert_eq!(c.bets_held, 0);
+    assert_eq!(c.holder(&acc(2)).next_pack, 0, "a top thrower gets a pack ready");
+    assert!(bal(&c, 2) > b2 - b2 / 2, "and some tokens back");
+    check_supply(&mut c, &(1..=6).collect::<Vec<_>>(), t + 3 * HOUR);
+}
+
+#[test]
+fn harvest_pays_25_shares_to_wallets_that_checked_in() {
+    let (mut c, t) = crowd(6, 2, 60);
+    give(&mut c, 1, Card::Harvest, T0);
+    for i in 1..=6 { ctx(i, 0, t - 10 * MIN); c.gm(); }
+    ctx(1, 0, t); let id = c.play_card(Card::Harvest, None);
+    for i in 2..=4 { ctx(i, 0, t + 1000 + i as u64); c.sign(id); }
+    ctx(5, 0, t + BACK_WINDOW + FIRE_JITTER_MS + 1); c.poke();
+    assert!(c.get_coin().harvest_until > 0 && c.harvest.is_some());
+    let before = bal(&c, 5); let rp = c.reward_pool;
+    ctx(5, 0, t + BACK_WINDOW + FIRE_JITTER_MS + 2); let got = c.harvest_claim().0;
+    assert_eq!(got, HARVEST_EACH); assert_eq!(bal(&c, 5), before + HARVEST_EACH); assert_eq!(rp - c.reward_pool, HARVEST_EACH);
+    check_supply(&mut c, &(1..=6).collect::<Vec<_>>(), t + 2 * HOUR);
+}
+
+#[test]
+#[should_panic(expected = "already took your share")]
+fn harvest_is_one_share_per_wallet() {
+    let (mut c, t) = crowd(6, 2, 60);
+    give(&mut c, 1, Card::Harvest, T0);
+    for i in 1..=6 { ctx(i, 0, t - 10 * MIN); c.gm(); }
+    ctx(1, 0, t); let id = c.play_card(Card::Harvest, None);
+    for i in 2..=4 { ctx(i, 0, t + 1000 + i as u64); c.sign(id); }
+    ctx(5, 0, t + BACK_WINDOW + FIRE_JITTER_MS + 1); c.poke();
+    ctx(5, 0, t + BACK_WINDOW + FIRE_JITTER_MS + 2); c.harvest_claim();
+    ctx(5, 0, t + BACK_WINDOW + FIRE_JITTER_MS + 3); c.harvest_claim();
+}
+
+#[test]
+#[should_panic(expected = "you need a gm")]
+fn harvest_needs_a_recent_gm() {
+    let (mut c, t) = crowd(6, 2, 60);
+    give(&mut c, 1, Card::Harvest, T0);
+    ctx(1, 0, t - 10 * MIN); c.gm();
+    ctx(1, 0, t); let id = c.play_card(Card::Harvest, None);
+    for i in 2..=4 { ctx(i, 0, t + 1000 + i as u64); let _ = c.sign(id); }
+    ctx(5, 0, t + BACK_WINDOW + FIRE_JITTER_MS + 1); c.poke();
+    ctx(6, 0, t + BACK_WINDOW + FIRE_JITTER_MS + 2); c.harvest_claim();
+}
+
+#[test]
+fn whale_tax_adds_one_percent_on_big_wallets_selling_for_2h() {
+    let (mut c, t) = crowd(6, 2, 60);
+    give(&mut c, 1, Card::WhaleTax, T0);
+    buy(&mut c, 7, n(150), T0 + 10); buy(&mut c, 8, n(5), T0 + 11);
+    ctx(1, 0, t); let id = c.play_card(Card::WhaleTax, None);
+    for i in 2..=4 { ctx(i, 0, t + 1000 + i as u64); c.sign(id); }
+    ctx(5, 0, t + BACK_WINDOW + FIRE_JITTER_MS + 1); c.poke();
+    assert!(c.whale_until > t);
+    let whale = bal(&c, 7); assert!(whale > bps(SUPPLY, crate::trade::WHALE_CAP_BPS), "wallet 7 holds over 2% of supply");
+    let now = t + BACK_WINDOW + FIRE_JITTER_MS + 100;
+    ctx(7, 0, now); let q = c.quote_sell(U128(whale / 10), Some(acc(7)));
+    let small = c.quote_sell(U128(bal(&c, 8) / 2), Some(acc(8)));
+    let gross = q.near_out.0 + q.fee.0 + q.tax.0;
+    assert!(q.tax.0 >= bps(gross, crate::trade::WHALE_TAX_BPS) && small.tax.0 == 0, "only the whale pays");
+    ctx(7, 1, now + 1); let _ = c.sell(U128(whale / 10), None);
+    let later = c.whale_until + 10;
+    ctx(7, 0, later); let q2 = c.quote_sell(U128(c.ft_balance_of(acc(7)).0 / 10), Some(acc(7)));
+    assert_eq!(q2.tax.0, 0, "over after 2h");
+}
+
+#[test]
+fn alliance_blocks_raids_between_the_two_coins_for_6h() {
+    let (mut c, t) = crowd(6, 2, 60);
+    give(&mut c, 1, Card::Alliance, T0);
+    ctx(1, 0, t); let id = c.play_alliance(moth());
+    for i in 2..=4 { ctx(i, 0, t + 1000 + i as u64); c.sign(id); }
+    ctx(5, 0, t + BACK_WINDOW + FIRE_JITTER_MS + 1); c.poke();
+    let at = t + BACK_WINDOW + FIRE_JITTER_MS + 100;
+    assert_eq!(c.get_coin().ally, Some(moth()));
+    ctx(1, 0, at);
+    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| { c.start_raid(moth()); }));
+    assert!(r.is_err(), "allied: no raid on the ally");
+    ctx_as(moth(), 0, at, vec![]);
+    assert!(!c.raid_accept(7, 2, at, false), "and the ally can't raid us");
+    ctx(5, 0, at + 7 * HOUR); assert_eq!(c.get_coin().ally, None, "the pact ends after 6h");
+}
+
+#[test]
+fn an_ally_pact_is_accepted_from_a_sibling_only_once() {
+    let mut c = launch(vec![]);
+    ctx_as(moth(), 0, T0 + 10, vec![]);
+    assert!(c.ally_accept(T0 + 10 + ALLIANCE_LEN));
+    ctx_as("toad.rulecard.testnet".parse().unwrap(), 0, T0 + 20, vec![]);
+    assert!(!c.ally_accept(T0 + 20 + ALLIANCE_LEN), "one pact at a time");
+}
+
+#[test]
+#[should_panic(expected = "only Rulecard coins")]
+fn only_siblings_can_make_a_pact() {
+    let mut c = launch(vec![]);
+    ctx_as("mallory.testnet".parse().unwrap(), 0, T0 + 10, vec![]);
+    c.ally_accept(T0 + 10 + ALLIANCE_LEN);
+}

@@ -5,7 +5,7 @@
 use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::json;
-use near_sdk::{env, near, require, AccountId, NearToken, Promise};
+use near_sdk::{env, near, require, AccountId, Gas, NearToken, Promise};
 
 pub const EMBER_WINDOW: u64 = 10 * MIN;
 pub const BACK_WINDOW: u64 = 15 * MIN;
@@ -27,6 +27,26 @@ pub const MAX_BETTORS: usize = 100;
 pub const TAG_FEE_BPS: u128 = 1_000;
 pub const FAIL_COOLDOWN: u64 = HOUR;
 pub const EPICS_PER_DAY: u32 = 3;
+pub const RUSH_WINDOW: u64 = 10 * MIN;
+pub const RUSH_MAX: u128 = 10 * GN;
+pub const RUSH_MATCH_BPS: u128 = 2_000; // Stampede: with 10 or more wallets the pot adds 20% of the crowd's NEAR
+pub const SQUEEZE_MATCH_BPS: u128 = 5_000; // Squeeze: 50%
+pub const RUSH_MATCH_WALLETS: usize = 10;
+pub const RUSH_POT_CAP_BPS: u128 = 3_000; // a match never takes more than 30% of the pot
+pub const THROW_WINDOW: u64 = 15 * MIN;
+pub const SUPERNOVA_SIGNERS: [u32; 4] = [8, 8, 8, 12];
+pub const HARVEST_WINDOW: u64 = HOUR;
+pub const HARVEST_CLAIMS: u32 = 25;
+pub const HARVEST_EACH: u128 = SUPPLY / 10_000; // 0.01% of supply a share, 0.25% in all
+pub const ALLIANCE_LEN: u64 = 6 * HOUR;
+pub const WHALE_TAX_LEN: u64 = 2 * HOUR;
+
+#[near(serializers = [borsh, json])]
+#[derive(Clone)]
+pub struct Harvest { pub id: u32, pub until: u64, pub claims: u32 }
+
+/// Cards that need signers (qualified holders, one signature per 30 min) before they go any further.
+pub fn is_signed(card: Card) -> bool { matches!(card, Card::Inferno | Card::BlackHole | Card::Harvest | Card::WhaleTax | Card::Alliance | Card::Supernova) }
 pub const HEAT_MAX: u8 = 3;
 pub const RECRUIT_CAP: u128 = SUPPLY / 1_000; // 0.1% of supply of bonus tokens per Recruit
 pub const LAST_STAND_BPS: u128 = 1_000; // the pot spends 10% of itself
@@ -61,13 +81,23 @@ pub struct Proposal {
     pub chips: Vec<Chip>, pub chip_total: U128,
     pub question: Option<Question>, pub snapshot: U128, pub bets: Vec<Bet>,
     pub result: String,
+    /// Alliance: the coin it is made with
+    pub target: Option<AccountId>,
 }
 
 #[near]
 impl Coin {
     /// Play a card from your hand. Solo cards (Roll Call, Hype Siren) fire now and return 0; others go on the Table
     /// and return the proposal id. Prophecy needs a question.
-    pub fn play_card(&mut self, card: Card, question: Option<Question>) -> u32 {
+    pub fn play_card(&mut self, card: Card, question: Option<Question>) -> u32 { self.play_inner(card, question, None) }
+
+    /// Alliance: a 6h pact with another Rulecard coin. Signed by holders; when it fires, neither coin can raid the other.
+    pub fn play_alliance(&mut self, target: AccountId) -> u32 {
+        require!(self.is_sibling(&target) && target != env::current_account_id(), "the ally must be another Rulecard coin");
+        self.play_inner(Card::Alliance, None, Some(target))
+    }
+
+    fn play_inner(&mut self, card: Card, question: Option<Question>, target: Option<AccountId>) -> u32 {
         let now = env::block_timestamp_ms();
         let a = env::predecessor_account_id();
         require!(!self.graduated, "the game ended at graduation");
@@ -119,7 +149,7 @@ impl Coin {
                 self.fired(now, &a, card, format!("the pot bought and burned {} yoctoNEAR of the dip", spent));
                 return 0;
             }
-            Card::Scout | Card::Hedge | Card::Duel | Card::Bounty | Card::FriendlyRaid | Card::HardRaid | Card::Alliance => env::panic_str("this card has its own action: see the card's text"),
+            Card::Scout | Card::Hedge | Card::Duel | Card::Bounty | Card::FriendlyRaid | Card::HardRaid => env::panic_str("this card has its own action: see the card's text"),
             Card::RollCall => {
                 self.take_card(&mut h, card, now); self.save(&a, h);
                 self.energy -= card.energy(); self.rollcall_until = now + HOUR; self.rollcall_mult = 2;
@@ -141,7 +171,11 @@ impl Coin {
         else { require!(active.iter().filter(|p| p.card.tier() < 2).count() < 2, "the table is full"); }
         require!(!active.iter().any(|p| p.card == card), "that card is already on the table");
         if card == Card::Ember { require!(now >= self.last_ember + HOUR, "Ember: once per coin per hour"); }
-        if card == Card::Inferno { self.roll_epic_day(now); require!(self.epics_today < EPICS_PER_DAY, "3 Epics a day already"); }
+        if card.tier() >= 2 { self.roll_epic_day(now); require!(self.epics_today < EPICS_PER_DAY, "3 Epics a day already"); }
+        if card == Card::Squeeze {
+            let hot = self.table.iter().any(|p| p.card == Card::Prophecy && p.phase == 1 && { let y: u128 = p.bets.iter().filter(|b| b.yes).map(|b| b.amount.0).sum(); let n: u128 = p.bets.iter().filter(|b| !b.yes).map(|b| b.amount.0).sum(); n * 10 > y * 15 && n > 0 });
+            require!(hot, "Squeeze needs an open Prophecy where the No side is more than 1.5 times the Yes side");
+        }
         let card_exp = self.take_card(&mut h, card, now);
         let (needed, window, backers) = match card {
             Card::Ember => (3, EMBER_WINDOW, vec![a.clone()]),
@@ -150,18 +184,23 @@ impl Coin {
                 self.check_question(&q);
                 (if self.level <= 2 { 2 } else { 3 }, BACK_WINDOW, vec![])
             }
-            Card::Inferno => (INFERNO_SIGNERS[self.level as usize - 1], BACK_WINDOW, vec![]),
+            Card::Inferno | Card::BlackHole | Card::Harvest | Card::WhaleTax | Card::Alliance => (INFERNO_SIGNERS[self.level as usize - 1], BACK_WINDOW, vec![]),
+            Card::Supernova => { require!(self.level >= 3, "Supernova needs a level 3 coin"); (SUPERNOVA_SIGNERS[self.level as usize - 1], BACK_WINDOW, vec![]) }
+            Card::Stampede | Card::Squeeze => (0, RUSH_WINDOW, vec![]),
             _ => env::panic_str("this card can't be played that way"),
         };
         let window = if self.omen_now(now) == 11 { window / 2 } else { window }; // Omen: Low Tide
         let id = self.next_prop; self.next_prop += 1;
+        let rush = matches!(card, Card::Stampede | Card::Squeeze);
+        if rush { self.energy -= card.energy(); if card == Card::Squeeze { self.epics_today += 1; } }
         if matches!(card, Card::Ember | Card::Inferno) {
             let est = now + window + if card == Card::Inferno { FUEL_WINDOW } else { 0 } + FIRE_JITTER_MS;
             self.tag_until = self.tag_until.max(est + HOUR);
         }
         self.table.push(Proposal {
-            id, card, proposer: a.clone(), created: now, phase: 0, phase_end: now + window, needed, backers, card_exp,
+            id, card, proposer: a.clone(), created: now, phase: if rush { 1 } else { 0 }, phase_end: now + window, needed, backers, card_exp,
             chips: vec![], chip_total: U128(0), question: if card == Card::Prophecy { question } else { None }, snapshot: U128(0), bets: vec![], result: String::new(),
+            target: if card == Card::Alliance { target } else { None },
         });
         self.save(&a, h);
         events::rulecard("card_proposed", json!({ "id": id, "card": card, "proposer": a, "needed": needed }));
@@ -194,7 +233,7 @@ impl Coin {
         self.touch(now);
         let i = self.find(id); let p = &self.table[i];
         require!(p.phase == 0 && now < p.phase_end, "signing is closed");
-        require!(p.card == Card::Inferno, "this card needs backers, not signers");
+        require!(is_signed(p.card), "this card needs backers, not signers");
         require!(!p.backers.contains(&a), "already signed");
         let mut h = self.settle(&a, now);
         require!(self.pool().value(h.bal + self.locked_of(&h)) >= QUALIFIED_VALUE && h.since > 0 && now >= h.since + QUALIFIED_HOLD, "signers must hold >= 2 NEAR for 1h");
@@ -238,6 +277,62 @@ impl Coin {
         self.table[i].bets.push(Bet { account: a.clone(), yes, amount });
         let me = env::current_account_id();
         events::ft_transfer(&a, &me, amount.0, Some("prophecy bet"));
+    }
+
+    /// Stampede / Squeeze: put NEAR into the crowd batch (up to 10 NEAR, min 0.1). It all buys together at one average price.
+    #[payable]
+    pub fn rush(&mut self, id: u32) { self.chip_in(id, Card::Stampede, 1, RUSH_MAX) }
+
+    /// Black Hole: throw tokens in during the window. When it fires everything thrown is burned, and the reward pool
+    /// gives back 40% (+5% per Heat) of it, shared by the throwers; the 3 biggest throwers get a pack that is ready to open.
+    #[payable]
+    pub fn throw_in(&mut self, id: u32, amount: U128) {
+        near_sdk::assert_one_yocto();
+        let now = env::block_timestamp_ms();
+        let a = env::predecessor_account_id();
+        self.touch(now);
+        let i = self.find(id); let p = &self.table[i];
+        require!(p.card == Card::BlackHole && p.phase == 1 && now < p.phase_end, "the throwing window is closed");
+        require!(p.bets.len() < 150, "the hole is full");
+        let mut h = self.settle(&a, now);
+        require!(h.bal >= amount.0, "not enough unlocked balance");
+        require!(self.pool().value(amount.0) >= GN / 10, "minimum throw 0.1 NEAR worth");
+        h.bal -= amount.0; self.save(&a, h);
+        self.bets_held += amount.0;
+        self.table[i].bets.push(Bet { account: a.clone(), yes: true, amount });
+        events::ft_transfer(&a, &env::current_account_id(), amount.0, Some("black hole"));
+    }
+
+    /// Harvest: while it is open, a wallet that did a gm in the last 24h takes one share (0.01% of supply) from the reward pool. 25 shares in all.
+    pub fn harvest_claim(&mut self) -> U128 {
+        let now = env::block_timestamp_ms();
+        let a = env::predecessor_account_id();
+        require!(self.is_registered(&a), "buy first");
+        self.touch(now);
+        let hv = self.harvest.clone().unwrap_or_else(|| env::panic_str("no Harvest is open"));
+        require!(now < hv.until, "the Harvest is over");
+        require!(hv.claims < HARVEST_CLAIMS, "all 25 shares are taken");
+        let mut h = self.settle(&a, now);
+        require!(h.harvest_id != hv.id + 1, "you already took your share");
+        require!(h.last_gm > 0 && now < h.last_gm + DAY, "you need a gm in the last 24h");
+        let pay = HARVEST_EACH.min(self.reward_pool);
+        require!(pay > 0, "the reward pool is empty");
+        self.reward_pool -= pay; self.with_pool(|q| q.release(pay));
+        h.bal += pay; if h.since == 0 { h.since = now; } h.harvest_id = hv.id + 1;
+        self.save(&a, h);
+        self.harvest.as_mut().unwrap().claims += 1;
+        events::ft_transfer(&env::current_account_id(), &a, pay, Some("harvest"));
+        U128(pay)
+    }
+
+    /// Called by an allied coin when its Alliance fires. Takes the pact if this coin has none running.
+    pub fn ally_accept(&mut self, until: u64) -> bool {
+        let from = env::predecessor_account_id();
+        require!(self.is_sibling(&from), "only Rulecard coins");
+        let now = env::block_timestamp_ms();
+        if matches!(&self.ally, Some((_, u)) if now < *u) { return false; }
+        self.ally = Some((from, until.min(now + ALLIANCE_LEN)));
+        true
     }
 
     /// Move a card forward if its time has come. Anyone can call it.
@@ -292,10 +387,10 @@ impl Coin {
         if !self.is_registered(&a) { require!(dep > STORAGE_COST, "deposit too small"); dep -= STORAGE_COST; self.register(&a, now); }
         self.touch(now);
         let i = self.find(id); let p = &self.table[i];
-        require!(p.card == card && p.phase == phase && now < p.phase_end, "this window is closed");
+        require!((p.card == card || (card == Card::Stampede && p.card == Card::Squeeze)) && p.phase == phase && now < p.phase_end, "this window is closed");
         let mine: u128 = p.chips.iter().filter(|c| c.account == a).map(|c| c.near.0).sum();
         let mut take = dep.min(max.saturating_sub(mine));
-        if card == Card::Inferno { take = take.min(bps(self.real, FUEL_CAP_BPS).saturating_sub(p.chip_total.0)); }
+        if matches!(card, Card::Inferno | Card::Stampede) { take = take.min(bps(self.real, FUEL_CAP_BPS).saturating_sub(p.chip_total.0)); }
         require!(take >= GN / 10, "nothing left to add (min 0.1 NEAR, per-wallet and total caps)");
         let mut h = self.settle(&a, now);
         require!(now >= h.no_trade_until, "you have a live Prophecy bet");
@@ -303,7 +398,7 @@ impl Coin {
         self.save(&a, h);
         let p = &mut self.table[i];
         p.chips.push(Chip { account: a.clone(), near: U128(take) }); p.chip_total = U128(p.chip_total.0 + take);
-        events::rulecard(if card == Card::Ember { "stoke" } else { "fuel" }, json!({ "id": id, "account_id": a, "near": U128(take), "total": p.chip_total }));
+        events::rulecard(if card == Card::Ember { "stoke" } else if card == Card::Inferno { "fuel" } else { "rush" }, json!({ "id": id, "account_id": a, "near": U128(take), "total": p.chip_total }));
         if dep > take { let _ = Promise::new(a).transfer(NearToken::from_yoctonear(dep - take)); }
     }
 
@@ -326,7 +421,7 @@ impl Coin {
             if p.phase >= 3 || now < p.phase_end { return; }
             match (p.phase, p.card) {
                 (0, _) => {
-                    let ok = p.backers.len() as u32 >= p.needed && self.energy >= p.card.energy() && !(p.card == Card::Inferno && { self.roll_epic_day(now); self.epics_today >= EPICS_PER_DAY });
+                    let ok = p.backers.len() as u32 >= p.needed && self.energy >= p.card.energy() && !(p.card.tier() >= 2 && { self.roll_epic_day(now); self.epics_today >= EPICS_PER_DAY });
                     if !ok { self.fail(i, now, if (p.backers.len() as u32) < p.needed { "not enough backers" } else { "not enough Energy" }); return; }
                     self.energy -= p.card.energy();
                     match p.card {
@@ -337,11 +432,16 @@ impl Coin {
                             let t = &mut self.table[i]; t.phase = 1; t.phase_end = p.phase_end + BET_WINDOW; t.snapshot = U128(snap);
                         }
                         Card::Inferno => { self.epics_today += 1; let t = &mut self.table[i]; t.phase = 1; t.phase_end = p.phase_end + FUEL_WINDOW; }
+                        Card::BlackHole => { self.epics_today += 1; let t = &mut self.table[i]; t.phase = 1; t.phase_end = p.phase_end + THROW_WINDOW; }
+                        Card::Harvest | Card::WhaleTax | Card::Alliance | Card::Supernova => { self.epics_today += 1; let j = self.nonce_jitter(); let t = &mut self.table[i]; t.phase = 2; t.phase_end = p.phase_end + j; }
                         _ => {}
                     }
                 }
                 (1, Card::Prophecy) => { let t = &mut self.table[i]; t.phase = 2; t.phase_end = p.phase_end + PROPHECY_LEN; }
-                (1, Card::Inferno) => { let j = self.nonce_jitter(); let t = &mut self.table[i]; t.phase = 2; t.phase_end = p.phase_end + j; }
+                (1, Card::Inferno) | (1, Card::BlackHole) | (1, Card::Stampede) | (1, Card::Squeeze) => { let j = self.nonce_jitter(); let t = &mut self.table[i]; t.phase = 2; t.phase_end = p.phase_end + j; }
+                (2, Card::BlackHole) => { self.fire_black_hole(i, now); return; }
+                (2, Card::Stampede) | (2, Card::Squeeze) => { self.fire_rush(i, now); return; }
+                (2, Card::Harvest) | (2, Card::WhaleTax) | (2, Card::Alliance) | (2, Card::Supernova) => { self.fire_instant(i, now); return; }
                 (2, Card::Ember) | (2, Card::Inferno) => { self.fire_pot_card(i, now); return; }
                 (2, Card::Prophecy) => { self.settle_prophecy(i, now); return; }
                 _ => return,
@@ -417,6 +517,96 @@ impl Coin {
         let t = &mut self.table[i]; t.phase = 3; t.result = what.clone();
         let proposer = p.proposer.clone();
         self.fired(now, &proposer, p.card, what);
+    }
+
+    /// Epics that act at once when their signers are in: Harvest, Whale Tax, Alliance, Supernova.
+    fn fire_instant(&mut self, i: usize, now: u64) {
+        let p = self.table[i].clone();
+        let what: String = match p.card {
+            Card::WhaleTax => { self.whale_until = now + WHALE_TAX_LEN; "2h: wallets over 2% of supply pay +1% on sells, to the pot".into() }
+            Card::Harvest => { self.harvest = Some(Harvest { id: p.id, until: now + HARVEST_WINDOW, claims: 0 }); "1h: wallets that checked in today can take a share (25 shares) from the reward pool".into() }
+            Card::Supernova => {
+                let spent = self.pot_burn(now, self.pot, "Supernova");
+                self.heat = HEAT_MAX; self.heat_at = now;
+                format!("the pot spent {} yoctoNEAR, as much as the daily cap allows; Heat is 3", spent)
+            }
+            Card::Alliance => {
+                let t = p.target.clone().unwrap_or_else(|| env::panic_str("no ally"));
+                self.ally = Some((t.clone(), now + ALLIANCE_LEN));
+                let _ = Promise::new(t.clone()).function_call("ally_accept".to_string(), json!({ "until": now + ALLIANCE_LEN }).to_string().into_bytes(), NearToken::from_yoctonear(0), Gas::from_tgas(10));
+                format!("6h pact with {t}: no raids between the two coins")
+            }
+            _ => return,
+        };
+        self.free_stock(p.card, p.card_exp);
+        let t = &mut self.table[i]; t.phase = 3; t.result = what.clone();
+        let who = p.proposer.clone();
+        self.fired(now, &who, p.card, what);
+    }
+
+    /// Black Hole: everything thrown in burns, the reward pool gives some back to the throwers, the top 3 get a pack ready.
+    fn fire_black_hole(&mut self, i: usize, now: u64) {
+        let p = self.table[i].clone();
+        let total: u128 = p.bets.iter().map(|b| b.amount.0).sum();
+        let me = env::current_account_id();
+        self.bets_held -= total;
+        if total > 0 { self.burn_circ(now, &me, total, "Black Hole"); }
+        let ret = bps(total, 4_000 + 500 * self.heat_now(now) as u128).min(self.reward_pool);
+        if ret > 0 { self.reward_pool -= ret; self.with_pool(|q| q.release(ret)); }
+        let mut by: Vec<(AccountId, u128)> = vec![];
+        for b in &p.bets { match by.iter_mut().find(|x| x.0 == b.account) { Some(x) => x.1 += b.amount.0, None => by.push((b.account.clone(), b.amount.0)) } }
+        for (acct, thrown) in &by {
+            let share = if total > 0 { mul_div(ret, *thrown, total) } else { 0 };
+            if share > 0 { let mut h = self.settle(acct, now); h.bal += share; if h.since == 0 { h.since = now; } self.save(acct, h); events::ft_transfer(&me, acct, share, Some("black hole return")); }
+        }
+        by.sort_by(|a, b| b.1.cmp(&a.1));
+        for (acct, _) in by.iter().take(3) { let mut h = self.settle(acct, now); h.next_pack = 0; self.save(acct, h); }
+        self.free_stock(p.card, p.card_exp);
+        let what = format!("{} tokens burned, {} returned from the reward pool", total, ret);
+        let t = &mut self.table[i]; t.phase = 3; t.result = what.clone();
+        let who = p.proposer.clone();
+        self.fired(now, &who, p.card, what);
+    }
+
+    /// Stampede / Squeeze: the crowd's NEAR buys as one batch at one average price. With 10 or more wallets the pot adds 20% (Squeeze 50%).
+    fn fire_rush(&mut self, i: usize, now: u64) {
+        let p = self.table[i].clone();
+        let total = p.chip_total.0;
+        let wallets = p.chips.iter().map(|c| &c.account).collect::<std::collections::HashSet<_>>().len();
+        let mut bought = 0u128; let mut matched = 0u128;
+        if total > 0 && self.graduated {
+            for c in &p.chips { let _ = Promise::new(c.account.clone()).transfer(NearToken::from_yoctonear(c.near.0)); }
+        } else if total > 0 {
+            let d = now / DAY; if d != self.pot_day { self.pot_day = d; self.pot_spent_today = 0; }
+            let rate = if p.card == Card::Squeeze { SQUEEZE_MATCH_BPS } else { RUSH_MATCH_BPS };
+            let room = bps(self.pot + self.pot_spent_today, POT_DAILY_BPS).saturating_sub(self.pot_spent_today);
+            let m = if wallets >= RUSH_MATCH_WALLETS { bps(total, rate).min(bps(self.pot, RUSH_POT_CAP_BPS)).min(room) } else { 0 };
+            let fee = bps(total, FEE_BPS); let net = total - fee;
+            let (t, used) = self.with_pool(|q| q.buy(net + m));
+            let pot_used = mul_div(used, m, (net + m).max(1));
+            let crowd_used = used - pot_used;
+            let fee_used = mul_div(fee, crowd_used, net.max(1)); self.split_fee(fee_used);
+            self.pot -= pot_used; self.pot_spent_today += pot_used; matched = pot_used;
+            let unused = total - crowd_used - fee_used;
+            self.buys.add(now, crowd_used); self.total_bought += crowd_used; self.on_trade_energy(crowd_used as i128);
+            bought = t;
+            let me = env::current_account_id();
+            for c in &p.chips {
+                let mine = mul_div(t, c.near.0, total);
+                let refund = mul_div(unused, c.near.0, total);
+                let mut h = self.settle(&c.account, now);
+                if h.bal == 0 && h.w == 0 && h.since == 0 { h.since = now; }
+                h.bal += mine;
+                self.save(&c.account, h);
+                events::ft_transfer(&me, &c.account, mine, Some("stampede"));
+                if refund > 0 { let _ = Promise::new(c.account.clone()).transfer(NearToken::from_yoctonear(refund)); }
+            }
+            if self.pool().room() == 0 { self.graduate(now); }
+        }
+        let what = format!("{} wallets bought {} tokens in one batch{}", wallets, bought, if matched > 0 { format!(", the pot matched {} yoctoNEAR", matched) } else { String::new() });
+        let t = &mut self.table[i]; t.phase = 3; t.result = what.clone();
+        let who = p.proposer.clone();
+        self.fired(now, &who, p.card, what);
     }
 
     fn settle_prophecy(&mut self, i: usize, now: u64) {

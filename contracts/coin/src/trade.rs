@@ -142,7 +142,7 @@ impl Coin {
         let out = p.sell(t);
         let fee = bps(out, FEE_BPS);
         let now = env::block_timestamp_ms();
-        let mut tax = match account_id { Some(a) => { let mut h = self.holder(&a); self.sell_tax(&mut h, t, out, now) + self.tag_fee(&mut h, t, out, now) } None => 0 };
+        let mut tax = match account_id { Some(a) => { let mut h = self.holder(&a); let whale = if now < self.whale_until && h.bal + self.locked_of(&h) > bps(SUPPLY, WHALE_CAP_BPS) { bps(out, WHALE_TAX_BPS) } else { 0 }; self.sell_tax(&mut h, t, out, now) + self.tag_fee(&mut h, t, out, now) + whale } None => 0 };
         if self.omen_now(now) == 2 { tax += bps(out, THUNDER_BPS); } // Omen: Thunder, so the quote matches what the sale pays
         SellQuote { near_out: U128(out - fee - tax), fee: U128(fee), tax: U128(tax), price_after: U128(p.price()), impact_bps: impact(p0, p.price()) }
     }

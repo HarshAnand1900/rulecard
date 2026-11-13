@@ -141,7 +141,7 @@ impl Coin {
         let snap = self.snapshot(&q);
         self.table.push(Proposal {
             id, card: Card::Prophecy, proposer: env::current_account_id(), created: now, phase: 1, phase_end: now + BET_WINDOW,
-            needed: 0, backers: vec![], card_exp: 0, chips: vec![], chip_total: U128(0), question: Some(q), snapshot: U128(snap), bets: vec![], result: String::new(),
+            needed: 0, backers: vec![], card_exp: 0, chips: vec![], chip_total: U128(0), question: Some(q), snapshot: U128(snap), bets: vec![], result: String::new(), target: None,
         });
         events::rulecard("omen_fired", json!({ "kind": "Oracle", "id": id }));
         self.push_log(now, "omen", None, 0, 0, "Oracle: the coin opened a Prophecy");

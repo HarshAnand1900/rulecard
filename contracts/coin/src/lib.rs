@@ -162,6 +162,7 @@ pub struct Holder {
     pub squall_applied: u64,
     // cards
     pub kindle_at: u64,
+    pub harvest_id: u32,
 }
 
 /// 24 hourly buckets (rolling day).
@@ -275,6 +276,8 @@ pub struct Coin {
     pub(crate) diamond_until: u64, pub(crate) whale_until: u64, pub(crate) last_stand_at: u64,
     /// highest price in each of the last 24 hours (hour number, price), for Last Stand
     pub(crate) hi: Vec<(u64, u128)>,
+    pub(crate) harvest: Option<Harvest>,
+    pub(crate) ally: Option<(AccountId, u64)>,
     // chart
     pub(crate) prices: Vector<PricePoint>,
     pub(crate) price_seq: u64,
@@ -307,6 +310,7 @@ pub struct CoinView {
     pub holders: u32, pub graduated: bool, pub solvent: bool, pub curve_room: U128,
     pub hype_until: u64, pub rollcall_until: u64, pub tag_until: u64, pub deck: Vec<DeckView>,
     pub heat: u8, pub slowburn_until: u64, pub recruit_until: u64, pub diamond_until: u64, pub whale_until: u64,
+    pub harvest_until: u64, pub harvest_claims: u32, pub ally: Option<AccountId>, pub ally_until: u64,
 }
 
 #[near(serializers = [json])]
@@ -352,7 +356,7 @@ impl Coin {
             epics_day: 0, epics_today: 0, last_ember: 0, hype_until: 0, hype_last: 0, rollcall_until: 0, rollcall_mult: 1, tag_until: 0,
             bets_held: 0, total_bought: 0, total_sold: 0,
             raid: None, raids: vec![], raid_seq: 0, last_raid_end: 0, last_raid_start: 0, last_attack: 0, omen: Omen::default(), squalls: vec![], droughts: vec![], blood_until: 0,
-            heat: 0, heat_at: 0, slowburn_until: 0, recruit_until: 0, recruit_left: 0, diamond_until: 0, whale_until: 0, last_stand_at: 0, hi: vec![],
+            heat: 0, heat_at: 0, slowburn_until: 0, recruit_until: 0, recruit_left: 0, diamond_until: 0, whale_until: 0, last_stand_at: 0, hi: vec![], harvest: None, ally: None,
             prices: Vector::new(b"p"), price_seq: 0,
         };
         let me = env::current_account_id();
@@ -399,6 +403,8 @@ impl Coin {
             holders: self.holder_count, graduated: self.graduated, solvent: pool.solvent(), curve_room: U128(pool.room()),
             hype_until: self.hype_until, rollcall_until: self.rollcall_until, tag_until: self.tag_until, deck: self.deck_view(now),
             heat: self.heat_now(now), slowburn_until: self.slowburn_until, recruit_until: self.recruit_until, diamond_until: self.diamond_until, whale_until: self.whale_until,
+            harvest_until: self.harvest.as_ref().map(|x| x.until).unwrap_or(0), harvest_claims: self.harvest.as_ref().map(|x| x.claims).unwrap_or(0),
+            ally: self.ally.as_ref().filter(|x| now < x.1).map(|x| x.0.clone()), ally_until: self.ally.as_ref().map(|x| x.1).unwrap_or(0),
         }
     }
 
