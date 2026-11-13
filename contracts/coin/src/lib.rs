@@ -156,6 +156,8 @@ pub struct Holder {
     pub rl_day: u64,
     pub rl_counted: u128,
     pub bought_near: u128,
+    // omens
+    pub squall_applied: u64,
 }
 
 /// 24 hourly buckets (rolling day).
@@ -260,6 +262,9 @@ pub struct Coin {
     pub(crate) last_raid_start: u64,
     pub(crate) last_attack: u64,
     pub(crate) omen: Omen,
+    pub(crate) squalls: Vec<u64>,
+    pub(crate) droughts: Vec<u64>,
+    pub(crate) blood_until: u64,
     // chart
     pub(crate) prices: Vector<PricePoint>,
     pub(crate) price_seq: u64,
@@ -335,7 +340,7 @@ impl Coin {
             nonce: 0, stock: vec![], elig: vec![Ring::default(), Ring::default(), Ring::default()], table: vec![], history: vec![], next_prop: 0,
             epics_day: 0, epics_today: 0, last_ember: 0, hype_until: 0, hype_last: 0, rollcall_until: 0, rollcall_mult: 1, tag_until: 0,
             bets_held: 0, total_bought: 0, total_sold: 0,
-            raid: None, raids: vec![], raid_seq: 0, last_raid_end: 0, last_raid_start: 0, last_attack: 0, omen: Omen::default(),
+            raid: None, raids: vec![], raid_seq: 0, last_raid_end: 0, last_raid_start: 0, last_attack: 0, omen: Omen::default(), squalls: vec![], droughts: vec![], blood_until: 0,
             prices: Vector::new(b"p"), price_seq: 0,
         };
         let me = env::current_account_id();

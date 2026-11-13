@@ -73,7 +73,12 @@ impl Coin {
             for c in [Card::Rally, Card::Curse, Card::Ward] { if Self::commons_held(&h) < HAND_COMMONS { h.commons[c.common_index().unwrap()] += 1; got.push(c); } }
         }
         self.require_room(&h, &odds, 2, now);
-        for _ in 0..2 { let c = self.roll(&mut h, &odds, now); got.push(c); }
+        let gold = self.omen_now(now) == 9 && !self.omen.used; // Omen: Gold Rush
+        for i in 0..2 {
+            let c = if i == 0 && gold { self.roll_min(&mut h, &odds, now, 1) } else { self.roll(&mut h, &odds, now) };
+            if i == 0 && gold && c.tier() >= 1 { self.omen.used = true; }
+            got.push(c);
+        }
         h.next_pack = now + PACK_EVERY; h.cut_used = 0;
         self.save(&a, h);
         events::rulecard("pack", json!({ "account_id": a, "cards": got }));
@@ -167,11 +172,15 @@ impl Coin {
     }
 
     /// Roll one card: tier from the odds, then a card of that tier with stock. Falls a tier when it can't give one.
-    pub(crate) fn roll(&mut self, h: &mut Holder, odds: &[u32; 4], now: u64) -> Card {
+    pub(crate) fn roll(&mut self, h: &mut Holder, odds: &[u32; 4], now: u64) -> Card { self.roll_min(h, odds, now, 0) }
+
+    /// Like `roll`, but never starts below `min_tier` (it still falls down when that tier has no stock).
+    pub(crate) fn roll_min(&mut self, h: &mut Holder, odds: &[u32; 4], now: u64, min_tier: usize) -> Card {
         self.stock.retain(|s| s.exp > now);
         let r = (self.rand() % 100) as u32;
         let mut t = 0; let mut acc = 0;
         for (i, o) in odds.iter().enumerate() { acc += o; if r < acc { t = i; break; } }
+        if t < min_tier { t = min_tier; }
         while t > 0 {
             let cards = tier_cards(t);
             if !cards.is_empty() && self.is_eligible(h, t, now) && Self::held_in_tier(h, t, now) < HAND[t - 1] {

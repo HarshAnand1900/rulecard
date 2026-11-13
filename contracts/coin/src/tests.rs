@@ -772,7 +772,7 @@ fn random_operations_keep_every_invariant() {
 
 // ------------------------------------------------------------------ Omens
 fn omen_base() -> u64 { (T0 / OMEN_CYCLE + 4) * OMEN_CYCLE }
-fn force_omen(c: &mut Coin, base: u64, kind: u8) { c.omen = Omen { cycle: base / OMEN_CYCLE + 1, kind, fired: false, lucky: 1, gms: 0 }; }
+fn force_omen(c: &mut Coin, base: u64, kind: u8) { c.omen = Omen { cycle: base / OMEN_CYCLE + 1, kind, fired: false, used: false, lucky: 1, gms: 0 }; }
 
 #[test]
 fn omen_is_announced_ahead_and_only_on_level_2_and_up() {
@@ -862,4 +862,206 @@ fn the_icon_is_drawn_from_the_coin_state_and_is_safe() {
     let b = c.ft_metadata().icon.unwrap();
     assert!(b.contains("STREAK 4") && b.contains("L3") && a != b, "the face changes with the coin");
     assert!(a.len() < 2_000, "small enough for a wallet");
+}
+
+
+// ------------------------------------------------------------------ the other nine Omens
+#[test]
+fn omen_roll_covers_all_thirteen_and_wild_coin_shifts_the_mix() {
+    let mix = |wild_pct: u64| {
+        let mut seen = [0u32; 14]; let mut wild = 0u32;
+        for r in 0..30_000u64 {
+            let mut x = r.wrapping_mul(0x9E37_79B9_7F4A_7C15); x ^= x >> 29; x = x.wrapping_mul(0xBF58_476D_1CE4_E5B9); x ^= x >> 32;
+            let k = roll_omen(x, wild_pct); seen[k as usize] += 1; if matches!(k, 3 | 4 | 5 | 6) { wild += 1; }
+        }
+        (seen, wild)
+    };
+    let (seen, wild) = mix(40);
+    assert_eq!(seen[0], 0, "every cycle rolls a real Omen");
+    for k in 1..14 { assert!(seen[k] > 0, "Omen {} never rolled", OMEN_NAMES[k]); }
+    assert!((11_000..13_000).contains(&wild), "Wild is about 40%: {wild}");
+    let (_, wild60) = mix(60);
+    assert!((17_000..19_000).contains(&wild60), "Wild Coin makes Wild Omens about 60%: {wild60}");
+}
+
+#[test]
+fn squall_hits_one_percent_of_wallets_that_held_before_it_and_not_later_buyers() {
+    let mut c = launch(vec![]); c.level = 2;
+    let base = omen_base();
+    let t1 = buy(&mut c, 1, n(10), base - HOUR);
+    force_omen(&mut c, base, 5);
+    ctx(5, 0, base + MIN); c.poke();
+    assert_eq!(c.squalls.len(), 1, "Squall fired once");
+    let t2 = buy(&mut c, 2, n(10), base + 10 * MIN);
+    let burned0 = c.burned;
+    ctx(1, 0, base + 2 * HOUR); let _ = c.claim_vault();
+    ctx(2, 0, base + 2 * HOUR); let _ = c.claim_vault();
+    assert_eq!(bal(&c, 1), t1 - bps(t1, SQUALL_BPS), "the earlier holder takes the 1% hit");
+    assert_eq!(bal(&c, 2), t2, "a wallet that bought after the Squall is not hit");
+    assert!(c.burned > burned0, "with nobody in the Vault the hit burns");
+    ctx(1, 0, base + 3 * HOUR); let _ = c.claim_vault();
+    assert_eq!(bal(&c, 1), t1 - bps(t1, SQUALL_BPS), "taken once");
+    check_supply(&mut c, &[1, 2], base + 4 * HOUR);
+}
+
+#[test]
+fn squall_half_goes_to_the_vault_and_counts_toward_the_daily_cap() {
+    let mut c = launch(vec![]); c.level = 2;
+    let base = omen_base();
+    let t1 = buy(&mut c, 1, n(10), base - HOUR);
+    let t2 = buy(&mut c, 2, n(10), base - HOUR);
+    ctx(2, 1, base - 2 * HOUR); c.lock(U128(t2 / 2), 24);
+    force_omen(&mut c, base, 5);
+    ctx(5, 0, base + MIN); c.poke();
+    ctx(1, 0, base + 2 * HOUR); let _ = c.claim_vault();
+    let hit = bps(t1, SQUALL_BPS);
+    assert_eq!(bal(&c, 1), t1 - hit);
+    assert!(c.vault_rewards >= hit / 2 - 1, "half of the hit is shared with the Vault");
+    let h = c.holder(&acc(1)); assert_eq!(h.loss_used, hit, "the hit uses the one daily cap");
+    check_supply(&mut c, &[1, 2], base + 4 * HOUR);
+}
+
+#[test]
+fn drought_doubles_idle_burn_for_its_hour() {
+    let mut c = launch(vec![]);
+    let t = buy(&mut c, 1, n(10), T0);
+    c.droughts.push(T0 + 30 * HOUR - MIN); // the first idle tick (30h) falls inside the Drought hour
+    ctx(1, 0, T0 + 30 * HOUR); assert_eq!(bal(&c, 1), t - bps(t, 2 * IDLE_BPS), "2% instead of 1%");
+    let mut d = launch(vec![]);
+    let t = buy(&mut d, 2, n(10), T0);
+    d.droughts.push(T0 + 10 * HOUR);
+    ctx(2, 0, T0 + 30 * HOUR); assert_eq!(d.ft_balance_of(acc(2)).0, t - bps(t, IDLE_BPS), "a tick outside the hour is normal");
+}
+
+fn lock_weight_under(kind: u8) {
+    let mut c = launch(vec![]); c.level = 2;
+    let base = omen_base();
+    let t = buy(&mut c, 1, n(10), base - HOUR);
+    force_omen(&mut c, base, kind);
+    ctx(1, 1, base + 10 * MIN); c.lock(U128(t / 2), 24);
+    assert_eq!(c.holder(&acc(1)).locks[0].mult, 18, "x1.5 becomes x1.8 ({})", OMEN_NAMES[kind as usize]);
+    ctx(1, 1, base + 2 * HOUR); c.lock(U128(t / 4), 24);
+    assert_eq!(c.holder(&acc(1)).locks[1].mult, 15, "normal after the hour");
+}
+#[test]
+fn iron_vault_raises_lock_weight_for_its_hour() { lock_weight_under(7); }
+#[test]
+fn fog_with_no_raid_raises_lock_weight_like_iron_vault() { lock_weight_under(13); }
+
+#[test]
+fn windfall_adds_a_quarter_to_the_next_ember_burn() {
+    let run = |omen: Option<u8>, o: usize| -> u128 {
+        let mut c = launch(vec![]); c.level = 2;
+        let base = omen_base();
+        for i in 1..=3 { buy(&mut c, o + i, n(10), base - HOUR + i as u64); give(&mut c, o + i, Card::Ember, base - HOUR); }
+        c.energy = 10;
+        if let Some(k) = omen { force_omen(&mut c, base, k); }
+        let t0 = base + 5 * MIN;
+        ctx(o + 1, 0, t0); let id = c.play_card(Card::Ember, None);
+        ctx(o + 2, 0, t0 + 1000); c.back(id);
+        ctx(o + 3, 0, t0 + 2000); c.back(id);
+        let pot = c.pot;
+        ctx(o + 1, 0, t0 + EMBER_WINDOW + FIRE_JITTER_MS + 1); c.poke();
+        pot - c.pot
+    };
+    let plain = run(None, 0); let windfall = run(Some(8), 10);
+    assert!(plain > 0);
+    assert!(windfall.abs_diff(plain + plain / 4) <= plain / 1_000, "{windfall} vs {plain} + 25%");
+}
+
+#[test]
+fn gold_rush_gives_a_rare_on_the_first_card_of_the_next_pack() {
+    let mut c = launch(vec![]); c.level = 2;
+    let base = omen_base();
+    buy(&mut c, 1, n(10), base - 7 * HOUR);
+    ctx(1, 0, base + 2 * MIN); c.gm();
+    force_omen(&mut c, base, 9);
+    ctx(1, 0, base + 3 * MIN); let got = c.claim_pack();
+    let rare = got.iter().filter(|x| x.tier() >= 1).count();
+    assert!(rare >= 1, "the pack held a Rare or better: {got:?}");
+    assert!(c.omen.used, "Gold Rush is used up");
+    check_supply(&mut c, &[1], base + 4 * MIN);
+}
+
+#[test]
+fn low_tide_halves_the_backing_window() {
+    let mut c = launch(vec![]); c.level = 2;
+    let base = omen_base();
+    buy(&mut c, 1, n(10), base - HOUR);
+    give(&mut c, 1, Card::Ember, base - HOUR);
+    c.energy = 10;
+    force_omen(&mut c, base, 11);
+    ctx(1, 0, base + 10 * MIN); let _ = c.play_card(Card::Ember, None);
+    assert_eq!(c.get_table()[0].phase_end, base + 10 * MIN + EMBER_WINDOW / 2);
+}
+
+#[test]
+fn oracle_opens_a_prophecy_on_itself_and_refunds_when_few_bet() {
+    let mut c = launch(vec![]); c.level = 2;
+    let base = omen_base();
+    buy(&mut c, 1, n(20), base - HOUR); buy(&mut c, 2, n(20), base - HOUR);
+    force_omen(&mut c, base, 6);
+    ctx(5, 0, base + MIN); c.poke();
+    let t = c.get_table();
+    assert_eq!(t.len(), 1);
+    assert!(t[0].card == Card::Prophecy && t[0].phase == 1 && t[0].proposer == me(), "the coin is the caster");
+    let id = t[0].id;
+    let (b1, b2) = (bal(&c, 1), bal(&c, 2));
+    ctx(1, 1, base + 2 * MIN); c.bet(id, true, U128(b1 / 10));
+    ctx(2, 1, base + 3 * MIN); c.bet(id, false, U128(b2 / 10));
+    ctx(5, 0, base + MIN + BET_WINDOW + PROPHECY_LEN + 1); c.poke();
+    assert!(c.get_history()[0].result.starts_with("refunded"), "{}", c.get_history()[0].result);
+    assert_eq!((bal(&c, 1), bal(&c, 2)), (b1, b2), "nobody loses when fewer than 8 wallets bet");
+    assert_eq!(c.bets_held, 0);
+    check_supply(&mut c, &[1, 2], base + 5 * HOUR);
+}
+
+#[test]
+fn oracle_with_enough_bettors_burns_the_casters_share() {
+    let mut c = launch(vec![]); c.level = 2;
+    let base = omen_base();
+    for i in 1..=9 { buy(&mut c, i, n(20), base - HOUR + i as u64); }
+    force_omen(&mut c, base, 6);
+    ctx(5, 0, base + MIN); c.poke();
+    let id = c.get_table()[0].id;
+    let stake = bal(&c, 1) / 10;
+    for i in 1..=8 { ctx(i, 1, base + 2 * MIN + i as u64); c.bet(id, i <= 5, U128(stake)); }
+    buy(&mut c, 9, n(5), base + BET_WINDOW + HOUR / 2);
+    let burned0 = c.burned;
+    ctx(9, 0, base + MIN + BET_WINDOW + PROPHECY_LEN + 1); c.poke();
+    assert_eq!(c.get_history()[0].result, "answer: Yes");
+    assert!(c.burned - burned0 >= 6 * stake / 10 - 10, "20% of the losing side is burned, including the share the caster would have had");
+    assert_eq!(c.bets_held, 0);
+    check_supply(&mut c, &(1..=9).collect::<Vec<_>>(), base + 6 * HOUR);
+}
+
+#[test]
+fn blood_moon_arms_the_next_raid_and_doubles_the_spoils_this_coin_pays() {
+    let mut c = launch(vec![]); c.level = 2;
+    let base = omen_base();
+    buy(&mut c, 1, n(10), base - HOUR);
+    force_omen(&mut c, base, 12);
+    ctx(5, 0, base + MIN); c.poke();
+    assert_eq!(c.blood_until, base + MIN + BLOOD_WINDOW);
+    let (mut d, t) = raid_ready();
+    d.blood_until = t + HOUR;
+    ctx_as(moth(), 0, t, vec![]);
+    assert!(d.raid_accept(7, 2, t, false));
+    assert!(d.raid.as_ref().unwrap().blood && d.blood_until == 0, "the raid took the Blood Moon");
+    let pot = d.pot;
+    ctx_as(moth(), 0, t + RAID_LEN + 5, vec![]);
+    d.raid_finish(7, -1, 1_500, vec![U128(9_000); 3], vec![U128(10_000); 3]);
+    assert_eq!(d.pot, pot - bps(pot, 3_000), "30% instead of 15%");
+}
+
+#[test]
+fn fog_hides_the_live_scores_while_a_raid_is_on() {
+    let (mut c, t) = raid_ready();
+    ctx_as(moth(), 0, t, vec![]);
+    assert!(c.raid_accept(7, 2, t, false));
+    let base = (t / OMEN_CYCLE + 1) * OMEN_CYCLE;
+    force_omen(&mut c, base, 13);
+    ctx_as(moth(), 0, base + 10 * MIN, vec![]);
+    let v = c.get_raid().unwrap();
+    assert!(v.live_base.iter().all(|x| x.0 == 0), "scores hidden during Fog");
 }

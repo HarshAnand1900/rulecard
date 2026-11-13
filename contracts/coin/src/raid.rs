@@ -40,7 +40,7 @@ pub struct RaidResult { pub outcome: i8, pub rounds: Vec<i8>, pub mine: Vec<U128
 pub struct Raid {
     pub seq: u32, pub id: u32, pub attacker: AccountId, pub defender: AccountId, pub attacking: bool,
     pub phase: u8, pub created: u64, pub backers: Vec<AccountId>, pub needed: u32,
-    pub start: u64, pub real_start: U128, pub circ_start: U128, pub qualified: u32, pub level: u8, pub war: bool,
+    pub start: u64, pub real_start: U128, pub circ_start: U128, pub qualified: u32, pub level: u8, pub war: bool, pub blood: bool,
     pub net_pos: Vec<U128>, pub net_neg: Vec<U128>, pub taps: Vec<u32>, pub lock: Vec<U128>,
     pub votes: Vec<Vec<u32>>, pub planners: u32,
     pub result: Option<RaidResult>, pub note: String,
@@ -217,7 +217,7 @@ impl Coin {
         let mut spoils = 0u128;
         let mut p = Promise::new(r.defender.clone());
         let args = json!({ "id": id, "outcome": -outcome, "rate": rate as u32, "mine": theirs.iter().map(|x| U128(*x)).collect::<Vec<_>>(), "theirs": mine.iter().map(|x| U128(*x)).collect::<Vec<_>>() }).to_string().into_bytes();
-        if outcome < 0 { spoils = bps(self.pot, rate); self.pot -= spoils; }
+        if outcome < 0 { spoils = bps(self.pot, if r.blood { rate * 2 } else { rate }); self.pot -= spoils; }
         p = p.function_call("raid_finish".to_string(), args, NearToken::from_yoctonear(spoils), GAS_BACK)
             .then(Promise::new(env::current_account_id()).function_call("on_spoils_sent".to_string(), json!({ "amount": U128(spoils) }).to_string().into_bytes(), NearToken::from_yoctonear(0), GAS_CALL));
         self.record_result(now, RaidResult { outcome, rounds, mine: mine.into_iter().map(U128).collect(), theirs: theirs.into_iter().map(U128).collect(), spoils: U128(spoils) });
@@ -236,7 +236,7 @@ impl Coin {
         let mut spoils = 0;
         if outcome < 0 {
             let rate = SPOILS_BPS + if r.war { WAR_COIN_BONUS_BPS } else { 0 };
-            spoils = bps(self.pot, rate); self.pot -= spoils;
+            spoils = bps(self.pot, if r.blood { rate * 2 } else { rate }); self.pot -= spoils;
             let _ = Promise::new(r.attacker.clone()).function_call("raid_spoils".to_string(), json!({ "id": id }).to_string().into_bytes(), NearToken::from_yoctonear(spoils), GAS_CALL)
                 .then(Promise::new(env::current_account_id()).function_call("on_spoils_sent".to_string(), json!({ "amount": U128(spoils) }).to_string().into_bytes(), NearToken::from_yoctonear(0), GAS_CALL));
         } else if got > 0 { self.spoils_burn(now, got); }
@@ -334,7 +334,7 @@ pub fn score_rounds(my_base: &[u128], my_t: &[u8], their_base: &[u128], their_t:
 impl Coin {
     fn new_raid(&self, seq: u32, id: u32, attacker: AccountId, defender: AccountId, attacking: bool, now: u64, backers: Vec<AccountId>, needed: u32) -> Raid {
         Raid { seq, id, attacker, defender, attacking, phase: if attacking { 0 } else { 2 }, created: now, backers, needed, start: 0,
-            real_start: U128(0), circ_start: U128(0), qualified: 0, level: self.level, war: self.has(Rule::WarCoin),
+            real_start: U128(0), circ_start: U128(0), qualified: 0, level: self.level, war: self.has(Rule::WarCoin), blood: false,
             net_pos: vec![U128(0); 3], net_neg: vec![U128(0); 3], taps: vec![0; 3], lock: vec![U128(0); 3], votes: vec![vec![0; 3]; 3], planners: 0, result: None, note: String::new() }
     }
 
@@ -343,6 +343,7 @@ impl Coin {
         let now = env::block_timestamp_ms();
         r.phase = 2; r.start = start; r.real_start = U128(self.real); r.circ_start = U128(self.circ);
         r.qualified = self.checkins.sum(now, 24) as u32; r.level = self.level;
+        if now < self.blood_until { r.blood = true; self.blood_until = 0; } // Omen: Blood Moon
         self.last_raid_start = start;
     }
 
@@ -469,7 +470,7 @@ impl Coin {
             seq: r.seq, id: r.id, attacker: r.attacker.clone(), defender: r.defender.clone(), attacking: r.attacking, phase: r.phase,
             backers: r.backers.len() as u32, needed: r.needed, start: r.start, muster_end: r.start + MUSTER, end: r.start + RAID_LEN,
             round: current_round(r, now).map(|x| x as u8),
-            live_base: (0..3).map(|i| U128(base_score(r, i) as u128)).collect(),
+            live_base: if self.omen_now(now) == 13 && r.phase == 2 { vec![U128(0); 3] } else { (0..3).map(|i| U128(base_score(r, i) as u128)).collect() }, // Omen: Fog hides the live scores
             buy: (0..3).map(|i| { let real = r.real_start.0.max(GN) as i128; ((r.net_pos[i].0 as i128 - r.net_neg[i].0 as i128) * 20_000 / real).clamp(-1_200, 1_200) as i64 }).collect(),
             crowd: r.taps.clone(), lock: (0..3).map(|i| ((r.lock[i].0 * 20_000 / r.circ_start.0.max(1)) as u32).min(600)).collect(),
             tactic: (0..3).map(|i| if r.phase >= 4 || now >= round_start(r, i) + ROUND { tactic_code(&r.votes[i]) } else { 0 }).collect(),

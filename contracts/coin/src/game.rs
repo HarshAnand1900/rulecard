@@ -47,7 +47,9 @@ impl Coin {
         near_sdk::assert_one_yocto();
         let now = env::block_timestamp_ms();
         let a = env::predecessor_account_id();
-        let mult: u8 = match hours { 6 => 10, 24 => 15, 72 => 20, _ => env::panic_str("lock for 6, 24 or 72 hours") };
+        let mut mult: u8 = match hours { 6 => 10, 24 => 15, 72 => 20, _ => env::panic_str("lock for 6, 24 or 72 hours") };
+        let ok = self.omen_now(now);
+        if ok == 7 || (ok == 13 && self.raid.is_none()) { mult = (mult as u32 * 5 / 4) as u8; } // Omen: Iron Vault (and Fog with no raid on)
         require!(amount.0 > 0, "amount must be positive");
         self.touch(now);
         let mut h = self.settle(&a, now);
@@ -175,7 +177,7 @@ impl Coin {
             let t = start + k * IDLE_TICK;
             let day = t / DAY;
             if day != d.loss_day { d.loss_day = day; d.loss_base = bal; d.loss_used = 0; }
-            let doubled = self.ritual.double_from.iter().any(|s| t > *s && t <= *s + RITUAL_DOUBLE);
+            let doubled = self.ritual.double_from.iter().any(|s| t > *s && t <= *s + RITUAL_DOUBLE) || self.droughts.iter().any(|s| t > *s && t <= *s + OMEN_LEN); // Omen: Drought
             let rate = if doubled { base_rate * 2 } else { base_rate };
             let room = bps(d.loss_base, DAILY_LOSS_CAP_BPS).saturating_sub(d.loss_used);
             let amt = bps(bal, rate).min(room);
@@ -198,6 +200,15 @@ impl Coin {
             let half = d.burn / 2;
             self.add_vault_reward(now, a, half, "idle burn to the Vault");
             self.burn_circ(now, a, d.burn - half, "idle burn");
+            h = self.holder(a);
+        }
+        let sq = self.squall_due(&mut h);
+        if sq > 0 {
+            if h.bal == 0 && h.w == 0 { h.since = 0; }
+            self.save(a, h.clone());
+            let half = sq / 2;
+            self.add_vault_reward(now, a, half, "Squall to the Vault");
+            self.burn_circ(now, a, sq - half, "Squall");
             h = self.holder(a);
         }
         self.accrue(&mut h);

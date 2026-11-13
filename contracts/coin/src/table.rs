@@ -107,6 +107,7 @@ impl Coin {
             Card::Inferno => (INFERNO_SIGNERS[self.level as usize - 1], BACK_WINDOW, vec![]),
             _ => unreachable!(),
         };
+        let window = if self.omen_now(now) == 11 { window / 2 } else { window }; // Omen: Low Tide
         let id = self.next_prop; self.next_prop += 1;
         if matches!(card, Card::Ember | Card::Inferno) {
             let est = now + window + if card == Card::Inferno { FUEL_WINDOW } else { 0 } + FIRE_JITTER_MS;
@@ -218,7 +219,7 @@ impl Coin {
 
     fn vault_share_bps(&self) -> u128 { if self.circ == 0 { 0 } else { self.vault_locked * 10_000 / self.circ } }
 
-    fn snapshot(&self, q: &Question) -> u128 {
+    pub(crate) fn snapshot(&self, q: &Question) -> u128 {
         match q {
             Question::Line { .. } => 0,
             Question::Tide => (self.total_bought as i128 - self.total_sold as i128 + i128::MAX / 2) as u128,
@@ -358,6 +359,7 @@ impl Coin {
             }
             _ => { let max = if self.level >= 4 { 7_500 } else { 5_000 }; (bps(pot, 1_000) + total / 2).min(bps(pot, max)) }
         };
+        let spend = if self.omen_now(now) == 8 { spend + spend / 4 } else { spend }; // Omen: Windfall
         let spent = self.pot_burn(now, spend, &format!("{:?}", p.card));
         if p.card == Card::Ember { self.last_ember = now; }
         self.free_stock(p.card, p.card_exp);
@@ -392,11 +394,14 @@ impl Coin {
             let mut h = self.settle(&b.account, now); h.bal += back; self.save(&b.account, h);
             events::ft_transfer(&me, &b.account, back, Some("prophecy payout"));
         }
-        let mut c = self.settle(&p.proposer, now); c.bal += to_caster; self.save(&p.proposer, c);
-        events::ft_transfer(&me, &p.proposer, to_caster, Some("prophecy caster share"));
+        let oracle = p.proposer == me; // an Oracle Prophecy is opened by the coin itself: no caster to pay, that share burns too
+        if !oracle {
+            let mut c = self.settle(&p.proposer, now); c.bal += to_caster; self.save(&p.proposer, c);
+            events::ft_transfer(&me, &p.proposer, to_caster, Some("prophecy caster share"));
+        }
         let held = yes_total + no_total;
         self.bets_held -= held;
-        let burn = held - paid - to_caster; // to_burn plus rounding dust
+        let burn = held - paid - if oracle { 0 } else { to_caster }; // to_burn plus rounding dust
         let _ = to_burn;
         self.burn_circ(now, &me, burn, "Prophecy losers");
         let what = format!("answer: {}", if yes { "Yes" } else { "No" });
