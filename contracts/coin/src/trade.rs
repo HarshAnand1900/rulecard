@@ -19,6 +19,11 @@ pub struct BuyQuote { pub tokens: U128, pub fee: U128, pub storage: U128, pub ne
 #[near(serializers = [json])]
 pub struct SellQuote { pub near_out: U128, pub fee: U128, pub tax: U128, pub price_after: U128, pub impact_bps: u32 }
 
+impl Coin {
+    /// Card: Slow Burn. While it runs, 1% of the tokens in every trade burn. One place for the arithmetic so trades and quotes always agree.
+    pub(crate) fn slow_burn_cut(&self, now: u64, t: u128) -> u128 { if now < self.slowburn_until { t / 100 } else { 0 } }
+}
+
 #[near]
 impl Coin {
     /// Buy with the attached NEAR. Registers the wallet on its first buy (storage cost taken from the deposit).
@@ -43,7 +48,7 @@ impl Coin {
         let (t, used) = self.with_pool(|p| p.buy(net));
         require!(t > 0, "nothing bought");
         let first_buy = h.bought_near == 0;
-        let sb = if now < self.slowburn_until { t / 100 } else { 0 }; // Card: Slow Burn
+        let sb = self.slow_burn_cut(now, t); // Card: Slow Burn
         let t = t - sb;
         if let Some(m) = min_tokens { require!(t >= m.0, "slippage: fewer tokens than min_tokens"); }
         if sb > 0 { let me = env::current_account_id(); self.burn_circ(now, &me, sb, "Slow Burn"); }
@@ -100,7 +105,7 @@ impl Coin {
         require!(now >= h.no_trade_until, "you have a live Prophecy bet: no trading until it resolves");
         self.check_creator_lock(&a, &h, t, now);
         let mut t = t;
-        if now < self.slowburn_until { let sb = t / 100; if sb > 0 { h.bal -= sb; t -= sb; self.burn_circ(now, &a, sb, "Slow Burn"); } } // Card: Slow Burn
+        { let sb = self.slow_burn_cut(now, t); if sb > 0 { h.bal -= sb; t -= sb; self.burn_circ(now, &a, sb, "Slow Burn"); } } // Card: Slow Burn
         let out = self.with_pool(|p| p.sell(t));
         let fee = bps(out, FEE_BPS);
         let mut tax = self.sell_tax(&mut h, t, out, now) + self.tag_fee(&mut h, t, out, now) + self.desert_fee(out, now);
@@ -130,7 +135,7 @@ impl Coin {
         dep -= storage;
         let fee = bps(dep, FEE_BPS); let net = dep - fee;
         let mut p = self.pool(); let p0 = p.price(); let (t, used) = p.buy(net);
-        let t = if env::block_timestamp_ms() < self.slowburn_until { t - t / 100 } else { t };
+        let t = t - self.slow_burn_cut(env::block_timestamp_ms(), t);
         let fee_used = if used == net { fee } else { mul_div(fee, used, net.max(1)) };
         BuyQuote { tokens: U128(t), fee: U128(fee_used), storage: U128(storage), near_used: U128(used + fee_used), refund: U128(net - used + fee - fee_used), price_after: U128(p.price()), impact_bps: impact(p0, p.price()) }
     }
@@ -138,7 +143,7 @@ impl Coin {
     pub fn quote_sell(&self, amount: U128, account_id: Option<AccountId>) -> SellQuote {
         let mut p = self.pool(); let p0 = p.price();
         let t = amount.0.min(p.circ);
-        let t = if env::block_timestamp_ms() < self.slowburn_until { t - t / 100 } else { t };
+        let t = t - self.slow_burn_cut(env::block_timestamp_ms(), t);
         let out = p.sell(t);
         let fee = bps(out, FEE_BPS);
         let now = env::block_timestamp_ms();

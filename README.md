@@ -50,7 +50,7 @@ Track: **Memecoins With Mechanics** (NEAR).
 
 | Criterion | Where to look |
 |---|---|
-| Technical | 110 coin tests and 7 factory tests at real and demo scale, a randomized fuzz test (900 operations by default, 2,500 in CI, and a 12,000-operation run that passes; invariants checked after each), CI, a live Proof page |
+| Technical | 115 coin tests and 7 factory tests at real and demo scale, a randomized fuzz test (900 operations by default, 2,500 in CI, and a 12,000-operation run that passes; invariants checked after each), CI, a live Proof page |
 | Innovation | coins raiding coins (cross-contract), one-tap check-ins with function-call keys, a coin whose icon is its war record |
 | Track fit | all four mechanic kinds above, a streak with a high score, parameters fixed and readable, a 60-day simulation before choosing them |
 | Execution | no-wallet play, a hosted app, a judge page that tries to break it, honest limits below |
@@ -206,8 +206,9 @@ Values below are **Real mode**. Demo mode divides every game NEAR amount by 100 
 - **Raids trust sibling coins**, i.e. accounts directly under the factory. That's safe only because the factory has no key and deploys one fixed code; the defender also works out the spoils rate itself and never takes it from the caller.
 - A bettor can fake a Prophecy **Crowd** answer with fresh wallets that each buy 1 NEAR worth and sell it back: about 0.05 NEAR per fake wallet (fees + storage), against a payout of 30% of the losing side. Registering alone no longer counts, but small Crowd markets are still gameable.
 - A bettor can push a Prophecy **Line** or **Vault** answer with a second wallet (buying or locking). It costs real fees, slippage and a 6h+ lock, and bettors' own wallets can't trade, but it isn't impossible.
+- **The 5% reward pool can run dry in a very busy world.** Harvest (0.25% of supply per use, up to 3 Epics a day), Black Hole (0.2%), Bounty (0.05% a day) and Diamond Pool (1% per lock, capped) all pay from it, each with its own cap. The 60-day supply simulation models the base mechanics, not these cards.
 - **Duels and Bounties can be gamed with a second wallet** (a friend or alt takes the other side, so the loser's tokens just move between two wallets you own). The 10% burn and 25 NEAR stake cap make it costly, not impossible. Bounties can't ask the Tide question for the same reason, and a met Bounty adds a capped bonus at most once a day.
-- **Prophecy, Black Hole and Bounty payouts are claimed, not pushed**: closing one never loops over wallets, so it can't freeze a coin. Each wallet collects with `claim_payouts`, and anything unclaimed for 3 days is burned. The waiting list is capped (a new card can't open while it is nearly full). Measured on the real wasm with a full house (40 Prophecy bettors, 40 Black Hole throws, 20 Bounty pledges), the call that closes one burns under 6 Tgas of the 300 available (`node sandbox/gas-test.mjs`).
+- **Prophecy, Black Hole and Bounty payouts are claimed, not pushed**: closing one never loops over wallets, so it can't freeze a coin. Each wallet collects with `claim_payouts`, and anything unclaimed for 3 days is burned. The waiting list is capped (a new card can't open while it is nearly full). Measured on the real wasm with a full house (40 Prophecy bettors, 40 Black Hole throws, 20 Bounty pledges), the call that closes one burns under 6 Tgas of the 300 available, and a 40-contributor Stampede, Inferno or Ember about 17 to 19 Tgas (`node sandbox/gas-test.mjs`). Ember, Inferno, Stampede and Squeeze take at most 40 contributors, one entry per wallet.
 - Randomness (card rolls, fire times) uses NEAR's block random seed. Good enough for a demo, not for large stakes.
 - "Eligible holders" for deck limits are counted as wallets that checked in within 24h while eligible (to avoid loops), so they can lag reality by up to a day.
 
@@ -279,7 +280,7 @@ Every parameter above came out of a simulator in [`research/`](research) (Node, 
 
 > **Status:** the live world (`demo2`) runs the earlier 9-card / 4-Omen build. The 29-card / 13-Omen build described below is on branch `cards-v2` and is not deployed until its own factory exists; the live demo2 coins still settle a Prophecy for all bettors in one transaction (up to 100) and still block raiding a coin with its own open raid proposal.
 
-**Built and tested** (`npm test`: 110 coin tests and 7 factory tests, each run at real and demo scale, plus two fuzz runs): factory, NEP-141 coins, curve and fees,
+**Built and tested** (`npm test`: 115 coin tests and 7 factory tests, each run at real and demo scale, plus two fuzz runs): factory, NEP-141 coins, curve and fees,
 gm, Energy, Daily Ritual, levels and level drops, Vault, idle burn, the daily cap, packs, deck limits, Fade, make-room-first, tags and bet locks, raids with plans,
 Battle cry, scoring, spoils and win packs, price history, the log, and the full game design:
 

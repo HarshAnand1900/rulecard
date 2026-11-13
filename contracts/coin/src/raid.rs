@@ -43,6 +43,8 @@ pub struct Raid {
     pub start: u64, pub real_start: U128, pub circ_start: U128, pub qualified: u32, pub level: u8, pub war: bool, pub blood: bool,
     /// 0 normal, 1 Friendly Raid (no spoils), 2 Hard Raid (double spoils and a banner)
     pub kind: u8,
+    /// the Friendly/Hard Raid card's expiry, so the card can go back to the starter if the raid never launches
+    pub card_exp: u64,
     /// Scout: the enemy tactic revealed for each round (0 = unknown, 255 = none)
     pub scout: Vec<u8>,
     pub net_pos: Vec<U128>, pub net_neg: Vec<U128>, pub taps: Vec<u32>, pub lock: Vec<U128>,
@@ -85,16 +87,20 @@ impl Coin {
         let mut h = self.settle(&a, now);
         require!(self.is_qualified(&h, now), "raiders must hold >= 2 NEAR for 1h");
         require!(h.last_sign == 0 || now >= h.last_sign + crate::table::SIGN_EVERY, "one signature per 30 min");
+        let mut card_exp = 0;
         if kind != 0 {
             let card = if kind == 1 { Card::FriendlyRaid } else { Card::HardRaid };
             require!(self.energy >= card.energy(), "not enough Energy");
-            let exp = self.take_card(&mut h, card, now); self.free_stock(card, exp);
+            // the card stays counted in the deck until the raid really launches, and goes back to the starter (with its Energy) if it never does
+            card_exp = self.take_card(&mut h, card, now);
             self.energy -= card.energy();
         }
         h.last_sign = now; self.save(&a, h);
         self.raid_seq += 1;
+        let blood_before = self.blood_until;
         let mut r = self.new_raid(self.raid_seq, self.raid_seq, env::current_account_id(), target.clone(), true, now, vec![a.clone()], RAID_SIGNERS[self.level as usize - 1]);
-        r.kind = kind;
+        r.kind = kind; r.card_exp = card_exp;
+        if kind == 1 && r.blood { r.blood = false; self.blood_until = blood_before; } // a Friendly Raid pays no spoils: it must not use up a Blood Moon
         self.raid = Some(r);
         events::rulecard("raid_proposed", json!({ "id": self.raid_seq, "target": target, "by": a }));
         self.raid_seq
@@ -140,9 +146,11 @@ impl Coin {
         if matches!(&self.ally, Some((a, u)) if *a == att && now < *u) { return false; } // allied
         if self.raid.as_ref().map(|r| r.attacking && r.phase == 0).unwrap_or(false) { self.end_raid(now, "cancelled: the coin was raided first"); }
         self.raid_seq += 1;
+        let blood_before = self.blood_until;
         let mut r = self.new_raid(self.raid_seq, id, att.clone(), env::current_account_id(), false, now, vec![], 0);
         r.war = war || self.has(Rule::WarCoin);
         r.kind = kind.min(2);
+        if r.kind == 1 && r.blood { r.blood = false; self.blood_until = blood_before; }
         self.begin(&mut r, start);
         self.raid = Some(r);
         events::rulecard("raid_started", json!({ "attacker": att, "id": id, "start": start }));
@@ -157,6 +165,7 @@ impl Coin {
         if r.id != id || r.phase != 1 { return false; }
         if !ok { self.end_raid(now, "the target is shielded, lower level, busy or near graduation"); return false; }
         r.war = r.war || self.has(Rule::WarCoin);
+        if r.kind != 0 { self.free_stock(if r.kind == 1 { Card::FriendlyRaid } else { Card::HardRaid }, r.card_exp); } // launched: the card is spent for good
         self.begin(&mut r, start);
         self.last_attack = now;
         self.raid = Some(r);
@@ -408,7 +417,7 @@ pub fn score_rounds(my_base: &[u128], my_t: &[u8], their_base: &[u128], their_t:
 impl Coin {
     fn new_raid(&self, seq: u32, id: u32, attacker: AccountId, defender: AccountId, attacking: bool, now: u64, backers: Vec<AccountId>, needed: u32) -> Raid {
         Raid { seq, id, attacker, defender, attacking, phase: if attacking { 0 } else { 2 }, created: now, backers, needed, start: 0,
-            real_start: U128(0), circ_start: U128(0), qualified: 0, level: self.level, war: self.has(Rule::WarCoin), blood: false, kind: 0, scout: vec![0; 3],
+            real_start: U128(0), circ_start: U128(0), qualified: 0, level: self.level, war: self.has(Rule::WarCoin), blood: false, kind: 0, card_exp: 0, scout: vec![0; 3],
             net_pos: vec![U128(0); 3], net_neg: vec![U128(0); 3], taps: vec![0; 3], lock: vec![U128(0); 3], votes: vec![vec![0; 6]; 3], planners: 0, result: None, note: String::new() }
     }
 
@@ -459,6 +468,12 @@ impl Coin {
 
     fn end_raid(&mut self, now: u64, note: &str) {
         if let Some(mut r) = self.raid.take() {
+            // a Friendly/Hard Raid that never launched gives its card and Energy back to whoever started it
+            if r.attacking && r.kind != 0 && r.phase < 2 {
+                let card = if r.kind == 1 { Card::FriendlyRaid } else { Card::HardRaid };
+                if let Some(starter) = r.backers.first().cloned() { let mut h = self.holder(&starter); self.return_card(&mut h, card, r.card_exp); self.save(&starter, h); }
+                self.energy = (self.energy + card.energy()).min(ENERGY_MAX);
+            }
             r.phase = 5; r.note = note.into();
             self.raids.push(r); while self.raids.len() > 5 { self.raids.remove(0); }
         }

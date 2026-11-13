@@ -1,6 +1,6 @@
 //! Stakes between wallets: Duel (two holders stake the same tokens on whether the coin is a net buyer for an hour) and Bounty
 //! (holders pledge tokens to a goal; a met goal pays a bonus from the reward pool, a missed one burns 10%).
-//! Staked tokens are held aside like Prophecy bets (`bets_held`) and nothing here loops over holders: a Bounty has at most 50 pledges.
+//! Staked tokens are held aside like Prophecy bets (`bets_held`) and nothing here loops over holders: a Bounty has at most 20 pledges.
 use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::json;

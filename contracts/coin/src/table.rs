@@ -34,6 +34,8 @@ pub const SQUEEZE_MATCH_BPS: u128 = 5_000; // Squeeze: 50%
 pub const RUSH_MATCH_WALLETS: usize = 10;
 pub const RUSH_POT_CAP_BPS: u128 = 3_000; // a match never takes more than 30% of the pot
 pub const THROW_WINDOW: u64 = 15 * MIN;
+/// Most contributors one Ember, Inferno, Stampede or Squeeze can have: each is settled when it fires, so the number is bounded.
+pub const CHIP_MAX: usize = 40;
 pub const HOLE_MAX_THROWS: usize = 40;
 pub const HOLE_RETURN_CAP: u128 = SUPPLY / 500; // a Black Hole returns at most 0.2% of supply from the reward pool
 pub const SUPERNOVA_SIGNERS: [u32; 4] = [8, 8, 8, 12];
@@ -143,7 +145,9 @@ impl Coin {
                 require!(now >= self.last_stand_at + DAY, "Last Stand: once per coin per day");
                 let high = self.hi.iter().filter(|x| x.0 + 24 > now / HOUR).map(|x| x.1).max().unwrap_or(0);
                 let price = self.pool().price();
-                require!(high > 0 && price * 100 <= high * 75, "Last Stand needs the price to be 25% or more below its 24h high");
+                // the dip must also show in the most recent full hour before this one, so a dump in the current hour can't trigger it
+                let held = self.hi.iter().rev().find(|x| x.0 < now / HOUR).map(|x| x.1 * 100 <= high * 75).unwrap_or(false);
+                require!(high > 0 && price * 100 <= high * 75 && held, "Last Stand needs the price to be 25% or more below its 24h high, and to have been down for a full hour");
                 let exp = self.take_card(&mut h, card, now); self.save(&a, h); self.free_stock(card, exp);
                 self.energy -= card.energy(); self.last_stand_at = now;
                 let spent = self.pot_burn(now, bps(self.pot, LAST_STAND_BPS), "Last Stand");
@@ -296,13 +300,13 @@ impl Coin {
         self.touch(now);
         let i = self.find(id); let p = &self.table[i];
         require!(p.card == Card::BlackHole && p.phase == 1 && now < p.phase_end, "the throwing window is closed");
-        require!(p.bets.len() < HOLE_MAX_THROWS, "the hole is full");
+        require!(p.bets.iter().any(|b| b.account == a) || p.bets.len() < HOLE_MAX_THROWS, "the hole is full");
         let mut h = self.settle(&a, now);
         require!(h.bal >= amount.0, "not enough unlocked balance");
         require!(self.pool().value(amount.0) >= GN / 10, "minimum throw 0.1 NEAR worth");
         h.bal -= amount.0; self.save(&a, h);
         self.bets_held += amount.0;
-        self.table[i].bets.push(Bet { account: a.clone(), yes: true, amount, hedged: false });
+        match self.table[i].bets.iter_mut().find(|b| b.account == a) { Some(b) => b.amount = U128(b.amount.0 + amount.0), None => self.table[i].bets.push(Bet { account: a.clone(), yes: true, amount, hedged: false }) }
         events::ft_transfer(&a, &env::current_account_id(), amount.0, Some("black hole"));
     }
 
@@ -338,14 +342,14 @@ impl Coin {
         true
     }
 
-    /// Hedge (a Common, 5 Energy): attach it to your bets on an open Prophecy. A hedged bet that loses loses a quarter
+    /// Hedge (a Common, 5 Energy): attach it to your bets on a Prophecy that is still taking bets. A hedged bet that loses loses a quarter
     /// instead of half; a hedged bet that wins gets 25% less of the winnings.
     pub fn hedge(&mut self, id: u32) {
         let now = env::block_timestamp_ms();
         let a = env::predecessor_account_id();
         self.touch(now);
         let i = self.find(id);
-        require!(self.table[i].card == Card::Prophecy && (1..=2).contains(&self.table[i].phase), "Hedge goes on a Prophecy that is taking or waiting on bets");
+        require!(self.table[i].card == Card::Prophecy && self.table[i].phase == 1 && now < self.table[i].phase_end, "Hedge goes on a Prophecy that is still taking bets");
         require!(self.table[i].bets.iter().any(|b| b.account == a), "you have no bet on this Prophecy");
         require!(self.table[i].bets.iter().filter(|b| b.account == a).all(|b| !b.hedged), "already hedged");
         require!(self.energy >= Card::Hedge.energy(), "not enough Energy");
@@ -429,6 +433,7 @@ impl Coin {
         let i = self.find(id); let p = &self.table[i];
         require!((p.card == card || (card == Card::Stampede && p.card == Card::Squeeze)) && p.phase == phase && now < p.phase_end, "this window is closed");
         let mine: u128 = p.chips.iter().filter(|c| c.account == a).map(|c| c.near.0).sum();
+        require!(mine > 0 || p.chips.len() < CHIP_MAX, "this card already has 40 contributors");
         let mut take = dep.min(max.saturating_sub(mine));
         if matches!(card, Card::Inferno | Card::Stampede) { take = take.min(bps(self.real, FUEL_CAP_BPS).saturating_sub(p.chip_total.0)); }
         require!(take >= GN / 10, "nothing left to add (min 0.1 NEAR, per-wallet and total caps)");
@@ -437,7 +442,8 @@ impl Coin {
         self.pack_cut(&mut h, CUT_CHIP);
         self.save(&a, h);
         let p = &mut self.table[i];
-        p.chips.push(Chip { account: a.clone(), near: U128(take) }); p.chip_total = U128(p.chip_total.0 + take);
+        match p.chips.iter_mut().find(|c| c.account == a) { Some(c) => c.near = U128(c.near.0 + take), None => p.chips.push(Chip { account: a.clone(), near: U128(take) }) }
+        p.chip_total = U128(p.chip_total.0 + take);
         events::rulecard(if card == Card::Ember { "stoke" } else if card == Card::Inferno { "fuel" } else { "rush" }, json!({ "id": id, "account_id": a, "near": U128(take), "total": p.chip_total }));
         if dep > take { let _ = Promise::new(a).transfer(NearToken::from_yoctonear(dep - take)); }
     }

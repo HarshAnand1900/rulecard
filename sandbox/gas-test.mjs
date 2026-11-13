@@ -14,7 +14,7 @@ const tgas = async (who, method, args = {}, dep = 0n) => {
   return Number(g / 10n ** 9n) / 1000;
 };
 const rows = [];
-for (const [kind, n] of [['prophecy', 0], ['prophecy', 8], ['prophecy', 40], ['blackhole', 40], ['bounty', 20]]) {
+for (const [kind, n] of [['prophecy', 0], ['prophecy', 8], ['prophecy', 40], ['blackhole', 40], ['bounty', 20], ['stampede', 40], ['inferno', 40], ['ember', 40]]) {
   if (n === 0) { rows.push(['baseline poke', await tgas('you', 'poke')]); continue; }
   await call('alice', C, 'gas_fill', { kind, n });
   await forward(0.2);

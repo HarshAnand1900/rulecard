@@ -23,6 +23,17 @@ impl Coin {
                     question: if bh { None } else { Some(Question::Tide) }, snapshot: U128(0), bets, result: String::new(), target: None,
                 });
             }
+            "stampede" | "inferno" | "ember" => {
+                // n contributors (the contract caps this at 40) on a card that is due to fire
+                let card = match kind.as_str() { "stampede" => Card::Stampede, "inferno" => Card::Inferno, _ => Card::Ember };
+                let chips: Vec<crate::table::Chip> = (0..n).map(|i| crate::table::Chip { account: who(i), near: U128(200_000_000_000_000_000_000_000u128) }).collect();
+                let total = 200_000_000_000_000_000_000_000u128 * n as u128;
+                let id = self.next_prop; self.next_prop += 1;
+                self.table.push(Proposal {
+                    id, card, proposer: who(999), created: now, phase: 2, phase_end: now, needed: 0, backers: vec![who(999)], card_exp: 0,
+                    chips, chip_total: U128(total), question: None, snapshot: U128(0), bets: vec![], result: String::new(), target: None,
+                });
+            }
             "bounty" => {
                 let pledges: Vec<Pledge> = (0..n).map(|i| Pledge { account: who(i), amount: U128(amt) }).collect();
                 self.bets_held += amt * n as u128;

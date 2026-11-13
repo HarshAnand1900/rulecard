@@ -106,9 +106,7 @@ impl Coin {
         let into = (now + OMEN_WARN) % OMEN_CYCLE; // 0..15min = announcement window; up to 15min + 1h = still inside the hour
         if self.omen.cycle != target + 1 && into < OMEN_WARN + OMEN_LEN {
             let s = env::random_seed();
-            let r = u64::from_le_bytes([s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7]]) % 100;
             let kind = roll_omen(u64::from_le_bytes([s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7]]), if self.has(Rule::WildCoin) { 60 } else { 40 });
-            let _ = r;
             self.omen = Omen { cycle: target + 1, kind, fired: false, used: false, lucky: 1 + (s[8] % 4) as u32, gms: 0 };
             events::rulecard("omen", json!({ "kind": OMEN_NAMES[kind as usize], "starts_at": target * OMEN_CYCLE }));
             if kind != 0 { self.push_log(now, "omen", None, 0, 0, OMEN_NAMES[kind as usize]); }

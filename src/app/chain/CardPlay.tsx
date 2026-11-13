@@ -39,7 +39,7 @@ export default function CardPlay({ card, call, busy, table, me, coins, selfId, p
     <button className="btn small" disabled={!!busy || !target} onClick={() => call('Play Alliance', 'play_alliance', { target })}>Propose pact</button></div>;
   if (card === 'Scout') return <span className="small muted">{raidOn ? 'Use it from the Raids tab.' : 'Use it during a raid.'}</span>;
   if (card === 'Hedge') {
-    const mine = table.filter(p => p.card === 'Prophecy' && p.phase >= 1 && p.phase <= 2 && p.bets.some(b => b.account === me && !b.hedged));
+    const mine = table.filter(p => p.card === 'Prophecy' && p.phase === 1 && p.bets.some(b => b.account === me && !b.hedged));
     return <div className="stack small"><select value={pid} onChange={e => setPid(e.target.value)} aria-label="Prophecy to hedge"><option value="">{mine.length ? 'Hedge which bet?' : 'No open bet to hedge'}</option>{mine.map(p => <option key={p.id} value={p.id}>Prophecy #{p.id}</option>)}</select>
       <button className="btn small" disabled={!!busy || pid === ''} onClick={() => call('Hedge', 'hedge', { id: Number(pid) }, 0n, 'Hedged: a loss costs a quarter instead of half')}>Hedge it</button></div>;
   }

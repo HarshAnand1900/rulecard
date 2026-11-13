@@ -1178,14 +1178,18 @@ fn diamond_pool_boosts_24h_locks_and_adds_one_percent() {
 fn last_stand_needs_a_25_percent_dip_and_then_burns_from_the_pot() {
     let mut c = launch(vec![]);
     let t = buy(&mut c, 1, n(400), T0);
-    buy(&mut c, 2, n(10), T0 + 1000); give(&mut c, 2, Card::LastStand, T0);
+    buy(&mut c, 2, n(10), T0 + 1000); give(&mut c, 2, Card::LastStand, T0 + 3 * HOUR);
     c.energy = 30;
     ctx(2, 0, T0 + 2000);
     let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| { c.play_card(Card::LastStand, None); }));
     assert!(r.is_err(), "no dip yet");
     ctx(1, 1, T0 + 3000); let _ = c.sell(U128(t), None); // the whale dumps: the price falls well below its hourly high
+    ctx(2, 0, T0 + 4000);
+    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| { c.play_card(Card::LastStand, None); }));
+    assert!(r.is_err(), "a dump in the same hour can't trigger it");
+    buy(&mut c, 2, n(2), T0 + HOUR + 5000); // a trade in the next hour records the low price
     let (pot, burned) = (c.pot, c.burned);
-    ctx(2, 0, T0 + 4000); c.play_card(Card::LastStand, None);
+    ctx(2, 0, T0 + 3 * HOUR + 10); c.play_card(Card::LastStand, None);
     assert!(c.pot < pot && c.burned > burned, "the pot bought and burned the dip");
     assert!(pot - c.pot <= bps(pot, LAST_STAND_BPS) + 1);
 }
@@ -1675,10 +1679,83 @@ fn a_bounty_cannot_ask_the_tide_question() {
 }
 
 #[test]
-fn raiding_a_coin_cancels_its_own_unfinished_raid_plan() {
-    // the fix: a coin gathering signers for its own raid can still be raided (see raid tests for the setup)
-    let src = include_str!("raid.rs");
-    assert!(src.contains("cancelled: the coin was raided first"));
+fn a_hard_raid_that_never_launches_gives_back_its_card_and_energy() {
+    let (mut c, t) = raid_ready();
+    give(&mut c, 1, Card::HardRaid, T0); c.energy = 60;
+    ctx(1, 0, t); c.start_hard_raid(moth());
+    assert_eq!(c.energy, 10);
+    ctx(3, 0, t + RAID_BACK + 1);
+    assert!(matches!(c.launch_raid(), near_sdk::PromiseOrValue::Value(false)), "not enough signers");
+    assert_eq!(c.energy, 60, "the Energy is back");
+    assert!(c.get_hand(acc(1)).unwrap().cards.iter().any(|x| x.card == Card::HardRaid), "and the card");
+}
+
+#[test]
+fn a_rival_raiding_first_cancels_the_proposal_and_refunds_it() {
+    let (mut c, t) = raid_ready();
+    give(&mut c, 1, Card::HardRaid, T0); c.energy = 60;
+    ctx(1, 0, t); c.start_hard_raid(moth());
+    assert!(c.raid.as_ref().unwrap().attacking && c.raid.as_ref().unwrap().phase == 0);
+    ctx_as(moth(), 0, t + 5, vec![]);
+    assert!(c.raid_accept(7, 2, t + 5, false, 0), "the coin can still be raided");
+    let r = c.raid.as_ref().unwrap();
+    assert!(!r.attacking, "now it is the defender");
+    assert_eq!(c.get_raids().pop().unwrap().note, "cancelled: the coin was raided first");
+    assert_eq!(c.energy, 60, "the cancelled Hard Raid gave its Energy back");
+    assert!(c.get_hand(acc(1)).unwrap().cards.iter().any(|x| x.card == Card::HardRaid));
+}
+
+#[test]
+fn a_friendly_raid_does_not_use_up_a_blood_moon() {
+    let (mut c, t) = raid_ready();
+    give(&mut c, 1, Card::FriendlyRaid, T0); c.energy = 30;
+    c.blood_until = t + HOUR;
+    ctx(1, 0, t); c.start_friendly_raid(moth());
+    assert!(!c.raid.as_ref().unwrap().blood);
+    assert_eq!(c.blood_until, t + HOUR, "the Omen is still there for a real raid");
+}
+
+#[test]
+fn one_wallet_cannot_fill_the_black_hole_or_a_crowd_card() {
+    let (mut c, t) = crowd(6, 2, 60);
+    give(&mut c, 1, Card::BlackHole, T0);
+    ctx(1, 0, t); let id = c.play_card(Card::BlackHole, None);
+    for i in 2..=4 { ctx(i, 0, t + 1000 + i as u64); c.sign(id); }
+    ctx(5, 0, t + BACK_WINDOW + 1); c.poke();
+    let b2 = bal(&c, 2);
+    for k in 0..10 { ctx(2, 1, t + BACK_WINDOW + 10 + k); c.throw_in(id, U128(b2 / 40)); }
+    assert_eq!(c.get_table()[0].bets.len(), 1, "ten throws from one wallet are one entry");
+    assert_eq!(c.get_table()[0].bets[0].amount.0, 10 * (b2 / 40));
+}
+
+#[test]
+#[should_panic(expected = "Hedge goes on a Prophecy that is still taking bets")]
+fn hedge_is_only_for_the_betting_window() {
+    let mut c = launch(vec![]);
+    for i in 1..=11 { buy(&mut c, i, n(20), T0 + i as u64); }
+    give(&mut c, 1, Card::Prophecy, T0 + HOUR); give(&mut c, 7, Card::Hedge, T0);
+    c.energy = 40;
+    let t0 = T0 + 2 * HOUR;
+    ctx(1, 0, t0); let id = c.play_card(Card::Prophecy, Some(Question::Tide));
+    ctx(2, 0, t0 + 1); c.back(id); ctx(3, 0, t0 + 2); c.back(id);
+    ctx(4, 0, t0 + BACK_WINDOW + 1); c.poke();
+    let stake = bal(&c, 7) / 10;
+    ctx(7, 1, t0 + BACK_WINDOW + 10); c.bet(id, false, U128(stake));
+    ctx(7, 0, t0 + BACK_WINDOW + BET_WINDOW + 5); c.hedge(id); // betting has closed: too late
+}
+
+#[test]
+fn a_crowd_card_takes_at_most_40_contributors_and_merges_a_wallets_chips() {
+    let (mut c, t) = crowd(6, 2, 60);
+    give(&mut c, 1, Card::Stampede, T0);
+    ctx(1, 0, t); let id = c.play_card(Card::Stampede, None);
+    for k in 0..3 { ctx(2, n(1), t + 100 + k); c.rush(id); }
+    assert_eq!(c.get_table()[0].chips.len(), 1, "the same wallet is one entry");
+    // fill the list with synthetic contributors up to the cap, then one more wallet must be refused
+    for k in 0..(CHIP_MAX - 1) { let acct: AccountId = format!("w{k}.x.testnet").parse().unwrap(); c.table[0].chips.push(Chip { account: acct, near: U128(GN / 10) }); }
+    ctx(3, n(1), t + 200);
+    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| { c.rush(id); }));
+    assert!(r.is_err(), "the 41st contributor is refused");
 }
 
 #[test]
