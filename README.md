@@ -42,7 +42,7 @@ transaction, so nobody can change a rule or print an admin.
 | Press this | You will see |
 |---|---|
 | Open the app, press **PLAY** (no wallet, no sign-up) | a practice wallet is made, funded and buys its first bag: real testnet transactions, each with a receipt link |
-| Open a coin, tab **Cards**: **Claim pack**, then play or back a card from your hand | a card goes on **The Table**, the crowd backs or signs it, then it fires: the pot burns supply and the Log, the supply number and the chart move. Rares and Epics (Prophecy, Black Hole, Harvest, Duel, Bounty) have their own forms |
+| Open a coin, tab **Cards**: **Claim pack** (if a pack is not claimable the page lists what is missing and what to do), then play or back a card from your hand | a card goes on **The Table**, the crowd backs or signs it, then it fires: the pot burns supply and the Log, the supply number and the chart move. Rares and Epics (Prophecy, Black Hole, Harvest, Duel, Bounty) have their own forms |
 | Open **War Map** | every coin ranked by level and Ritual streak, its high score, who is raiding whom right now, and the latest raid results. Bots are marked 🤖 wherever their names show (the Log and the raid lists) |
 | Open a coin, tab **Ritual** | today's progress, time left, the streak, the coin's best streak ever (its high score) and the last 7 days |
 | Press **gm** | one check-in per 6 hours (30 minutes in demo mode). Press it again and the contract refuses |

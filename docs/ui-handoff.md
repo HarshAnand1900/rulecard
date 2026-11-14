@@ -23,6 +23,12 @@ Coin page tabs: **Ritual · Trade · Vault · Raids · Cards · Log**.
 
 ## 3. Screens (what is on each, top to bottom)
 
+### 3.0 The marketing site (`index.html`, `public/*`)
+The public landing page. Its hero is a turning spiral of eight real cards (the same designs as the app, drawn by `src/landing-cards.ts`).
+"The deck" section is one **stacked deck**: the top card flies off to the bottom on the arrows (or by itself every few seconds), with the
+card's name and rule under it and a counter such as `1 / 29`. Tabs All / Rare / Epic / Mythic / Common show their card counts. A new visitor
+lands on All, which deals the big cards first: Rares, then Epics, then the Mythic, then the Commons.
+
 ### 3.1 Landing (`Landing.tsx`)
 Big RULECARD wordmark; one-line pitch ("A league of memecoins whose communities go to war. Show up every day or your bag burns, and the
 coin that shows up bigger raids the other."); **▶ PLAY** (large, orange); a quieter **PLAY WITH MY OWN TESTNET WALLET**; a footer line
@@ -50,21 +56,31 @@ Title + one line. A table ranked by level then streak: `# · Coin (mcap) · Leve
 *Wanted next (design these even if not built yet):* a **map** view (each coin a territory, raid wins flip tiles), a **next raid in 12 min**
 countdown, and a **chronicle** (three lines of story per coin).
 
+### 3.5b Discover: card effects
+A coin pinned by a **Hype Siren** sorts to the top of Discover, glows orange and shows "Trending · Xm left" (15 minutes of game time, about 75 seconds on the testnet world, which runs 12× faster). Every
+coin card also shows "Last play: <card> · <time> ago", so a play never leaves the page looking unchanged.
+
 ### 3.6 Coin page
 - **Header strip:** icon, name, $SYMBOL, creator, rule chips; price (µN), mcap, in curve; the **gm button** (☀ gm, shows "idle burn starts in …"
   or "gm every 30m"), the one-tap ⚡ toggle, and the **Ritual ring**.
 - **Omen banner** (new): only when an Omen is incoming or running. `✦ OMEN · Full Moon` + one-line effect + `ends in 41m`. Dashed border
   while incoming, pulsing gold name while active. Line for level-1 coins: "Omens begin when the coin reaches level 2."
 - **Stats row:** Energy bar, Pot, Vault %, Reward pool, Deck, Burned.
-- **Price chart:** 1h / 6h / 24h / All, with event markers (🕯 burn, ⚔ raid, ⬆ level-up).
-- **Tabs:**
+- **Price chart:** pan, zoom, candles or line, with drawn event markers (no emoji): an orange card for a card play, a red cross for a raid, a green triangle for a level-up, a flame for a Ritual, a star for graduation. Hover a marker for its name.
+- **Tabs:** six equal columns (Trade, Ritual, Vault, Raids, Cards, Log) with the badge under the label, so nothing scrolls or is cut off. Under 900 px they wrap into two rows of three.
   - **Ritual** (default): a big hero. Today's progress (gm count bar + NEAR-locked bar), time left, **Streak: 🔥 N · best ever M**, last 7 days
     as dots (made / missed / not yet), then the level-progress checklist.
   - **Trade:** buy/sell with a quote, slippage and fees, and a "Lock 24h?" prompt after buying.
   - **Vault:** lock 6 / 24 / 72 h, the list of locks with unlock / leave early (−20%), earnings.
-  - **Raids:** the current raid timeline (Muster → 3 rounds → result), signers, the 3-slot plan, Battle cry, past raids.
-  - **Cards:** pack timer, hand (Commons + Rares/Epics), the table of live proposals (Ember, Inferno, Siren, Prophecy), history.
-  - **Log:** the last 200 on-chain events (mint, burn, buy, sell, lock, ritual, omen …). Bots show as `🤖 bot3`.
+  - **Raids:** the current raid timeline (Muster → 3 rounds → result), signers, the 3-slot plan, Battle cry, past raids. Plans, Battle cry and Scout close when the raid's time is up and the page says to press **Settle raid** (the contract refuses them after that with "no raid on").
+  - **Cards:** the **pack** (a 3D black box with every face filled with glowing card symbols; it sways, turns on hover, shows READY, LOCKED, NEEDS GM, HAND FULL or a countdown, and a ×N badge when
+    several packs are waiting). **Claim pack** only shows when a pack can really be claimed. Otherwise a checklist says what is missing: you hold some of the coin, you said gm in the last 6 hours
+    (30 minutes on testnet), the pack timer is done, and you have room for 2 more Commons, each with what to do next (a Say gm button, Drop a Common, Buy in the Trade tab, or just wait). A level
+    drop (L2, L3, L4) is offered only to wallets that held the coin for an hour before it reached that level; otherwise the page says why it isn't theirs. Below: **Your hand**, grouped Commons /
+    Rares / Epics / Mythic with counts, each card drawn in its rarity design (hover to tilt, click to turn it over for the rule), with Play, Put on the table, a small form, or for raid cards a
+    button that opens the Raids tab and says whether a raid is live. Then **The Table** (live proposals) with **Recent plays** (who played what and when: solo cards such as Hype Siren never sit on
+    the Table), and the history.
+  - **Log:** the last 100 on-chain events, opening on **Everything** (card plays, raids, Rituals, omens, mints, burns and trades), with a Mints & burns filter. Bots show as `🤖 bot3`.
 
 ### 3.7 Guided first run (`Guide.tsx`)
 A floating card on the coin page for new practice players, one step at a time, ticking from chain state: *You have a wallet → Your first bag →
@@ -95,6 +111,9 @@ Name, symbol, seed (5–100 NEAR), up to 3 creator rules as selectable tiles (ea
 A circular progress with a centre label ("Ritual 31%"), used in the coin header and the Ritual tab.
 
 ### 4.4 Toasts and banners
+Wallet and contract refusals are turned into one plain sentence that says what to do (for example "you closed the wallet window, so nothing was sent" or "say gm first: a pack needs a gm in the
+last 6 hours"). The old "Demo mode" banner was removed; the README and Docs explain the ÷100 amounts and the 12× clock instead.
+
 Toast at the bottom of the screen (ok / error); `.grad-banner` (graduated coin); `.omen-banner`; `.warn` box.
 
 ### 4.5 The coin icon (new, drawn on chain)
