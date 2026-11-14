@@ -104,7 +104,7 @@ should show this same icon everywhere a coin appears. A designer can restyle the
 only change in the contract (`live_icon` in `contracts/coin/src/token.rs`), so tell me **before the redeploy** if you want it changed.
 
 ### 4.6 Sound menu (new)
-The 🔊 button opens a popover: **Mute all sound**, a **Volume** slider and two buttons to hear the voucher chime (a buy or sell goes through) and the Omen sting (an Omen is about to start). Those are the only sounds in the app.
+The 🔊 button opens a popover: **Mute all sound**, a **Volume** slider and three buttons to hear the voucher chime (a buy or sell goes through), the pack opening (a pack is opened) and the Omen sting (an Omen is about to start). Those are the only sounds in the app.
 
 ### 4.7 States to design
 Loading ("Connecting…", "Loading…"), empty lists, error ("Can't reach the chain" with an alternate door), idle burn running (red text on the

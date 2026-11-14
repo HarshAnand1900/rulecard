@@ -111,6 +111,7 @@ export default function ChainApp() {
             <button onClick={() => setMuted(!muted)}>{muted ? 'Turn sound on' : 'Mute all sound'}</button>
             <label className="small" style={{ padding: '4px 10px', display: 'block' }}>Volume <input type="range" min="0.05" max="1" step="0.05" defaultValue={getVolume()} onChange={e => setVolume(Number(e.target.value))} onPointerUp={() => play('buy')} /></label>
             <button onClick={() => play('buy')}><strong>Voucher chime</strong> <span className="small muted">· a buy or sell goes through</span></button>
+            <button onClick={() => play('pack')}><strong>Pack opening</strong> <span className="small muted">· a pack of cards is opened</span></button>
             <button onClick={() => play('omen')}><strong>Omen sting</strong> <span className="small muted">· an Omen is about to start</span></button>
           </div></details>
           {needsDoor() && <details className="menu"><summary className="btn small ghost">{practice ? 'Practice' : 'Wallet'} ▾</summary><div className="menu-body">
@@ -345,6 +346,7 @@ function CoinPage(p: Ctx & { id: string }) {
   const now = c.now;
   const call = (label: string, m: string, a: object = {}, dep = 0n, done?: string) => act(label, async () => {
     const r = await ch.call(id, m, a, dep);
+    if (m === 'claim_pack' || m === 'claim_level_drop' || m === 'claim_raid_pack' || (m === 'claim_payouts' && d?.pending.some(x => x.pack))) play('pack'); // a pack was opened
     return r;
   }, done);
   const gmReady = !h || h.last_gm === 0 || now >= h.next_gm;

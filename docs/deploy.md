@@ -108,7 +108,7 @@ one of the sandbox accounts as the sponsor (needs `./sandbox/start.sh`, `node sa
 
 ## 5. Sounds
 
-The app has two sound effects: a short voucher chime (`public/sounds/balatro_voucher.mp3`) when a buy or a sell goes through, and an opening sting (`public/sounds/balatro_holographic.mp3`) when an Omen is about to start. The 🔊 button in the header mutes it, and the volume slider and mute choice are remembered. Browsers keep audio locked until the first click, so nothing plays before that.
+The app has three sound effects (a pack-opening sound, `public/sounds/balatro_opened.mp3`, plays when a pack of cards is opened): a short voucher chime (`public/sounds/balatro_voucher.mp3`) when a buy or a sell goes through, and an opening sting (`public/sounds/balatro_holographic.mp3`) when an Omen is about to start. The 🔊 button in the header mutes it, and the volume slider and mute choice are remembered. Browsers keep audio locked until the first click, so nothing plays before that.
 
 ## 6. Hosting on Vercel from GitHub
 
