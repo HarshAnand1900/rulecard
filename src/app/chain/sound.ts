@@ -1,9 +1,9 @@
-// Three sounds only: a voucher chime when a buy or a sell goes through, a holographic sting when an Omen is about to start,
-// and an opening sound when a pack of cards is opened.
+// Four sounds only: a voucher chime when a buy or a sell goes through, a holographic sting when an Omen is about to start,
+// an opening sound when a pack of cards is opened, and a card sound when a card is played where every holder can see it.
 // A volume control and a mute switch are remembered.
-export type Sfx = 'buy' | 'sell' | 'omen' | 'pack';
+export type Sfx = 'buy' | 'sell' | 'omen' | 'pack' | 'table';
 
-const FILES: Record<Sfx, string> = { buy: '/sounds/balatro_voucher.mp3', sell: '/sounds/balatro_voucher.mp3', omen: '/sounds/balatro_holographic.mp3', pack: '/sounds/balatro_opened.mp3' };
+const FILES: Record<Sfx, string> = { buy: '/sounds/balatro_voucher.mp3', sell: '/sounds/balatro_voucher.mp3', omen: '/sounds/balatro_holographic.mp3', pack: '/sounds/balatro_opened.mp3', table: '/sounds/balatro_tag_redeem.mp3' };
 const MUTE_KEY = 'rulecard-muted', VOL_KEY = 'rulecard-volume';
 let muted = false, volume = 0.7;
 try { muted = localStorage.getItem(MUTE_KEY) === '1'; const v = Number(localStorage.getItem(VOL_KEY)); if (Number.isFinite(v) && v > 0) volume = Math.min(1, v); } catch { /* no storage: defaults */ }
