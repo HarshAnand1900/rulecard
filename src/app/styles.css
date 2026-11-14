@@ -1229,3 +1229,11 @@ a.logo:hover .logo-mark { transform: rotate(-6deg) scale(1.06); transition: tran
 .coin-card.trending { border-color: rgba(255, 139, 37, .75) !important; box-shadow: 0 0 30px -6px rgba(255, 90, 20, .6) !important; }
 @keyframes trendpulse { 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .chip.trend i { animation: none; } }
+
+/* coin page tabs: six equal columns, label over badge, nothing scrolls or gets cut off */
+:root:root .tabbar { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; overflow: visible; padding: 6px; }
+:root:root .tabbar button { flex: none; min-width: 0; min-height: 58px; flex-direction: column; justify-content: center; gap: 5px; padding: 8px 6px; text-align: center; line-height: 1.1; }
+:root:root .tabbar button > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root:root .tabbar .tbadge { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; padding: 0 8px; font-size: 10.5px; }
+@media (max-width: 900px) { :root:root .tabbar { grid-template-columns: repeat(3, minmax(0, 1fr)); } :root:root .tabbar .tbadge { display: inline-block; } }
+@media (max-width: 420px) { :root:root .tabbar button { min-height: 52px; font-size: 14px; } }
