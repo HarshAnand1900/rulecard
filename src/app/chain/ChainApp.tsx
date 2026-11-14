@@ -111,6 +111,7 @@ export default function ChainApp() {
             <button onClick={() => setMuted(!muted)}>{muted ? 'Turn sound on' : 'Mute all sound'}</button>
             <label className="small" style={{ padding: '4px 10px', display: 'block' }}>Volume <input type="range" min="0.05" max="1" step="0.05" defaultValue={getVolume()} onChange={e => setVolume(Number(e.target.value))} onPointerUp={() => play('buy')} /></label>
             <button onClick={() => play('buy')}><strong>Voucher chime</strong> <span className="small muted">· a buy or sell goes through</span></button>
+            <button onClick={() => play('back')}><strong>Backed or signed</strong> <span className="small muted">· you back or sign a card (only you hear it)</span></button>
             <button onClick={() => play('table')}><strong>Card played</strong> <span className="small muted">· a card goes on the Table</span></button>
             <button onClick={() => play('pack')}><strong>Pack opening</strong> <span className="small muted">· a pack of cards is opened</span></button>
             <button onClick={() => play('omen')}><strong>Omen sting</strong> <span className="small muted">· an Omen is about to start</span></button>
@@ -347,6 +348,7 @@ function CoinPage(p: Ctx & { id: string }) {
   const now = c.now;
   const call = (label: string, m: string, a: object = {}, dep = 0n, done?: string) => act(label, async () => {
     const r = await ch.call(id, m, a, dep);
+    if (BACKINGS.includes(m)) play('back'); // you backed or signed a card: only you hear this
     if (TABLE_PLAYS.includes(m)) play('table'); // a card went on the Table for everyone to see
     if (m === 'claim_pack' || m === 'claim_level_drop' || m === 'claim_raid_pack' || (m === 'claim_payouts' && d?.pending.some(x => x.pack))) play('pack'); // a pack was opened
     return r;
@@ -621,6 +623,7 @@ function TodayTab({ d, now }: TabProps) {
   );
 }
 
+const BACKINGS = ['back', 'sign', 'sign_raid', 'stoke'];
 const TABLE_PLAYS = ['play_card', 'play_alliance', 'duel_challenge', 'bounty_open', 'start_friendly_raid', 'start_hard_raid', 'counterspell_card'];
 const JOKERS = ['1-common-grin', '2-rare-laugh', '3-epic-wink', '4-mythic-starry', '5-wild-shades'];
 const jokerOf = (s: string) => `url(/bg/jokers/${JOKERS[[...s].reduce((a, ch) => a + ch.charCodeAt(0), 0) % 5]}.png)`;
