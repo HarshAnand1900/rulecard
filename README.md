@@ -122,8 +122,7 @@ The hosted app opens on two doors into the same game, both on NEAR testnet with 
   receipt links) takes you through gm, the Vault, a pack and the War Map. The coins have no value. You can back up the key from the menu.
 - **PLAY WITH MY OWN TESTNET WALLET:** MyNearWallet or Meteor, your own account, plus optional one-tap gm.
 
-Short synthesized sound effects (Web Audio, no audio files; mute in the header) go with the actions and with what happens to a coin:
-Ritual made or missed, burns, raids, level-ups.
+There is one sound effect: a short voucher chime when a buy or a sell goes through (mute and volume in the header).
 
 ## Demo mode and Real mode
 

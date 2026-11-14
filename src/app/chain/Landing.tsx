@@ -1,11 +1,10 @@
 // First screen of a hosted build: two doors into the same game.
 import { useState } from 'react';
 import type { Door } from './net';
-import { play } from './sound';
 
 export default function Landing({ onPick }: { onPick: (d: Door) => void }) {
   const [more, setMore] = useState(false);
-  const pick = (d: Door) => { play('click'); onPick(d); };
+  const pick = (d: Door) => { onPick(d); };
   return (
     <div className="landing">
       <div className="landing-inner">

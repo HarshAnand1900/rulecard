@@ -3,7 +3,6 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { Net } from './net';
 import type { HandView, HolderView, Ritual } from './types';
-import { play } from './sound';
 
 interface Props {
   ch: Net; me: string | null; coinId: string; h: HolderView | null; hand: HandView | null; r: Ritual;
@@ -35,7 +34,7 @@ export default function Guide(p: Props) {
     { title: 'LOCK IN THE VAULT', done: !!h && h.locks.length > 0, text: 'Locked tokens are safe from every burn, and they earn what sleepers lose. Locking also counts toward today\'s Ritual.', cta: { label: 'Lock half', run: () => void p.doCall('Lock', 'lock', { amount: p.fmtLock().toString(), hours: 24 }, 1n, 'Locked: safe from idle burn') }, receipt: receipt('lock') },
     { title: 'OPEN A PACK', done: !!hand && hand.next_pack > 0, text: 'Every few hours a pack of rule cards: the crowd plays them together to burn supply and fight other coins.', cta: { label: 'Claim a pack', run: () => void p.doCall('Claim pack', 'claim_pack', {}, 0n, 'Pack opened') }, receipt: receipt('claim_pack') },
     { title: 'SEE THE FIGHT', done: p.visitedWar, text: 'Coins raid each other. The one that shows up in bigger numbers takes part of the other coin\'s pot. Take a look at the War Map.', cta: { label: 'Open the War Map', run: () => p.go('war') } },
-    { title: 'YOUR GOAL', done: goalSeen, text: `Keep this coin's Ritual alive: ${r.gm_target} wallets saying gm and enough NEAR locked, every day. Make it and the pot burns supply; miss it and sleepers burn twice as fast.`, cta: { label: 'Got it', run: () => { set(me, 'goal'); play('ritualMade'); bump(n => n + 1); } } },
+    { title: 'YOUR GOAL', done: goalSeen, text: `Keep this coin's Ritual alive: ${r.gm_target} wallets saying gm and enough NEAR locked, every day. Make it and the pot burns supply; miss it and sleepers burn twice as fast.`, cta: { label: 'Got it', run: () => { set(me, 'goal'); bump(n => n + 1); } } },
   ];
   const first = steps.findIndex(s => !s.done);
   if (skipped || !me) return null;
@@ -52,7 +51,7 @@ export default function Guide(p: Props) {
       <div className="gd-foot">
         <button className="gd-back" disabled={i === 0} onClick={() => setManual(i - 1)}>Back</button>
         <span className="gd-spacer" />
-        {s.cta && !s.done && <button className="btn primary small" disabled={!!busy || pend === s.title} onClick={() => { play('click'); setManual(null); setPend(s.title); s.cta!.run(); }}>{pend === s.title ? 'Working…' : s.cta.label}</button>}
+        {s.cta && !s.done && <button className="btn primary small" disabled={!!busy || pend === s.title} onClick={() => { setManual(null); setPend(s.title); s.cta!.run(); }}>{pend === s.title ? 'Working…' : s.cta.label}</button>}
         <button className="gd-next" onClick={() => (i === n - 1 ? skip() : setManual(i + 1))}>{i === n - 1 ? 'Finish' : 'Next'}</button>
       </div>
     </div>,

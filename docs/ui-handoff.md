@@ -104,9 +104,7 @@ should show this same icon everywhere a coin appears. A designer can restyle the
 only change in the contract (`live_icon` in `contracts/coin/src/token.rs`), so tell me **before the redeploy** if you want it changed.
 
 ### 4.6 Sound menu (new)
-The 🔊 button opens a popover: **Mute all sound**, a **Volume** slider, then a "Tap to hear each one" list (15 sounds, each with the moment it
-plays). Sounds are synthesized (no files): gm chime, vault thud, coin, card swish, flame whoosh, inferno, fanfare and cheer (Ritual made),
-**jester's laugh** (Ritual missed), war horn, victory, **sad trombone** (raid lost), level up, hype siren, oracle, "nope" (error).
+The 🔊 button opens a popover: **Mute all sound**, a **Volume** slider and one button to hear the voucher chime. That chime is the only sound in the app: it plays when a buy or a sell goes through.
 
 ### 4.7 States to design
 Loading ("Connecting…", "Loading…"), empty lists, error ("Can't reach the chain" with an alternate door), idle burn running (red text on the

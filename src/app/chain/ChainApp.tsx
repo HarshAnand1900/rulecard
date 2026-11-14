@@ -7,7 +7,7 @@ import { openNet, savedDoor, saveDoor, needsDoor, type Net, type Door } from './
 import Landing from './Landing';
 import Onboard from './Onboard';
 import Guide, { guideWarVisited, markWarVisited } from './Guide';
-import { play, sfxForCall, isMuted, setMuted, onMuteChange, getVolume, setVolume, SFX_LIST } from './sound';
+import { play, isMuted, setMuted, onMuteChange, getVolume, setVolume } from './sound';
 import type {
   CoinEntry, CoinView, HolderView, Ritual, LevelView, LogEntry, HandView, Proposal, RaidView, Card, Question, BuyQuote, OmenView, Duel, Bounty, Payout,
 } from './types';
@@ -71,7 +71,7 @@ export default function ChainApp() {
   const act = useCallback(async (label: string, fn: () => Promise<unknown>, done?: string) => {
     setBusy(label);
     try { await fn(); setToast({ ok: true, text: done ?? `${label}: done` }); }
-    catch (e: any) { play('error'); setToast({ ok: false, text: `${label}: ${e.message}` }); }
+    catch (e: any) { setToast({ ok: false, text: `${label}: ${e.message}` }); }
     finally { setBusy(''); refresh(); }
   }, [refresh]);
 
@@ -109,9 +109,8 @@ export default function ChainApp() {
           <button className="iconbtn" aria-label="Show the guide" title="Show the guide" onClick={openGuide}>?</button>
           <details className="menu"><summary className="btn small ghost" aria-label="Sound settings" title={muted ? 'Sound is off' : 'Sound is on'}>{muted ? '🔇' : '🔊'}</summary><div className="menu-body" style={{ minWidth: 250 }}>
             <button onClick={() => setMuted(!muted)}>{muted ? 'Turn sound on' : 'Mute all sound'}</button>
-            <label className="small" style={{ padding: '4px 10px', display: 'block' }}>Volume <input type="range" min="0.05" max="1" step="0.05" defaultValue={getVolume()} onChange={e => setVolume(Number(e.target.value))} onPointerUp={() => play('gm')} /></label>
-            <div className="small muted" style={{ padding: '4px 10px' }}>Tap to hear each one</div>
-            {SFX_LIST.map(x => <button key={x.id} onClick={() => play(x.id)}><strong>{x.label}</strong> <span className="small muted">· {x.when}</span></button>)}
+            <label className="small" style={{ padding: '4px 10px', display: 'block' }}>Volume <input type="range" min="0.05" max="1" step="0.05" defaultValue={getVolume()} onChange={e => setVolume(Number(e.target.value))} onPointerUp={() => play('buy')} /></label>
+            <button onClick={() => play('buy')}><strong>Voucher chime</strong> <span className="small muted">· plays when a buy or sell goes through</span></button>
           </div></details>
           {needsDoor() && <details className="menu"><summary className="btn small ghost">{practice ? 'Practice' : 'Wallet'} ▾</summary><div className="menu-body">
             <button onClick={() => setModal('ways')}>Two ways in: what is the difference?</button>
@@ -323,19 +322,11 @@ function CoinPage(p: Ctx & { id: string }) {
       setD({ c, h, r, lv, hand, table, hist, raid, raids, log, plan, prices, omen, duels, bounties, pending });
     })().catch(() => {});
   }, [ch, me, id, tick]);
-  const prev = useRef<CoinData | null>(null), prevId = useRef(id), lastBurn = useRef(0);
+  const prev = useRef<CoinData | null>(null), prevId = useRef(id);
   useEffect(() => {
     if (prevId.current !== id) { prev.current = null; prevId.current = id; }
     const q = prev.current;
     if (d && q) {
-      if (d.c.level > q.c.level) play('levelUp');
-      if (d.r.streak > q.r.streak) play('ritualMade');
-      else if (d.r.day !== q.r.day && d.r.last_made === false) play('ritualMissed');
-      if (BigInt(d.c.burned) - BigInt(q.c.burned) >= 2_000_000n * 10n ** 18n && Date.now() - lastBurn.current > 20_000) { lastBurn.current = Date.now(); play('burn'); }
-      if (d.omen?.phase === 'active' && d.omen.kind && !(q.omen?.phase === 'active' && q.omen.starts_at === d.omen.starts_at)) play('omen');
-      if (d.raid?.phase === 2 && q.raid?.phase !== 2) play('raidStart');
-      const lr = d.raids[d.raids.length - 1], pr = q.raids[q.raids.length - 1];
-      if (lr?.result && (!pr || pr.seq !== lr.seq || !pr.result)) play(lr.result.outcome > 0 ? 'raidWin' : 'raidLose');
     }
     prev.current = d;
   }, [d, id]);
@@ -351,7 +342,6 @@ function CoinPage(p: Ctx & { id: string }) {
   const now = c.now;
   const call = (label: string, m: string, a: object = {}, dep = 0n, done?: string) => act(label, async () => {
     const r = await ch.call(id, m, a, dep);
-    const sfx = sfxForCall(m, a); if (sfx) play(sfx);
     return r;
   }, done);
   const gmReady = !h || h.last_gm === 0 || now >= h.next_gm;

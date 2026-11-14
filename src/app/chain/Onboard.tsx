@@ -34,7 +34,7 @@ export default function Onboard({ ch, coins, onDone, onUseWallet }: { ch: Net; c
         if (!mounted.current) return;
         setPhase('done');
         setTimeout(() => mounted.current && doneRef.current(target.account_id), 700);
-      } catch (e: any) { if (mounted.current) { play('error'); setErr(String(e?.message ?? e)); } }
+      } catch (e: any) { if (mounted.current) { setErr(String(e?.message ?? e)); } }
     })();
   }, [attempt, ch]);
 
