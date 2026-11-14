@@ -66,7 +66,7 @@ coin card also shows "Last play: <card> · <time> ago", so a play never leaves t
 - **Omen banner** (new): only when an Omen is incoming or running. `✦ OMEN · Full Moon` + one-line effect + `ends in 41m`. Dashed border
   while incoming, pulsing gold name while active. Line for level-1 coins: "Omens begin when the coin reaches level 2."
 - **Stats row:** Energy bar, Pot, Vault %, Reward pool, Deck, Burned.
-- **Price chart:** pan, zoom, candles or line, with drawn event markers (no emoji): an orange card for a card play, a red cross for a raid, a green triangle for a level-up, a flame for a Ritual, a star for graduation. Hover a marker for its name.
+- **Price chart:** pan, zoom, candles or line, with drawn event markers (no emoji): an orange card for a card play, a green check for a raid won and a red cross for a raid lost, a green triangle for a level-up, a flame for a Ritual, a star for graduation. Hover a marker for its name.
 - **Tabs:** six equal columns (Trade, Ritual, Vault, Raids, Cards, Log) with the badge under the label, so nothing scrolls or is cut off. Under 900 px they wrap into two rows of three.
   - **Ritual** (default): a big hero. Today's progress (gm count bar + NEAR-locked bar), time left, **Streak: 🔥 N · best ever M**, last 7 days
     as dots (made / missed / not yet), then the level-progress checklist.

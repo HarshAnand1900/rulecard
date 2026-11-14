@@ -9,12 +9,15 @@ export interface PricePoint { at: number; price: string; mcap: string; }
 const MIN = 60_000, HOUR = 60 * MIN;
 const RANGES: [string, number][] = [['1h', HOUR], ['6h', 6 * HOUR], ['24h', 24 * HOUR], ['All', Infinity]];
 const EVENT: Record<string, string> = { level_up: 'level up', card: 'card', raid: 'raid', ritual_made: 'ritual', graduated: 'graduated' };
-const EV_COLOR: Record<string, string> = { 'level up': '#5BE6A4', card: '#FF8B25', raid: '#FF5C5C', ritual: '#FFC83D', graduated: '#6C8CFF' };
+const EV_COLOR: Record<string, string> = { 'level up': '#5BE6A4', card: '#FF8B25', raid: '#FF8B25', 'raid won': '#3DD68C', 'raid lost': '#FF5C5C', 'raid tie': '#A79F94', ritual: '#FFC83D', graduated: '#6C8CFF' };
+const EV_LABEL: Record<string, string> = { 'level up': 'Level up', card: 'Card played', raid: 'Raid', 'raid won': 'Raid won', 'raid lost': 'Raid lost', 'raid tie': 'Raid tied', ritual: 'Ritual made', graduated: 'Graduated' };
 /** a small drawn marker for each kind of event (no emoji): a card, crossed blades, an arrow, a flame, a star */
 const EvMark = ({ kind, cx, cy }: { kind: string; cx: number; cy: number }) => {
   const c = EV_COLOR[kind] ?? '#FF8B25';
   const shape = kind === 'card' ? <g transform="rotate(-8)"><rect x={-4.5} y={-6} width={9} height={12} rx={1.8} fill="#0B0C10" stroke={c} strokeWidth={1.4} /><path d="M0 -2.8L2 0L0 2.8L-2 0Z" fill={c} /></g>
-    : kind === 'raid' ? <g stroke={c} strokeWidth={1.6} strokeLinecap="round"><path d="M-5 -5L5 5M5 -5L-5 5" /></g>
+    : kind === 'raid won' ? <g fill="none" stroke={c} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round"><circle r={6} /><path d="M-3 0.4L-0.8 2.8L3.4 -2.4" /></g>
+    : kind === 'raid tie' ? <g stroke={c} strokeWidth={1.8} strokeLinecap="round"><path d="M-5 0H5" /></g>
+    : kind === 'raid lost' || kind === 'raid' ? <g stroke={c} strokeWidth={1.6} strokeLinecap="round"><path d="M-5 -5L5 5M5 -5L-5 5" /></g>
     : kind === 'level up' ? <path d="M0 -6L5.5 4H-5.5Z" fill={c} />
     : kind === 'ritual' ? <path d="M0 -6C3 -2 5 0 5 3A5 5 0 0 1 -5 3C-5 0 -2 -1 0 -6Z" fill={c} />
     : <path d="M0 -6L1.8 -1.8L6 -1.5L2.8 1.3L3.8 5.5L0 3.2L-3.8 5.5L-2.8 1.3L-6 -1.5L-1.8 -1.8Z" fill={c} />;
@@ -98,7 +101,13 @@ export default function PriceChart({ points, log, now }: { points: PricePoint[];
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, log, unit, CN, w0, w1, now]);
-  const events = useMemo(() => log.filter(e => EVENT[e.kind] && e.at >= w0 && e.at <= w1).map(e => ({ t: e.at, icon: EVENT[e.kind], text: e.kind === 'card' ? e.memo : e.kind === 'raid' ? `raid ${e.memo}` : e.kind === 'level_up' ? `level up ${e.memo}` : e.kind === 'ritual_made' ? 'Ritual made' : e.kind })), [log, w0, w1]);
+  const events = useMemo(() => log.filter(e => EVENT[e.kind] && e.at >= w0 && e.at <= w1).map(e => {
+    const vs = e.account ? e.account.split('.')[0].toUpperCase() : '';
+    if (e.kind === 'raid') return { t: e.at, icon: e.memo === 'won' ? 'raid won' : e.memo === 'lost' ? 'raid lost' : e.memo === 'tie' ? 'raid tie' : 'raid', text: vs ? `against $${vs}` : '' };
+    if (e.kind === 'card') return { t: e.at, icon: 'card', text: e.memo };
+    if (e.kind === 'level_up') return { t: e.at, icon: 'level up', text: e.memo };
+    return { t: e.at, icon: EVENT[e.kind], text: '' };
+  }), [log, w0, w1]);
 
   const x = (t: number) => padL + ((t - w0) / span) * plotW;
   const live = candles.filter(k => !k.empty);
@@ -216,12 +225,12 @@ export default function PriceChart({ points, log, now }: { points: PricePoint[];
             <div className="mono small">{new Date(hover).toISOString().slice(5, 16).replace('T', ' ')} UTC</div>
             <div className="mono">{fmtV(hv, unit)} <span className="muted small">{unit === 'mcap' ? 'N mcap' : 'N/1M'}</span></div>
             {hk && hk.v > 0 && <div className="mono small muted">vol {fmtVol(hk.v)} N · {fmtVol(hk.buy)} bought</div>}
-            {hEvent && <div className="small"><b style={{ color: EV_COLOR[hEvent.icon] }}>{hEvent.icon}</b> {hEvent.text}</div>}
+            {hEvent && <div className="small"><b style={{ color: EV_COLOR[hEvent.icon] }}>{EV_LABEL[hEvent.icon] ?? hEvent.icon}</b> {hEvent.text}</div>}
           </div>
         )}
         {!data.length && <div className="chart-empty small muted">No trades in this window. Drag the other way, or press Live.</div>}
       </div>
-      <p className="small muted">Drag the chart to move through time. Zoom with − and +, with Ctrl + scroll, or scroll after clicking the chart. Double click to jump back to now. Every point is on-chain; volume bars use the coin's recent log. Markers: ⬆ level up · 🃏 card fired · ⚔ raid · 🕯 Ritual burn.</p>
+      <p className="small muted">Drag the chart to move through time. Zoom with − and +, with Ctrl + scroll, or scroll after clicking the chart. Double click to jump back to now. Every point is on-chain; volume bars use the coin's recent log. Markers: <span style={{ color: '#5BE6A4' }}>triangle</span> level up · <span style={{ color: '#FF8B25' }}>card</span> card played · <span style={{ color: '#3DD68C' }}>check</span> raid won · <span style={{ color: '#FF5C5C' }}>cross</span> raid lost · <span style={{ color: '#FFC83D' }}>flame</span> Ritual made.</p>
     </div>
   );
 }
