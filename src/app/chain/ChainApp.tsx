@@ -11,6 +11,7 @@ import { play, sfxForCall, isMuted, setMuted, onMuteChange, getVolume, setVolume
 import type {
   CoinEntry, CoinView, HolderView, Ritual, LevelView, LogEntry, HandView, Proposal, RaidView, Card, Question, BuyQuote, OmenView, Duel, Bounty, Payout,
 } from './types';
+import { EpicCard } from './epic/EpicCard';
 import { TIER_OF, TIER_NAME, CARD_TEXT, CARD_SYMBOL, RULE_TEXT, LEVEL_NAME, OMEN_COLOR } from './types';
 import PriceChart, { type PricePoint, toMicro } from './PriceChart';
 import Proof from './Proof';
@@ -625,15 +626,13 @@ function TodayTab({ d, now }: TabProps) {
 
 const JOKERS = ['1-common-grin', '2-rare-laugh', '3-epic-wink', '4-mythic-starry', '5-wild-shades'];
 const jokerOf = (s: string) => `url(/bg/jokers/${JOKERS[[...s].reduce((a, ch) => a + ch.charCodeAt(0), 0) % 5]}.png)`;
-function CardTile({ card, count, exp, now, actions }: { card: Card; count?: number; exp?: number; now: number; actions?: ReactNode }) {
-  const t = TIER_OF[card]; const info = CARD_TEXT[card];
+function CardTile({ card, count, exp, now, actions, scale = 1 }: { card: Card; count?: number; exp?: number; now: number; actions?: ReactNode; scale?: number }) {
   return (
-    <div className={`card t${t}`} style={{ ['--m' as any]: `url(/bg/symbols/${CARD_SYMBOL[card]}.png)` }}>
-      <span className="sym" aria-hidden="true" />
-      <div className="row between small"><span className="energy">⚡{info.energy}</span><span className="row gap"><span className="muted">{info.way}</span><InfoDot title={info.name}><CardInfo card={card} /></InfoDot></span></div>
-      <div className="card-name">{info.name}{count && count > 1 ? <span className="count">×{count}</span> : null}</div>
-      <div className="small tier">{TIER_NAME[t]}</div>
-      <div className="small">{info.text}</div>
+    <div className="card-slot" style={{ width: 240 * scale }}>
+      <div className="card-face">
+        <EpicCard card={card} scale={scale} />
+        {count && count > 1 ? <span className="count-badge">×{count}</span> : null}
+      </div>
       {exp ? <div className={`small ${exp - now < 3 * HOUR ? 'down' : 'muted'}`}>fades in {dur(exp - now)}</div> : null}
       {actions && <div className="card-actions">{actions}</div>}
     </div>
@@ -662,17 +661,23 @@ function CardsTab({ ch, me, id, d, now, busy, call, coins }: TabProps) {
         <div className="onboard-card reveal" onClick={e => e.stopPropagation()}>
           <h2 className="onboard-title">{dealt.length ? (dealt.length === 1 ? 'You drew a card' : `You drew ${dealt.length} cards`) : 'Pack opened'}</h2>
           {!dealt.length && <p className="muted small">Nothing new to show: your hand was full, so the pack may have replaced a card.</p>}
-          <div className="reveal-row">{dealt.map((k, i) => <div key={i} className="reveal-card" style={{ ['--i' as any]: i }}><CardTile card={k} now={now} /></div>)}</div>
+          <div className="reveal-row">{dealt.map((k, i) => <div key={i} className="reveal-card" style={{ ['--i' as any]: i }}><CardTile card={k} now={now} scale={.7} /></div>)}</div>
           <button className="btn primary" onClick={() => setDealt(null)}>Nice</button>
         </div>
       </div>}
-      <div className="panel row between wrap">
-        <div className="small">{hand ? <>Commons {held}/12 · Rares {hand.cards.filter(x => TIER_OF[x.card] === 1).length}/3 · Epics {hand.cards.filter(x => TIER_OF[x.card] === 2).length}/3</> : 'Buy to collect cards'}</div>
-        <div className="row gap">
-          {levelDrops.map(l => <button key={l} className="btn" disabled={!!busy} onClick={() => call(`L${l} drop`, 'claim_level_drop', { level: l })}>Claim L{l} drop</button>)}
-          <button className="btn primary" disabled={!hand || !!busy || now < (hand?.next_pack ?? 0)} onClick={() => { setSnap(hand); call('Claim pack', 'claim_pack', {}, 0n, 'Pack opened'); }}>
-            {hand && now < hand.next_pack ? `Next pack in ${dur(hand.next_pack - now)}` : 'Claim pack'}
-          </button>
+      <div className="panel packzone">
+        <button className={`packbox ${hand && now >= hand.next_pack ? 'ready' : ''}`} disabled={!hand || !!busy || now < (hand?.next_pack ?? 0)} onClick={() => { setSnap(hand); call('Claim pack', 'claim_pack', {}, 0n, 'Pack opened'); }} aria-label={hand && now < hand.next_pack ? `Next pack in ${dur(hand.next_pack - now)}` : 'Claim pack'}>
+          <span className="pb-glow" aria-hidden="true" /><span className="pb-foil" aria-hidden="true" /><span className="pb-edge" aria-hidden="true" />
+          <span className="pb-state mono">{hand && now < hand.next_pack ? dur(hand.next_pack - now) : 'READY'}</span>
+        </button>
+        <div className="pack-side">
+          <div className="small">{hand ? <>Commons {held}/12 · Rares {hand.cards.filter(x => TIER_OF[x.card] === 1).length}/3 · Epics {hand.cards.filter(x => TIER_OF[x.card] === 2).length}/3</> : 'Buy to collect cards'}</div>
+          <div className="row gap wrap">
+            {levelDrops.map(l => <button key={l} className="btn" disabled={!!busy} onClick={() => call(`L${l} drop`, 'claim_level_drop', { level: l })}>Claim L{l} drop</button>)}
+            <button className="btn primary" disabled={!hand || !!busy || now < (hand?.next_pack ?? 0)} onClick={() => { setSnap(hand); call('Claim pack', 'claim_pack', {}, 0n, 'Pack opened'); }}>
+              {hand && now < hand.next_pack ? `Next pack in ${dur(hand.next_pack - now)}` : 'Claim pack'}
+            </button>
+          </div>
         </div>
       </div>
       <div className="panel cardmarket">
@@ -684,7 +689,7 @@ function CardsTab({ ch, me, id, d, now, busy, call, coins }: TabProps) {
       <div className="panel">
         <h2>Your hand</h2>
         {!commons.length && !hand?.cards.length && <p className="muted">No cards yet: gm, then claim a pack.</p>}
-        <div className="hand">
+        <div className="ec-hand">
           {commons.map(([card, n]) => <CardTile key={card} card={card} count={n} now={now} actions={<>
             <CardPlay card={card} call={call} busy={busy} table={d.table} me={ch.me() ?? ''} coins={coins} selfId={id} price={c.price} raidOn={d.raid?.phase === 2} />
             <button className="btn small ghost" disabled={!!busy} onClick={() => call('Drop', 'drop_card', { card })}>Drop</button></>} />)}

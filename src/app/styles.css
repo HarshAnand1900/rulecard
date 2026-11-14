@@ -1140,3 +1140,37 @@ a.logo:hover .logo-mark { transform: rotate(-6deg) scale(1.06); transition: tran
 .chart-pro .chart-nav button:disabled { opacity: .4; }
 .chart-pro .chart-wrap { position: relative; }
 .chart-pro .chart-empty { position: absolute; inset: 40% 0 auto 0; text-align: center; pointer-events: none; }
+
+/* ---------------------------------------------------------------- cards: the rarity designs sit in their own shadow roots; this is only the layout around them */
+.ec-hand { display: flex; flex-wrap: wrap; gap: 22px 18px; justify-content: flex-start; }
+.card-slot { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.card-face { position: relative; }
+.count-badge { position: absolute; top: -8px; right: -8px; min-width: 34px; padding: 4px 8px; border-radius: 99px; text-align: center; font: 600 13px var(--f-mono); color: #1A0B00; background: linear-gradient(180deg, #FFC15A, #F25400); border: 1px solid rgba(255, 214, 150, .7); box-shadow: 0 0 14px rgba(255, 90, 20, .6); pointer-events: none; z-index: 2; }
+.card-slot .card-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.reveal-row { gap: 6px; }
+.reveal-card { width: auto; }
+
+/* the pack: a black foil box with a hot orange glow, no suit and no name on it */
+.packzone { display: grid; grid-template-columns: auto 1fr; gap: 24px; align-items: center; }
+.pack-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.packbox { position: relative; flex: none; width: 132px; height: 184px; margin: 14px; border-radius: 14px; border: 1px solid rgba(255, 139, 37, .5); cursor: pointer; padding: 0; color: #FFD9B0; overflow: visible;
+  background: linear-gradient(160deg, #1B140F 0%, #09090B 45%, #140A05 100%);
+  box-shadow: 0 0 22px -2px rgba(255, 90, 20, .35), inset 0 0 24px rgba(0, 0, 0, .85), inset 0 1px 0 rgba(255, 200, 140, .18);
+  transition: transform 400ms var(--ease), box-shadow 400ms var(--ease); }
+.packbox:disabled { cursor: not-allowed; filter: saturate(.55) brightness(.8); }
+.packbox.ready { box-shadow: 0 0 44px 2px rgba(255, 90, 20, .6), 0 0 90px -10px rgba(255, 120, 30, .45), inset 0 0 24px rgba(0, 0, 0, .85), inset 0 1px 0 rgba(255, 210, 160, .3); animation: packpulse 2.8s ease-in-out infinite; }
+.packbox:hover:not(:disabled) { transform: translateY(-4px) rotate(-1.5deg) scale(1.03); }
+.packbox:active:not(:disabled) { transform: scale(.98); }
+.pb-glow { position: absolute; inset: -22px; border-radius: 30px; pointer-events: none; z-index: -1; background: radial-gradient(closest-side, rgba(255, 110, 20, .4), transparent 70%); opacity: .55; }
+.packbox.ready .pb-glow { opacity: 1; }
+.pb-foil { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; pointer-events: none;
+  background: repeating-linear-gradient(118deg, rgba(255, 139, 37, 0) 0 14px, rgba(255, 139, 37, .09) 14px 15px), radial-gradient(90% 55% at 50% 100%, rgba(255, 90, 20, .35), transparent 70%), radial-gradient(70% 40% at 50% 0%, rgba(255, 180, 90, .14), transparent 70%); }
+.pb-foil::after { content: ""; position: absolute; inset: -40% -60%; background: linear-gradient(115deg, transparent 44%, rgba(255, 200, 130, .35) 50%, transparent 56%); animation: packsweep 4.2s ease-in-out infinite; }
+.pb-edge { position: absolute; inset: 7px; border-radius: 9px; border: 1px solid rgba(255, 139, 37, .35); pointer-events: none; }
+.pb-edge::before, .pb-edge::after { content: ""; position: absolute; left: 12px; right: 12px; height: 1px; background: linear-gradient(90deg, transparent, rgba(255, 160, 70, .7), transparent); }
+.pb-edge::before { top: 22px; } .pb-edge::after { bottom: 22px; }
+.pb-state { position: absolute; left: 0; right: 0; bottom: 34px; text-align: center; font-size: 12px; letter-spacing: .22em; color: #FFC27A; text-shadow: 0 0 10px rgba(255, 110, 20, .8); }
+@keyframes packpulse { 50% { box-shadow: 0 0 62px 6px rgba(255, 100, 24, .75), 0 0 110px -6px rgba(255, 130, 40, .55), inset 0 0 24px rgba(0, 0, 0, .85), inset 0 1px 0 rgba(255, 210, 160, .3); } }
+@keyframes packsweep { 0%, 55% { transform: translateX(-60%); } 100% { transform: translateX(60%); } }
+@media (prefers-reduced-motion: reduce) { .packbox.ready, .pb-foil::after { animation: none; } }
+@media (max-width: 640px) { .packzone { grid-template-columns: 1fr; justify-items: center; } }
