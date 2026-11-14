@@ -123,8 +123,9 @@ export default function RaidArena({ ch, me, id, coins, tick, act, busy, back, go
           <h2>Your side</h2>
           <p className="small muted">Scores shown are each coin's own report. Tactics (Rally, Curse, Ward, Mirror, Counterspell, Decoy) are applied when the raid settles. Change your plan from the coin's Raids tab before a round starts.</p>
           <div className="row gap wrap">
-            <button className="btn primary" disabled={!!busy || !me || raid.round === null} onClick={() => act('Battle cry', () => ch.call(a.id, 'battle_cry', {}, 0n), 'Battle cry! +Crowd')}>📯 Battle cry</button>
-            <button className="btn" onClick={() => { try { sessionStorage.setItem('rc-open-tab', 'raid'); } catch { /* optional */ } go(a.id); }}>Edit your plan</button>
+            {now < raid.end && <button className="btn primary" disabled={!!busy || !me || raid.round === null} onClick={() => act('Battle cry', () => ch.call(a.id, 'battle_cry', {}, 0n), 'Battle cry! +Crowd')}>Battle cry</button>}
+            {now < raid.end && <button className="btn" onClick={() => { try { sessionStorage.setItem('rc-open-tab', 'raid'); } catch { /* optional */ } go(a.id); }}>Edit your plan</button>}
+            {now >= raid.end && <span className="small gold">This raid has ended: plans and Battle cry are closed. Press Settle raid to lock in the result.</span>}
             {now >= raid.end && raid.attacking && <button className="btn" disabled={!!busy} onClick={() => act('Settle', () => ch.call(a.id, 'settle_raid', {}, 0n), 'Raid settled')}>Settle raid</button>}
             {now >= raid.end && !raid.attacking && <button className="btn" disabled={!!busy} onClick={() => act('Settle', () => ch.call(oppId, 'settle_raid', {}, 0n), 'Raid settled')}>Settle raid</button>}
           </div>

@@ -888,6 +888,8 @@ function RaidTab({ ch, id, d, now, busy, call, coins, act, me, go }: TabProps) {
             <div className="small">{raid.tactic[i] ? `tactic: ${tacticName(raid.tactic[i])}` : 'tactic hidden'}</div>
             {raid.scout[i] ? <div className="small gold">scouted: {raid.scout[i] === 255 ? 'no tactic' : tacticName(raid.scout[i])}</div> : null}
           </div>)}</div>
+          {now >= raid.end && <p className="small gold" role="status">This raid has ended, so plans, Battle cry and Scout are closed. Press Settle raid to lock in the result{raid.attacking ? '' : ' (it settles on the attacking coin)'}.</p>}
+          {now < raid.end && <>
           <h3>Your plan <span className="muted small">({raid.planners} wallets have plans)</span></h3>
           <div className="row gap wrap">{slots.map((s, i) => <label key={i} className="small">R{i + 1}{' '}
             <select disabled={now >= roundStart(i)} value={s ?? ''} onChange={e => setSlots(x => x.map((y, j) => (j === i ? ((e.target.value || null) as Card | null) : y)))}>
@@ -895,8 +897,9 @@ function RaidTab({ ch, id, d, now, busy, call, coins, act, me, go }: TabProps) {
             </select></label>)}
             <button className="btn" disabled={!!busy} onClick={() => call('Save plan', 'set_plan', { slots })}>Save plan</button>
             <span className="small muted">In hand: {tactics.map(([k, n]) => `${k} ×${n}`).join(', ') || 'none'}</span></div>
-          <div className="row gap wrap"><button className="btn primary" disabled={!!busy || raid.round === null} onClick={() => call('Battle cry', 'battle_cry', {}, 0n, 'Battle cry! +Crowd')}>📯 Battle cry</button>
-            {has('Scout') && <button className="btn" disabled={!!busy} onClick={() => call('Scout', 'scout', {}, 0n, 'Scouting: the answer lands in a few seconds')}>Scout the next round</button>}
+          </>}
+          <div className="row gap wrap">{now < raid.end && <button className="btn primary" disabled={!!busy || raid.round === null} onClick={() => call('Battle cry', 'battle_cry', {}, 0n, 'Battle cry! +Crowd')}>Battle cry</button>}
+            {now < raid.end && has('Scout') && <button className="btn" disabled={!!busy} onClick={() => call('Scout', 'scout', {}, 0n, 'Scouting: the answer lands in a few seconds')}>Scout the next round</button>}
             {now >= raid.end && raid.attacking && <button className="btn" disabled={!!busy} onClick={() => call('Settle', 'settle_raid', {}, 0n, 'Raid settled')}>Settle raid</button>}
             {now >= raid.end && !raid.attacking && <button className="btn" disabled={!!busy} onClick={() => act('Settle', () => ch.call(other, 'settle_raid'), 'Raid settled')}>Settle raid</button>}</div>
         </>}
