@@ -151,7 +151,6 @@ export default function ChainApp() {
       {busy && <div className="busy" role="status">⏳ {busy}…</div>}
       {toast && <div className={`toast ${toast.ok ? 'ok' : 'bad'}`} role="status">{toast.text}</div>}
       <main className="page" key={page.kind === 'coin' || page.kind === 'arena' ? `${page.kind}-${page.id}` : page.kind}>
-        {ch.scale === 'demo' && !practice && <div className="demo-banner"><strong>Demo mode</strong>: same contract rules, but every NEAR amount is ÷100 and time runs 12× faster (gm every 30 min, a Ritual day is 2h, raid rounds 100 s). Separate factory and coins.{ch.scales.includes('real') ? <> Switch to <em>Real</em> for full-size numbers.</> : <> The real-size numbers are in the contract build and the docs; the testnet world runs at demo scale so a full game fits in a few minutes.</>}</div>}
         {listErr && <div className="warn">{listErr}</div>}
         {page.kind === 'discover' && <Discover {...ctx} />}
         {page.kind === 'launch' && <Launch ch={ch} me={me} act={act} busy={busy} go={setPage} coins={coins} />}
