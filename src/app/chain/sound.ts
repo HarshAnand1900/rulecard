@@ -2,7 +2,7 @@
 // A volume control and a mute switch are remembered.
 export type Sfx = 'buy' | 'sell' | 'omen';
 
-const FILES: Record<Sfx, string> = { buy: '/sounds/balatro_voucher.mp3', sell: '/sounds/balatro_voucher.mp3', omen: '/sounds/balatro_open.mp3' };
+const FILES: Record<Sfx, string> = { buy: '/sounds/balatro_voucher.mp3', sell: '/sounds/balatro_voucher.mp3', omen: '/sounds/balatro_holographic.mp3' };
 const MUTE_KEY = 'rulecard-muted', VOL_KEY = 'rulecard-volume';
 let muted = false, volume = 0.7;
 try { muted = localStorage.getItem(MUTE_KEY) === '1'; const v = Number(localStorage.getItem(VOL_KEY)); if (Number.isFinite(v) && v > 0) volume = Math.min(1, v); } catch { /* no storage: defaults */ }
