@@ -71,7 +71,7 @@ export default function ChainApp() {
   const act = useCallback(async (label: string, fn: () => Promise<unknown>, done?: string) => {
     setBusy(label);
     try { await fn(); setToast({ ok: true, text: done ?? `${label}: done` }); }
-    catch (e: any) { setToast({ ok: false, text: `${label}: ${e.message}` }); }
+    catch (e: any) { setToast({ ok: false, text: `${label}: ${friendly(String(e?.message ?? e))}` }); }
     finally { setBusy(''); refresh(); }
   }, [refresh]);
 
@@ -625,6 +625,15 @@ function TodayTab({ d, now }: TabProps) {
 
 const BACKINGS = ['back', 'sign', 'sign_raid', 'stoke'];
 const TABLE_PLAYS = ['play_card', 'play_alliance', 'duel_challenge', 'bounty_open', 'start_friendly_raid', 'start_hard_raid', 'counterspell_card'];
+/** turn a wallet or contract refusal into one plain sentence that says what to do */
+const friendly = (m: string) =>
+  /closed the window|user rejected|rejected the request|cancel/i.test(m) ? 'you closed the wallet window, so nothing was sent. Press the button again and approve it in the wallet.'
+  : /gm first/i.test(m) ? 'say gm first: a pack needs a gm in the last 6 hours.'
+  : /next pack is not ready/i.test(m) ? 'the next pack is not ready yet. The timer on the pack shows when.'
+  : /make room/i.test(m) ? m.replace(/^.*make room/i, 'make room') + '. Drop a card in Your hand, then try again.'
+  : /buy first/i.test(m) ? 'buy a little of this coin first (Trade tab).'
+  : /weren.t holding/i.test(m) ? 'you were not holding this coin an hour before it crossed that level, so that drop is not yours.'
+  : m;
 const JOKERS = ['1-common-grin', '2-rare-laugh', '3-epic-wink', '4-mythic-starry', '5-wild-shades'];
 const jokerOf = (s: string) => `url(/bg/jokers/${JOKERS[[...s].reduce((a, ch) => a + ch.charCodeAt(0), 0) % 5]}.png)`;
 const PACK_SYMS = [...new Set(Object.values(CARD_SYMBOL))];
@@ -645,6 +654,7 @@ function CardTile({ card, count, exp, now, actions, scale = 1 }: { card: Card; c
   );
 }
 
+const levelDrops_ = (c: CoinView, hand: HandView | null) => [2, 3, 4].filter(l => l <= c.level && hand && !(hand.drops_claimed & (1 << l)));
 function CardsTab({ ch, me, id, d, now, busy, call, coins }: TabProps) {
   const { hand, c } = d;
   const [snap, setSnap] = useState<HandView | null>(null);
@@ -660,9 +670,25 @@ function CardsTab({ ch, me, id, d, now, busy, call, coins }: TabProps) {
   }, [hand, snap]);
   const commons = hand ? hand.commons.filter(([, n]) => n > 0) : [];
   const held = commons.reduce((a, [, n]) => a + n, 0);
-  const packN = (hand && now >= hand.next_pack ? 1 : 0) + d.pending.filter(x => x.pack).length;
+  const { h } = d;
+  // everything the contract checks before it hands out a pack, so the page can say what is missing instead of offering a button that fails
+  const bagOk = !!h && !!hand;
+  const gmOk = !!h && h.last_gm > 0 && now < h.next_gm;
+  const timerOk = !!hand && now >= hand.next_pack;
+  const roomOk = held + 2 <= 12;
+  const timedOk = bagOk && gmOk && timerOk && roomOk;
+  const payPacks = d.pending.filter(x => x.pack).length;
+  const packN = (timedOk ? 1 : 0) + payPacks;
+  const gmEvery = (6 * HOUR) / TS, holdNeed = HOUR / TS;
+  const checks: { ok: boolean; label: string; hint: string }[] = [
+    { ok: bagOk, label: `You hold some $${c.symbol}`, hint: 'Buy a little in the Trade tab: packs only go to holders.' },
+    { ok: gmOk, label: `You said gm in the last ${dur(gmEvery)}`, hint: bagOk ? (h!.last_gm > 0 ? 'Your last gm is too old. Say gm again.' : 'You have not said gm yet. Say gm.') : 'Buy first, then say gm.' },
+    { ok: timerOk, label: 'The pack timer is done', hint: hand ? `The next pack is ready in ${dur(Math.max(0, hand.next_pack - now))}.` : 'It starts after your first buy.' },
+    { ok: roomOk, label: 'You have room for 2 more Commons', hint: `You hold ${held} of 12. Drop a Common in Your hand to make room.` },
+  ];
+  const dropOk = (l: number) => !!h && h.since > 0 && h.since + holdNeed <= (c.level_at[l - 1] ?? 0);
+  const claimable = levelDrops_(c, hand).filter(dropOk), missedDrops = levelDrops_(c, hand).filter(l => !dropOk(l));
   const claimPack = () => { setSnap(hand); if (d.pending.some(x => x.pack)) call('Claim packs', 'claim_payouts', {}, 0n, 'Packs claimed'); else call('Claim pack', 'claim_pack', {}, 0n, 'Pack opened'); };
-  const levelDrops = [2, 3, 4].filter(l => l <= c.level && hand && !(hand.drops_claimed & (1 << l)));
   return (
     <div className="stack">
       {dealt && <div className="onboard" role="dialog" aria-label="Pack opened" onClick={() => setDealt(null)}>
@@ -674,10 +700,10 @@ function CardsTab({ ch, me, id, d, now, busy, call, coins }: TabProps) {
         </div>
       </div>}
       <div className="panel packzone">
-        <button className={`packbox ${packN > 0 ? 'ready' : ''}`} disabled={!hand || !!busy || packN === 0} onClick={claimPack} aria-label={hand && now < hand.next_pack ? `Next pack in ${dur(hand.next_pack - now)}` : 'Claim pack'}>
+        <button className={`packbox ${packN > 0 ? 'ready' : ''}`} disabled={!!busy || packN === 0} onClick={claimPack} aria-label={hand && now < hand.next_pack ? `Next pack in ${dur(hand.next_pack - now)}` : 'Claim pack'}>
           <span className="pb-glow" aria-hidden="true" />
           <span className="pb-scene" aria-hidden="true"><span className="pb-cube">
-            <span className="pb-f front"><span className="pb-grid" style={{ ['--c' as any]: 4 }}><PackSyms n={24} off={0} /></span><span className="pb-state mono">{!hand ? 'LOCKED' : packN === 0 ? dur(hand.next_pack - now) : 'READY'}</span></span>
+            <span className="pb-f front"><span className="pb-grid" style={{ ['--c' as any]: 4 }}><PackSyms n={24} off={0} /></span><span className="pb-state mono">{!hand || !bagOk ? 'LOCKED' : packN > 0 ? 'READY' : !gmOk ? 'NEEDS GM' : !roomOk ? 'HAND FULL' : dur(Math.max(0, hand.next_pack - now))}</span></span>
             <span className="pb-f back"><span className="pb-grid" style={{ ['--c' as any]: 4 }}><PackSyms n={24} off={9} /></span></span>
             <span className="pb-f left"><span className="pb-grid" style={{ ['--c' as any]: 2 }}><PackSyms n={12} off={3} /></span></span>
             <span className="pb-f right"><span className="pb-grid" style={{ ['--c' as any]: 2 }}><PackSyms n={12} off={15} /></span></span>
@@ -688,12 +714,20 @@ function CardsTab({ ch, me, id, d, now, busy, call, coins }: TabProps) {
         </button>
         <div className="pack-side">
           <div className="small">{hand ? <>Commons {held}/12 · Rares {hand.cards.filter(x => TIER_OF[x.card] === 1).length}/3 · Epics {hand.cards.filter(x => TIER_OF[x.card] === 2).length}/3</> : 'Buy to collect cards'}</div>
-          <div className="row gap wrap">
-            {levelDrops.map(l => <button key={l} className="btn" disabled={!!busy} onClick={() => call(`L${l} drop`, 'claim_level_drop', { level: l })}>Claim L{l} drop</button>)}
-            <button className="btn primary" disabled={!hand || !!busy || packN === 0} onClick={claimPack}>
-              {packN === 0 && hand ? `Next pack in ${dur(hand.next_pack - now)}` : packN > 1 ? `Claim pack ×${packN}` : 'Claim pack'}
-            </button>
-          </div>
+          {packN > 0 || claimable.length > 0 ? <div className="row gap wrap">
+            {claimable.map(l => <button key={l} className="btn" disabled={!!busy} onClick={() => call(`L${l} drop`, 'claim_level_drop', { level: l })}>Claim L{l} drop</button>)}
+            {packN > 0 && <button className="btn primary" disabled={!!busy} onClick={claimPack}>{packN > 1 ? `Claim pack ×${packN}` : 'Claim pack'}</button>}
+          </div> : null}
+          {packN === 0 && <div className="why" role="status">
+            <strong>No pack to claim yet. Here is what is missing:</strong>
+            <ul>{checks.map(x => <li key={x.label} className={x.ok ? 'ok' : 'no'}><span aria-hidden="true">{x.ok ? '✓' : '✗'}</span><span>{x.label}{!x.ok && <small> · {x.hint}</small>}</span></li>)}</ul>
+            <div className="row gap wrap">
+              {bagOk && !gmOk && <button className="btn primary small" disabled={!!busy} onClick={() => call('gm', 'gm', {}, 0n, 'gm sent')}>Say gm now</button>}
+              {!roomOk && <span className="small muted">Use the Drop button under a Common below.</span>}
+              {bagOk && gmOk && roomOk && !timerOk && <span className="small muted">Nothing to do but wait: a pack arrives every {dur(6 * HOUR / TS)}. Helping a card on the Table cuts 10 minutes off.</span>}
+            </div>
+          </div>}
+          {missedDrops.map(l => <p key={l} className="small muted">L{l} drop: it goes to holders who held at least {dur(holdNeed)} before the coin reached L{l}, so it is not yours. {l < 4 ? `The L${l + 1} drop is next: hold $${c.symbol} and keep saying gm.` : ''}</p>)}
         </div>
       </div>
       <div className="panel cardmarket">

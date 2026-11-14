@@ -1207,3 +1207,11 @@ a.logo:hover .logo-mark { transform: rotate(-6deg) scale(1.06); transition: tran
 @keyframes pbtwinkle { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
 @keyframes packglow { 50% { opacity: .55; } }
 @media (prefers-reduced-motion: reduce) { .pb-cube, .pb-grid i, .packbox.ready .pb-glow { animation: none; } }
+
+/* why a pack is not claimable yet: a checklist, not a dead button */
+.why { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 14px; background: rgba(255, 255, 255, .03); border: 1px solid rgba(245, 239, 230, .1); }
+.why ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.why li { display: grid; grid-template-columns: 18px 1fr; gap: 8px; font-size: 13px; }
+.why li.ok { color: #8CF0BD; }
+.why li.no { color: #FFD9B0; }
+.why li small { color: #B7B2AA; }
