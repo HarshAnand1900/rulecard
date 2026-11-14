@@ -369,3 +369,9 @@ section[style*="rgba(19,18,9"]::before {
 
 /* the landing and inner pages use the same logo mark */
 .logo .mark-img { display: block; width: 26px; height: 26px; border-radius: 8px; box-shadow: 0 0 14px -2px rgba(255, 110, 20, .6); }
+
+/* the landing deck: the real card designs, drawn at full size under a one line note */
+#deck-grid { display: flex !important; flex-wrap: wrap; justify-content: center; gap: 36px 28px; }
+#deck-grid .pcx { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 240px; }
+#deck-grid .pcx-card { width: 240px; height: 340px; }
+#deck-grid .pcx-note { text-align: center; max-width: 240px; }

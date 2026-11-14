@@ -438,6 +438,7 @@ details .ans { padding: 0 var(--s300) var(--s300); color: var(--muted); animatio
 <script>window.RC_FACTORY = "demo3.harshtest1.testnet"; /* the factory the landing reads; change it when the world moves */</script>
 <script src="/sculpt.js" defer></script>
 <script src="/live.js" defer></script>
+<script type="module" src="/src/landing-cards.ts"></script>
 
 <footer>
   <div class="wrap foot">
@@ -495,9 +496,9 @@ details .ans { padding: 0 var(--s300) var(--s300); color: var(--muted); animatio
     var built = list.filter(function (c) { return !c[6]; });
     if (tier === 'mythic') { list = list.filter(function (c) { return !c[6]; }); }
     g.innerHTML = list.length && !(tier === 'mythic' && built.length === 0) ? list.map(function (c, i) {
-      var t = TIER[c[0]];
-      return '<article class="pc' + (c[6] ? ' soon' : '') + '" style="--tc:' + t[1] + ';--d:' + i + '"><div class="top"><span class="caption-3">' + t[0].toUpperCase() + '</span>' + (c[6] ? '<span class="caption-4 muted">Soon</span>' : '<span class="cost caption-3"><i class="ph-fill ph-lightning i" aria-hidden="true"></i>' + c[3] + '</span>') + '</div><div class="art"><span class="sym" style="--m:url(/bg/symbols/' + c[2] + '.png)" aria-hidden="true"></span></div><div><h3 class="title-1">' + c[1] + '</h3><p class="body-6 muted" style="margin-top:var(--s50)">' + c[5] + '</p></div><span class="way caption-4">' + c[4] + '</span></article>';
+      return '<div class="pcx" style="--d:' + i + '"><div class="pcx-card" data-card="' + c[1].replace(/ /g, '') + '" role="img" aria-label="' + c[1] + ' card"></div><p class="body-6 muted pcx-note">' + c[5] + '</p></div>';
     }).join('') : '<div class="empty"><i class="ph-bold ph-sparkle i" aria-hidden="true"></i><h3 class="title-2">No Mythic cards are built yet</h3><p class="body-6 muted" style="max-width:420px">Supernova is the first one planned. Today the deck has common, rare and epic cards.</p></div>';
+    if (window.RCmount) window.RCmount(g);
     requestAnimationFrame(function () { requestAnimationFrame(function () { if (reduce || inView(g)) g.classList.add('in'); else ioDeck.observe(g); }); });
   }
   function tabs() {
@@ -507,6 +508,7 @@ details .ans { padding: 0 var(--s300) var(--s300); color: var(--muted); animatio
       return '<button class="tab button-sm" role="tab" aria-selected="' + (id === tier) + '" data-t="' + id + '">' + (id === 'all' ? 'All' : id[0].toUpperCase() + id.slice(1)) + ' <span class="mono caption-4" style="opacity:.7">' + n + '</span></button>';
     }).join('');
   }
+  window.addEventListener('rc-cards-ready', function () { if (window.RCmount) window.RCmount($('#deck-grid')); });
   $('#tabs').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; tier = b.dataset.t; tabs(); deck(); });
 
   function inView(el) { var r = el.getBoundingClientRect(); return r.top < innerHeight * .9 && r.bottom > 0; }

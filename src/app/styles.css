@@ -1174,3 +1174,9 @@ a.logo:hover .logo-mark { transform: rotate(-6deg) scale(1.06); transition: tran
 @keyframes packsweep { 0%, 55% { transform: translateX(-60%); } 100% { transform: translateX(60%); } }
 @media (prefers-reduced-motion: reduce) { .packbox.ready, .pb-foil::after { animation: none; } }
 @media (max-width: 640px) { .packzone { grid-template-columns: 1fr; justify-items: center; } }
+
+.ec-minis { display: flex; flex-wrap: wrap; gap: 18px; }
+.mini-card { display: flex; flex-direction: column; gap: 6px; width: 144px; }
+.mini-card strong { font-size: 14px; }
+.mini-card small { color: #B7B2AA; }
+.packbox .count-badge { top: -12px; right: -12px; }

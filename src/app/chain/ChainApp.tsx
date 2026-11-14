@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { toNear, toTok, nearToYocto, tokToUnits, fmtTok, fmtNear } from './near';
 import Ticker from './Ticker';
-import { InfoDot, CardInfo, OmenInfo } from './Info';
+import { InfoDot, OmenInfo } from './Info';
 import { openNet, savedDoor, saveDoor, needsDoor, type Net, type Door } from './net';
 import Landing from './Landing';
 import Onboard from './Onboard';
@@ -12,7 +12,7 @@ import type {
   CoinEntry, CoinView, HolderView, Ritual, LevelView, LogEntry, HandView, Proposal, RaidView, Card, Question, BuyQuote, OmenView, Duel, Bounty, Payout,
 } from './types';
 import { EpicCard } from './epic/EpicCard';
-import { TIER_OF, TIER_NAME, CARD_TEXT, CARD_SYMBOL, RULE_TEXT, LEVEL_NAME, OMEN_COLOR } from './types';
+import { TIER_OF, TIER_NAME, CARD_TEXT, RULE_TEXT, LEVEL_NAME, OMEN_COLOR } from './types';
 import PriceChart, { type PricePoint, toMicro } from './PriceChart';
 import Proof from './Proof';
 import WarMap from './WarMap';
@@ -469,17 +469,17 @@ function TradeTab({ ch, me, id, d, now, busy, act, onBought, setTab, below }: Ta
         <div className="panel">
           <div className="row between wrap"><h2>The Table <span className="muted small mono">{d.table.length} IN PLAY</span></h2><button className="btn small" onClick={() => setTab('cards')}>Hand and market →</button></div>
           {!d.table.length && <p className="muted small">Nothing on the table. Cards that need backers or signers show here.</p>}
-          <div className="minis">
+          <div className="ec-minis">
             {d.table.map(t => {
-              const tier = TIER_OF[t.card], info = CARD_TEXT[t.card];
+              const info = CARD_TEXT[t.card];
               const phase = t.phase === 0 ? (SIGNED.includes(t.card) ? 'Being signed' : 'Being backed') : t.phase === 1 ? (t.card === 'Prophecy' ? 'Prophecy live' : t.card === 'BlackHole' ? 'Throwing' : t.card === 'Stampede' || t.card === 'Squeeze' ? 'Crowd window' : 'Fuel window') : 'Resolving';
               return (
-                <div key={t.id} role="button" tabIndex={0} className={`mini t${tier}`} style={{ ['--m' as any]: `url(/bg/symbols/${CARD_SYMBOL[t.card]}.png)` }} onClick={() => setTab('cards')} onKeyDown={e => { if (e.key === 'Enter') setTab('cards'); }}>
-                  <span className="mini-top mono"><span>{TIER_NAME[tier]}</span><span className="row gap"><span>{dur(t.phase_end - now)}</span><InfoDot title={info.name}><CardInfo card={t.card} /></InfoDot></span></span>
-                  <span className="mini-art" aria-hidden="true" />
+                <div key={t.id} className="mini-card">
+                  <EpicCard card={t.card} scale={.6} />
                   <strong>{info.name}</strong>
-                  <small className="mono">{phase}</small>
+                  <small className="mono">{phase} · {dur(t.phase_end - now)}</small>
                   {t.phase === 0 && <span className="meter"><i style={{ width: `${pct(t.backers.length, t.needed)}%` }} /></span>}
+                  <button className="btn small ghost" onClick={() => setTab('cards')}>Open</button>
                 </div>
               );
             })}
@@ -654,6 +654,8 @@ function CardsTab({ ch, me, id, d, now, busy, call, coins }: TabProps) {
   }, [hand, snap]);
   const commons = hand ? hand.commons.filter(([, n]) => n > 0) : [];
   const held = commons.reduce((a, [, n]) => a + n, 0);
+  const packN = (hand && now >= hand.next_pack ? 1 : 0) + d.pending.filter(x => x.pack).length;
+  const claimPack = () => { setSnap(hand); if (d.pending.some(x => x.pack)) call('Claim packs', 'claim_payouts', {}, 0n, 'Packs claimed'); else call('Claim pack', 'claim_pack', {}, 0n, 'Pack opened'); };
   const levelDrops = [2, 3, 4].filter(l => l <= c.level && hand && !(hand.drops_claimed & (1 << l)));
   return (
     <div className="stack">
@@ -666,16 +668,16 @@ function CardsTab({ ch, me, id, d, now, busy, call, coins }: TabProps) {
         </div>
       </div>}
       <div className="panel packzone">
-        <button className={`packbox ${hand && now >= hand.next_pack ? 'ready' : ''}`} disabled={!hand || !!busy || now < (hand?.next_pack ?? 0)} onClick={() => { setSnap(hand); call('Claim pack', 'claim_pack', {}, 0n, 'Pack opened'); }} aria-label={hand && now < hand.next_pack ? `Next pack in ${dur(hand.next_pack - now)}` : 'Claim pack'}>
+        <button className={`packbox ${packN > 0 ? 'ready' : ''}`} disabled={!hand || !!busy || packN === 0} onClick={claimPack} aria-label={hand && now < hand.next_pack ? `Next pack in ${dur(hand.next_pack - now)}` : 'Claim pack'}>
           <span className="pb-glow" aria-hidden="true" /><span className="pb-foil" aria-hidden="true" /><span className="pb-edge" aria-hidden="true" />
-          <span className="pb-state mono">{hand && now < hand.next_pack ? dur(hand.next_pack - now) : 'READY'}</span>
+          {(packN > 1) && <span className="count-badge">×{packN}</span>}<span className="pb-state mono">{packN === 0 && hand ? dur(hand.next_pack - now) : 'READY'}</span>
         </button>
         <div className="pack-side">
           <div className="small">{hand ? <>Commons {held}/12 · Rares {hand.cards.filter(x => TIER_OF[x.card] === 1).length}/3 · Epics {hand.cards.filter(x => TIER_OF[x.card] === 2).length}/3</> : 'Buy to collect cards'}</div>
           <div className="row gap wrap">
             {levelDrops.map(l => <button key={l} className="btn" disabled={!!busy} onClick={() => call(`L${l} drop`, 'claim_level_drop', { level: l })}>Claim L{l} drop</button>)}
-            <button className="btn primary" disabled={!hand || !!busy || now < (hand?.next_pack ?? 0)} onClick={() => { setSnap(hand); call('Claim pack', 'claim_pack', {}, 0n, 'Pack opened'); }}>
-              {hand && now < hand.next_pack ? `Next pack in ${dur(hand.next_pack - now)}` : 'Claim pack'}
+            <button className="btn primary" disabled={!hand || !!busy || packN === 0} onClick={claimPack}>
+              {packN === 0 && hand ? `Next pack in ${dur(hand.next_pack - now)}` : packN > 1 ? `Claim pack ×${packN}` : 'Claim pack'}
             </button>
           </div>
         </div>
