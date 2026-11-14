@@ -80,7 +80,12 @@ export const DOCS: DocPage[] = [
           ['Fee', 'The trade fee in NEAR.'],
           ['Price impact', 'How far your order moves the price. Big orders move it more.'],
           ['First buy storage', 'A small one time NEAR deposit to register your account with the coin.'] ] } } ] },
-      { id: 'fees', title: 'Fees', blocks: [{ p: 'The trade fee is 2%. 1.5% goes to the pot and the rest to the protocol. Keep a little NEAR aside for network fees: the app reserves a small amount when you press Max.' }] },
+      { id: 'fees', title: 'Fees', blocks: [
+        { p: 'Every buy and every sell pays a 2% fee, taken from the NEAR you pay (buy) or receive (sell). It is split three ways: 1.5% goes to the coin\'s pot, 0.3% to the protocol, and 0.2% into the creator escrow. Keep a little NEAR aside for network fees: the app reserves a small amount when you press Max.' },
+        { ul: ['Pot (1.5%): the fund that cards and the Ritual spend to buy and burn supply.', 'Protocol (0.3%): collects in the coin until anyone presses the payout, which sends it to the fixed protocol account saved in the coin. Nobody can redirect it.', 'Creator escrow (0.2%): the creator\'s only income. It stays locked in the coin and can be paid out only after the coin graduates.'] } ] },
+      { id: 'graduation', title: 'Graduation and creator rewards', blocks: [
+        { p: 'A coin graduates when its curve sells out: about 3,946 NEAR in the curve at full size (about 19,074 NEAR market cap), and about one hundredth of that in demo mode.' },
+        { ul: ['What ends: buying, the Ritual, cards, Omens, raids, Duels and Bounties. Chips on the Table are refunded.', 'What stays: holders can still sell back to the curve, and the coin moves to the Hall of Fame on Discover with its final market cap, burns, raid record and escrow.', 'Creator rewards: after graduation, anyone can press the escrow payout and the whole creator escrow (0.2% of all the coin\'s trading volume) is sent to the creator account that launched it. A coin that never graduates pays its creator nothing.', 'The creator gets no tokens: there is no pre-mine and no team allocation. The creator\'s seed goes into the pot, not the curve, and cannot be taken back out.', 'Protocol: the 0.3% protocol share can be paid out at any time to the fixed protocol account.', 'After graduation the pot no longer spends, since cards have ended. The 156.8 million tokens kept aside for a DEX pool stay in the coin until a DEX listing, such as Ref Finance, is built. That listing is a future step, not built yet.'] } ] },
       { id: 'limits', title: 'Limits and taxes', blocks: [
         { ul: ['Paper Tax: selling tokens bought less than 1 hour ago pays 10% to the pot.', 'Soft Tax: selling tokens bought less than 30 minutes ago pays 5%.', 'Tagged tokens: tokens bought while a pot card is on the Table pay 10% to the pot if sold before the tag ends.', 'A live Prophecy bet locks your trading until it resolves.', 'During a raid, selling pays +3% and lowers your side\'s Buy score.'] } ] },
     ],
@@ -202,15 +207,15 @@ export const DOCS: DocPage[] = [
       { id: 'list', title: 'The rules', blocks: [
         { p: 'A creator picks up to three rules when launching. They are fixed forever.' },
         { table: { head: ['Rule', 'Effect'], rows: [
-          ['FairLaunch', 'All buys in the first 5 minutes at one price'],
+          ['FairLaunch', 'Reserved: in the rule list but not applied by the contract yet, and not offered on the Launch screen'],
           ['LaunchGuard', 'Max 30 NEAR per wallet in the first 10 minutes'],
           ['PaperTax', '10% on selling tokens bought less than 1 hour ago, to the pot'],
           ['SoftTax', '5% on selling tokens bought less than 30 minutes ago'],
           ['WhaleCap', 'No wallet over 2% of supply before level 3'],
-          ['HoldTheLine', 'Price drops start a Hold the Line event'],
+          ['HoldTheLine', 'Reserved: in the rule list but not applied by the contract yet, and not offered on the Launch screen'],
           ['CreatorLock', 'Creator cannot sell for 24 hours, then unlocks over 48 hours'],
           ['Ruthless', 'Idle burn is 2% every 6 hours'],
-          ['WildCoin', 'Wild omens 60% of the time'],
+          ['WildCoin', 'Wild omens 60% of the time (built into the contract, not offered on the Launch screen yet)'],
           ['WarCoin', 'Raid shield 6 hours, spoils 20% both ways'],
           ['PeaceCoin', 'No raids before level 3'] ] } } ] },
     ],
@@ -219,10 +224,10 @@ export const DOCS: DocPage[] = [
     id: 'launch', group: 'Build', title: 'Launching a coin', summary: 'Name it, pick rules, add a seed.',
     parts: [
       { id: 'steps', title: 'Steps', blocks: [
-        { steps: ['Connect a wallet. Use your own testnet account so the coin is tied to you.', 'Open Launch from the + button in the top bar.', 'Pick a name, a symbol and up to three rules. You can also upload a coin picture: it is cropped to a square, shrunk to about 9 KB and saved inside the coin on chain, so it cannot be changed later. Without one, the coin draws its own face from its war record.', 'Add a seed. It goes into the bonding curve as the first liquidity.', 'Sign. The factory deploys the coin as its own contract.'] } ] },
+        { steps: ['Connect a wallet. Use your own testnet account so the coin is tied to you.', 'Open Launch from the + button in the top bar.', 'Pick a name, a symbol and up to three rules. You can also upload a coin picture: it is cropped to a square, shrunk to about 9 KB and saved inside the coin on chain, so it cannot be changed later. Without one, the coin draws its own face from its war record.', 'Add a seed. It goes into the coin\'s pot, the fund that cards and the Ritual spend to burn supply. It is not part of the curve, it buys the creator no tokens, and it cannot be taken back out.', 'Sign. The factory deploys the coin as its own contract.'] } ] },
       { id: 'cost', title: 'What it costs', blocks: [
-        { ul: ['Seed: between 5 and 100 NEAR at full size. The demo factory uses one hundredth of that.', 'Storage deposit: held by the coin account to pay for its code. The launch screen shows the exact amount.', 'Gas: a small network fee.'] } ] },
-      { id: 'cannot', title: 'What you cannot do', blocks: [{ ul: ['Pull the seed back out.', 'Change a rule, mint more, or freeze anyone\'s tokens.', 'Take the creator escrow before the coin graduates.'] }] },
+        { ul: ['Seed: between 5 and 100 NEAR at full size, all of it into the pot. The demo factory uses one hundredth of that.', 'Storage deposit: held by the coin account to pay for its code. The launch screen shows the exact amount.', 'Gas: a small network fee.'] } ] },
+      { id: 'cannot', title: 'What you cannot do', blocks: [{ ul: ['Pull the seed back out.', 'Change a rule, mint more, or freeze anyone\'s tokens.', 'Take the creator escrow before the coin graduates. After it graduates, the escrow (0.2% of all volume) is paid to the creator.'] }] },
     ],
   },
   {
@@ -264,6 +269,7 @@ export const DOCS: DocPage[] = [
     id: 'faq', group: 'Help', title: 'FAQ', summary: 'Quick answers.',
     parts: [
       { id: 'q1', title: 'Is this real money?', blocks: [{ p: 'No. It runs on NEAR testnet and nothing has value.' }] },
+      { id: 'q7', title: 'How does the creator earn?', blocks: [{ p: 'Only from the creator escrow: 0.2% of every buy and sell, locked in the coin and paid to the creator after the coin graduates. The creator gets no tokens and cannot touch the pot or the curve.' }] },
       { id: 'q2', title: 'Can the creator rug?', blocks: [{ p: 'No. The curve holds the NEAR buyers paid, and the creator\'s seed cannot come back out. There is no admin key.' }] },
       { id: 'q3', title: 'Why do I need to say gm?', blocks: [{ p: 'It keeps your bag from idle burn and it counts toward the coin\'s daily Ritual.' }] },
       { id: 'q4', title: 'Can I lose everything?', blocks: [{ p: 'Idle burn takes at most 8% of your unlocked tokens in a day, and locked tokens are safe from it. Prices can still fall like any market.' }] },

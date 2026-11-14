@@ -232,7 +232,59 @@ Values below are **Real mode**. Demo mode divides every game NEAR amount by 100 
 | Cards | Ember: 3 / 6 / 10 copies → pot burns 1 / 2 / 3%, stoke ≤ 5 NEAR. Prophecy: 2–3 backers, 20-min bets, 2h answer, losers lose half (30% winners, 10% caster, 10% burned), min 8 wallets. Inferno: 3 / 3 / 5 / 8 signers, fuel ≤ 20 NEAR each and ≤ 10% of curve NEAR in total, locked 24h at ×2 with +5%, pot burns 10% + half the fuel (max 50%, 75% at L4) |
 | Anti front-running | tokens bought while Ember or Inferno is on the table are tagged; selling them before 1h after it fires pays 10% to the pot (the tag follows transfers). Prophecy bettors can't trade until it resolves |
 | Raids | from L2; signers 3 / 5 / 8; Muster 30 min, 3 rounds × 20 min; score = 100 + Buy (±12) + Crowd (0–6) + Lock (0–6), × the side's tactic (Rally ×1.05–1.10, Curse ×0.95–0.90, Ward reflects Curse); spoils 15% of the loser's pot (20% with War Coin); +3% on sells during a raid; one raid per 8h, 12h shield, one attack per 12h, none at ≥ 90% sold |
-| Creator rules (up to 3) | Launch Guard, Paper Tax, Soft Tax, Whale Cap, Creator Lock, Ruthless, War Coin, Peace Coin (+ Fair Launch, Hold the Line, Wild Coin on the roadmap) |
+| Creator rules (up to 3) | Launch Guard, Paper Tax, Soft Tax, Whale Cap, Creator Lock, Ruthless, War Coin, Peace Coin on the Launch screen; Wild Coin is in the contract but not offered yet; Fair Launch and Hold the Line are reserved names with no effect yet |
+
+## Who gets what: fees, creator rewards and graduation
+
+| Who | What they get | When |
+|---|---|---|
+| **The pot** (the coin's burn fund) | 1.5% of every buy and sell, plus the creator's seed, plus what pot cards and raids move in | at once. The pot is only ever spent by the Ritual, cards and raid spoils, by buying supply and burning it (at most 75% of itself per day) |
+| **The protocol** | 0.3% of every buy and sell | collects in the coin (`protocol_owed`). Anyone can call `withdraw_protocol_fees`; the NEAR goes to the fixed protocol account saved in `get_params().protocol`. Nobody can redirect it |
+| **The creator** | 0.2% of every buy and sell, held as the **creator escrow** | only after the coin **graduates**. Then anyone can call `claim_creator_escrow` and the whole escrow is sent to the creator account fixed at launch. A coin that never graduates pays its creator nothing. The creator gets **no tokens** (no pre-mine, no team allocation), and the seed cannot come back out |
+| **Holders** | the curve's NEAR (they can always sell back), Vault earnings (half of idle burn and early exits), card payouts, raid spoils | as the game is played |
+
+**Graduation** happens when the curve sells out: about 3,946 NEAR in the curve (about 19,074 NEAR market cap) at full size, about one hundredth of that in demo mode.
+
+- **What ends:** buying, the Ritual, cards, Omens, raids, Duels and Bounties ("the game ended at graduation"). Chips on the Table are refunded and the pot stops spending.
+- **What stays:** holders can still sell back to the curve. The coin goes to the **Hall of Fame** on Discover with its final market cap, graduation time, burns, raid record and creator escrow.
+- **What is not built:** moving the 156.8M tokens kept for a DEX pool, plus liquidity, into a Ref Finance pool. Today they stay in the coin contract. This is on the roadmap, so a graduated coin's game is over but its sell-back and creator payout work.
+- **Creator rules** that are fixed at launch: Launch Guard, Whale Cap, Paper Tax, Soft Tax, Creator Lock, Ruthless, War Coin and Peace Coin are offered on the Launch screen. Wild Coin is built into the contract (Wild Omens 60% of the time) but not offered yet. Fair Launch and Hold the Line are reserved names with no effect yet.
+
+## Claiming payouts
+
+Prophecy, Black Hole and Bounty never push tokens into wallets when they close, because one transaction looping over every wallet could jam a coin. Each wallet's share goes on a waiting list instead, and a wallet collects with one `claim_payouts` call (the app shows a **Claim** banner and the pack that a top Black Hole thrower earns comes with it).
+
+- Unclaimed payouts burn after 3 days (6 hours in demo mode).
+- The waiting list holds at most 200 entries. While it is nearly full, a new Prophecy, Black Hole or Bounty cannot be opened, and an Oracle Omen stays quiet.
+- A claim needs no deposit and settles the wallet's idle burn first.
+- Closing a full 40-bettor Prophecy, a 40-throw Black Hole or a 20-pledge Bounty costs under 6 Tgas of the 300 available (measured on the real chain build).
+- `get_stats` returns the burn books (burned by idle burn, cards, raids, Ritual) so the Proof page can check that every burn adds up.
+
+## Duels, Bounties and Alliances
+
+- **Duel:** you and one named holder stake the same tokens (0.5 to 25 NEAR worth) on "will the coin be a net buyer over the next hour?". They have 15 minutes to accept. Neither can trade until it ends. The winner takes both stakes minus 10% (burned). An unanswered Duel is refunded and the trade lock lifted.
+- **Bounty:** pledge tokens to a goal for 6 hours (up to 20 pledges). Goal met: everyone gets their tokens back plus 10% from the reward pool, shared by pledge (capped, paid once a day). Missed: everyone gets 90% back and 10% burns. A Bounty cannot ask the Tide question.
+- **Alliance:** a 6-hour no-raid pact with another coin of the same factory, accepted once by a sibling.
+
+## All 13 Omens
+
+From level 2 a coin gets a one-hour Omen, then a two-hour break. The next one is rolled from the block's random seed and announced 15 minutes ahead. Wild Omens (40% of rolls, 60% with the Wild Coin rule) are the coin acting on itself; Weather Omens (60%) change the rules for the hour.
+
+| Omen | Group | Chance | Effect |
+|---|---|---|---|
+| Ghost Ember | Wild | 12% | the pot burns 3% of itself at the first move of the hour |
+| Squall | Wild | 10% | 1% of unlocked bags is hit as each wallet is next used: half burns, half to the Vault, inside the 8% daily cap |
+| Treasure | Wild | 10% | one lucky wallet that does a gm gets a free pack |
+| Oracle | Wild | 8% | the coin opens a Prophecy on itself; fewer than 8 wallets means a refund |
+| Full Moon | Weather | 8% | Energy gains doubled |
+| Iron Vault | Weather | 8% | new Vault locks get ×1.25 weight |
+| Windfall | Weather | 7% | the next Ember or Inferno spends 25% more from the pot |
+| Thunder | Weather | 7% | sells pay 1% more, into the pot |
+| Gold Rush | Weather | 6% | the next pack opens with a Rare or better |
+| Drought | Weather | 6% | idle burn doubled |
+| Low Tide | Weather | 6% | cards get half the backing and fuel time |
+| Blood Moon | Weather | 6% | spoils this coin pays if it loses a raid in the next 8 hours are doubled |
+| Fog | Weather | 6% | live raid scores hidden; with no raid on, locks get ×1.25 weight |
 
 ## Sybil resistance: what this does and doesn't stop
 
