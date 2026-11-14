@@ -12,7 +12,7 @@ import type {
   CoinEntry, CoinView, HolderView, Ritual, LevelView, LogEntry, HandView, Proposal, RaidView, Card, Question, BuyQuote, OmenView, Duel, Bounty, Payout,
 } from './types';
 import { EpicCard } from './epic/EpicCard';
-import { TIER_OF, TIER_NAME, CARD_TEXT, RULE_TEXT, LEVEL_NAME, OMEN_COLOR } from './types';
+import { TIER_OF, TIER_NAME, CARD_TEXT, CARD_SYMBOL, RULE_TEXT, LEVEL_NAME, OMEN_COLOR } from './types';
 import PriceChart, { type PricePoint, toMicro } from './PriceChart';
 import Proof from './Proof';
 import WarMap from './WarMap';
@@ -626,6 +626,11 @@ function TodayTab({ d, now }: TabProps) {
 
 const JOKERS = ['1-common-grin', '2-rare-laugh', '3-epic-wink', '4-mythic-starry', '5-wild-shades'];
 const jokerOf = (s: string) => `url(/bg/jokers/${JOKERS[[...s].reduce((a, ch) => a + ch.charCodeAt(0), 0) % 5]}.png)`;
+const PACK_SYMS = [...new Set(Object.values(CARD_SYMBOL))];
+/** The glowing card symbols that fill every face of the pack box. */
+function PackSyms({ n, off }: { n: number; off: number }) {
+  return <>{Array.from({ length: n }, (_, i) => <i key={i} style={{ ['--m' as any]: `url(/bg/symbols/${PACK_SYMS[(i + off) % PACK_SYMS.length]}.png)`, ['--i' as any]: i + off }} />)}</>;
+}
 function CardTile({ card, count, exp, now, actions, scale = 1 }: { card: Card; count?: number; exp?: number; now: number; actions?: ReactNode; scale?: number }) {
   return (
     <div className="card-slot" style={{ width: 240 * scale }}>
@@ -671,8 +676,12 @@ function CardsTab({ ch, me, id, d, now, busy, call, coins }: TabProps) {
         <button className={`packbox ${packN > 0 ? 'ready' : ''}`} disabled={!hand || !!busy || packN === 0} onClick={claimPack} aria-label={hand && now < hand.next_pack ? `Next pack in ${dur(hand.next_pack - now)}` : 'Claim pack'}>
           <span className="pb-glow" aria-hidden="true" />
           <span className="pb-scene" aria-hidden="true"><span className="pb-cube">
-            <span className="pb-f front"><span className="pb-foil" /><span className="pb-edge" /><span className="pb-state mono">{!hand ? 'LOCKED' : packN === 0 ? dur(hand.next_pack - now) : 'READY'}</span></span>
-            <span className="pb-f back" /><span className="pb-f left" /><span className="pb-f right" /><span className="pb-f top" /><span className="pb-f bottom" />
+            <span className="pb-f front"><span className="pb-grid" style={{ ['--c' as any]: 4 }}><PackSyms n={24} off={0} /></span><span className="pb-state mono">{!hand ? 'LOCKED' : packN === 0 ? dur(hand.next_pack - now) : 'READY'}</span></span>
+            <span className="pb-f back"><span className="pb-grid" style={{ ['--c' as any]: 4 }}><PackSyms n={24} off={9} /></span></span>
+            <span className="pb-f left"><span className="pb-grid" style={{ ['--c' as any]: 2 }}><PackSyms n={12} off={3} /></span></span>
+            <span className="pb-f right"><span className="pb-grid" style={{ ['--c' as any]: 2 }}><PackSyms n={12} off={15} /></span></span>
+            <span className="pb-f top"><span className="pb-grid" style={{ ['--c' as any]: 6 }}><PackSyms n={12} off={5} /></span></span>
+            <span className="pb-f bottom" />
           </span></span>
           {(packN > 1) && <span className="count-badge">×{packN}</span>}
         </button>
