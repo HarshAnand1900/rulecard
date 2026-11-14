@@ -271,7 +271,7 @@ details .ans { padding: 0 var(--s300) var(--s300); color: var(--muted); animatio
   <div class="wrap">
     <div class="sec-head rv"><span class="title-4 eyebrow">The deck</span><h2 class="heading-3" id="deck-h">The big cards need friends</h2><p class="body-3 muted">Each coin has its own limited deck, and cards cost the coin's Energy. Energy goes up by 1 for every gm and by 1 for every 10 NEAR bought.</p></div>
     <div class="tabs rv" role="tablist" aria-label="Card tier" id="tabs"></div>
-    <div class="deck" id="deck-grid" aria-live="polite" tabindex="0" aria-label="Cards in a ring. Drag, or use the arrow keys"></div>
+    <div class="deck" id="deck-grid" aria-live="polite" tabindex="0" aria-label="A deck of cards. Use the arrows to deal the next card"></div>
     <div class="deck-nav"><button class="btn-ghost" id="deck-prev" aria-label="Previous card"><i class="ph-bold ph-caret-left" aria-hidden="true"></i></button><span class="mono caption-3 muted" id="deck-count"></span><button class="btn-ghost" id="deck-next" aria-label="Next card"><i class="ph-bold ph-caret-right" aria-hidden="true"></i></button></div>
     <p class="body-5 muted deck-note" id="deck-note" aria-live="polite"></p>
     <div class="ways grid cols-4">
@@ -490,32 +490,32 @@ details .ans { padding: 0 var(--s300) var(--s300); color: var(--muted); animatio
     ['mythic', 'Supernova', 'supernova', 100, 'Needs many signers', 'The pot spends its full daily cap at once.']
   ];
   var TIER = { common: ['Common', 'var(--common)'], rare: ['Rare', 'var(--rare)'], epic: ['Epic', 'var(--epic)'], mythic: ['Mythic', 'var(--mythic)'] };
-  var tier = 'common';
+  var tier = 'all';
 
   function deck() {
     var g = $('#deck-grid'); g.classList.remove('in');
     var list = CARDS.filter(function (c) { return tier === 'all' || c[0] === tier; });
     var built = list.filter(function (c) { return !c[6]; });
     if (tier === 'mythic') { list = list.filter(function (c) { return !c[6]; }); }
+    if (window.RCunmount) window.RCunmount(g);
+    if (tier === 'all') { /* arrivals see the big cards first: rare, epic, mythic, then the commons */
+      var rank = { rare: 0, epic: 1, mythic: 2, common: 3 };
+      list = list.map(function (c, i) { return [c, i]; }).sort(function (x, y) { return (rank[x[0][0]] - rank[y[0][0]]) || (x[1] - y[1]); }).map(function (p) { return p[0]; });
+    }
     var n = list.length;
     if (!n || (tier === 'mythic' && built.length === 0)) {
-      orbit = null; g.innerHTML = '<div class="empty"><i class="ph-bold ph-sparkle i" aria-hidden="true"></i><h3 class="title-2">No Mythic cards are built yet</h3><p class="body-6 muted" style="max-width:420px">Supernova is the first one planned. Today the deck has common, rare and epic cards.</p></div>'; $('#deck-count').textContent = ''; $('#deck-note').textContent = '';
+      stack = null; g.innerHTML = '<div class="empty"><i class="ph-bold ph-sparkle i" aria-hidden="true"></i><h3 class="title-2">No Mythic cards are built yet</h3><p class="body-6 muted" style="max-width:420px">Supernova is the first one planned. Today the deck has common, rare and epic cards.</p></div>'; $('#deck-count').textContent = ''; $('#deck-note').textContent = '';
     } else {
-      var step = 360 / n, R = n < 2 ? 0 : Math.max(300, n * 176 / (2 * Math.PI));
-      g.innerHTML = '<div class="ring" id="ring"><div class="spin" id="spin">' + list.map(function (c, i) {
-        return '<div class="pcx" style="--a:' + (i * step).toFixed(3) + 'deg;--d:' + i + '"><div class="pcx-card" data-card="' + c[1].replace(/ /g, '') + '" role="img" aria-label="' + c[1] + ' card"></div></div>';
-      }).join('') + '</div></div>';
-      orbit = { n: n, step: step, R: R, rot: 0, target: 0, list: list, ring: $('#ring'), spin: $('#spin'), cards: $$('.pcx', g) };
-      g.style.setProperty('--R', '0px'); orbit.ring.style.transform = 'translateZ(0px)';
+      g.innerHTML = list.map(function (c, i) { return '<div class="sk nopt" data-card="' + c[1].replace(/ /g, '') + '" role="img" aria-label="' + c[1] + ' card"></div>'; }).join('');
+      stack = { n: n, list: list, order: list.map(function (c, i) { return i; }), els: $$('.sk', g), busy: false };
       if (window.RCmount) window.RCmount(g);
-      /* the cards start stacked as one deck, then fan out into the ring */
-      requestAnimationFrame(function () { requestAnimationFrame(function () { if (!orbit) return; g.style.setProperty('--R', R + 'px'); orbit.ring.style.transform = 'translateZ(' + (-R) + 'px)'; }); });
-      paint();
+      place();
+      requestAnimationFrame(function () { requestAnimationFrame(function () { if (stack) stack.els.forEach(function (el) { el.classList.remove('nopt'); }); }); });
     }
     requestAnimationFrame(function () { requestAnimationFrame(function () { if (reduce || inView(g)) g.classList.add('in'); else ioDeck.observe(g); }); });
   }
   function tabs() {
-    var ids = ['all', 'common', 'rare', 'epic', 'mythic'];
+    var ids = ['all', 'rare', 'epic', 'mythic', 'common'];
     $('#tabs').innerHTML = ids.map(function (id) {
       var n = id === 'all' ? CARDS.filter(function (c) { return !c[6]; }).length : CARDS.filter(function (c) { return c[0] === id && !c[6]; }).length;
       return '<button class="tab button-sm" role="tab" aria-selected="' + (id === tier) + '" data-t="' + id + '">' + (id === 'all' ? 'All' : id[0].toUpperCase() + id.slice(1)) + ' <span class="mono caption-4" style="opacity:.7">' + n + '</span></button>';
@@ -524,37 +524,39 @@ details .ans { padding: 0 var(--s300) var(--s300); color: var(--muted); animatio
   window.addEventListener('rc-cards-ready', function () { if (window.RCmount) window.RCmount($('#deck-grid')); });
   $('#tabs').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; tier = b.dataset.t; tabs(); deck(); });
 
-  /* the deck is a ring of cards that turns: drag it, press the arrows, or let it turn by itself */
-  var orbit = null, dragging = false, hover = false, dragX = 0, moved = 0;
-  function paint() {
-    if (!orbit) return;
-    var o = orbit, k = ((Math.round(-o.rot / o.step) % o.n) + o.n) % o.n;
-    o.spin.style.transform = 'rotateY(' + o.rot.toFixed(2) + 'deg)';
-    for (var i = 0; i < o.n; i++) {
-      var a = (i * o.step + o.rot) * Math.PI / 180, c = Math.cos(a);
-      o.cards[i].style.opacity = o.n < 2 ? 1 : Math.max(0, .22 + .78 * Math.pow(Math.max(c, 0), 1.4)).toFixed(3);
-      o.cards[i].style.pointerEvents = c > .55 ? 'auto' : 'none';
-    }
-    if (o.k !== k) { o.k = k; var c0 = o.list[k]; $('#deck-count').textContent = (k + 1) + ' / ' + o.n; $('#deck-note').innerHTML = '<b class="title-3">' + c0[1] + '</b> ' + c0[5]; }
+  /* the deck is one pile: press next and the top card flies off to the bottom */
+  var stack = null, hover = false;
+  function place() {
+    if (!stack) return; var s = stack;
+    s.order.forEach(function (idx, d) {
+      var el = s.els[idx], v = Math.min(d, 5);
+      el.style.zIndex = 100 - d;
+      el.style.transform = 'translate(' + (v * 16) + 'px,' + (v * 9) + 'px) rotate(' + (v * 2.4) + 'deg) scale(' + (1 - v * .035) + ')';
+      el.style.opacity = d > 5 ? 0 : 1 - v * .14;
+      el.style.pointerEvents = d === 0 ? 'auto' : 'none';
+    });
+    var top = s.order[0]; $('#deck-count').textContent = (top + 1) + ' / ' + s.n;
+    $('#deck-note').innerHTML = '<b class="title-3">' + s.list[top][1] + '</b> ' + s.list[top][5];
   }
-  function spinTo(dir) { if (!orbit) return; orbit.target = Math.round(orbit.target / orbit.step) * orbit.step - dir * orbit.step; }
-  function loop() {
-    if (orbit) {
-      if (!dragging) orbit.rot += (orbit.target - orbit.rot) * (reduce ? 1 : .11);
-      paint();
-    }
-    requestAnimationFrame(loop);
+  function nextCard() {
+    if (!stack || stack.busy || stack.n < 2) return; var s = stack; s.busy = true;
+    var el = s.els[s.order[0]]; el.classList.add('out');
+    setTimeout(function () {
+      if (stack !== s) return;
+      s.order.push(s.order.shift()); el.classList.add('nopt'); el.classList.remove('out'); place();
+      requestAnimationFrame(function () { requestAnimationFrame(function () { el.classList.remove('nopt'); s.busy = false; }); });
+    }, reduce ? 0 : 480);
+  }
+  function prevCard() {
+    if (!stack || stack.busy || stack.n < 2) return; var s = stack; s.busy = true;
+    var idx = s.order.pop(), el = s.els[idx]; el.classList.add('nopt', 'out'); s.order.unshift(idx); place();
+    requestAnimationFrame(function () { requestAnimationFrame(function () { el.classList.remove('nopt'); el.classList.remove('out'); setTimeout(function () { s.busy = false; }, 520); }); });
   }
   var gd = $('#deck-grid');
-  gd.addEventListener('pointerdown', function (e) { if (!orbit) return; dragging = true; dragX = e.clientX; moved = 0; });
-  addEventListener('pointermove', function (e) { if (!dragging || !orbit) return; var dx = e.clientX - dragX; dragX = e.clientX; moved += Math.abs(dx); orbit.rot += dx * .22; orbit.target = orbit.rot; });
-  addEventListener('pointerup', function () { if (!dragging || !orbit) return; dragging = false; orbit.target = Math.round(orbit.rot / orbit.step) * orbit.step; });
-  gd.addEventListener('click', function (e) { if (moved > 6) { e.stopPropagation(); e.preventDefault(); } }, true);
   gd.addEventListener('mouseenter', function () { hover = true; }); gd.addEventListener('mouseleave', function () { hover = false; });
-  gd.addEventListener('keydown', function (e) { if (e.key === 'ArrowRight') spinTo(1); if (e.key === 'ArrowLeft') spinTo(-1); });
-  setInterval(function () { if (orbit && !dragging && !hover && !reduce && inView(gd) && document.visibilityState === 'visible') spinTo(1); }, 4200);
-  $('#deck-prev').addEventListener('click', function () { spinTo(-1); }); $('#deck-next').addEventListener('click', function () { spinTo(1); });
-  requestAnimationFrame(loop);
+  gd.addEventListener('keydown', function (e) { if (e.key === 'ArrowRight') nextCard(); if (e.key === 'ArrowLeft') prevCard(); });
+  $('#deck-prev').addEventListener('click', prevCard); $('#deck-next').addEventListener('click', nextCard);
+  setInterval(function () { if (stack && !hover && !reduce && inView(gd) && document.visibilityState === 'visible') nextCard(); }, 4200);
   function inView(el) { var r = el.getBoundingClientRect(); return r.top < innerHeight * .9 && r.bottom > 0; }
   var ioDeck = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); ioDeck.unobserve(e.target); } }); }, { threshold: .12 });
 

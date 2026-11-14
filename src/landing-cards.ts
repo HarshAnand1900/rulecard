@@ -9,4 +9,7 @@ const live = new WeakMap<Element, () => void>();
     live.set(el, mountCard(el, el.dataset.card as Card, 1));
   });
 };
+(window as any).RCunmount = (root: ParentNode = document) => {
+  root.querySelectorAll<HTMLElement>('[data-card]').forEach(el => { live.get(el)?.(); live.delete(el); });
+};
 window.dispatchEvent(new Event('rc-cards-ready'));
