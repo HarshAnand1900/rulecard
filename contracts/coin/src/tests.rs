@@ -1104,6 +1104,29 @@ fn kindle_twice_in_6h_fails() {
 }
 
 #[test]
+fn hype_siren_pins_the_coin_for_15_min_and_costs_5_energy() {
+    let mut c = launch(vec![]);
+    buy(&mut c, 1, n(10), T0); give(&mut c, 1, Card::HypeSiren, T0);
+    c.energy = 20;
+    ctx(1, 0, T0 + HOUR); c.play_card(Card::HypeSiren, None);
+    assert_eq!(c.get_coin().hype_until, T0 + HOUR + 15 * MIN, "pinned for 15 minutes");
+    assert_eq!(c.energy, 15, "5 Energy");
+    ctx(1, 0, T0 + HOUR + 14 * MIN); assert!(c.get_coin().hype_until > c.get_coin().now, "still pinned at 14 minutes");
+    ctx(1, 0, T0 + HOUR + 16 * MIN); assert!(c.get_coin().hype_until <= c.get_coin().now, "the pin is over after 15 minutes");
+}
+
+#[test]
+#[should_panic(expected = "once per coin per hour")]
+fn hype_siren_is_once_per_coin_per_hour() {
+    let mut c = launch(vec![]);
+    buy(&mut c, 1, n(10), T0); buy(&mut c, 2, n(10), T0 + 1);
+    give(&mut c, 1, Card::HypeSiren, T0); give(&mut c, 2, Card::HypeSiren, T0);
+    c.energy = 20;
+    ctx(1, 0, T0 + HOUR); c.play_card(Card::HypeSiren, None);
+    ctx(2, 0, T0 + HOUR + 30 * MIN); c.play_card(Card::HypeSiren, None);
+}
+
+#[test]
 fn heat_makes_the_ember_burn_larger() {
     let run = |heat: bool, o: usize| -> u128 {
         let mut c = launch(vec![]);
