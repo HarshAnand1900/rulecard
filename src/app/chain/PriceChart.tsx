@@ -8,7 +8,18 @@ import type { LogEntry } from './types';
 export interface PricePoint { at: number; price: string; mcap: string; }
 const MIN = 60_000, HOUR = 60 * MIN;
 const RANGES: [string, number][] = [['1h', HOUR], ['6h', 6 * HOUR], ['24h', 24 * HOUR], ['All', Infinity]];
-const EVENT: Record<string, string> = { level_up: '⬆', card: '🃏', raid: '⚔', ritual_made: '🕯', graduated: '🎓' };
+const EVENT: Record<string, string> = { level_up: 'level up', card: 'card', raid: 'raid', ritual_made: 'ritual', graduated: 'graduated' };
+const EV_COLOR: Record<string, string> = { 'level up': '#5BE6A4', card: '#FF8B25', raid: '#FF5C5C', ritual: '#FFC83D', graduated: '#6C8CFF' };
+/** a small drawn marker for each kind of event (no emoji): a card, crossed blades, an arrow, a flame, a star */
+const EvMark = ({ kind, cx, cy }: { kind: string; cx: number; cy: number }) => {
+  const c = EV_COLOR[kind] ?? '#FF8B25';
+  const shape = kind === 'card' ? <g transform="rotate(-8)"><rect x={-4.5} y={-6} width={9} height={12} rx={1.8} fill="#0B0C10" stroke={c} strokeWidth={1.4} /><path d="M0 -2.8L2 0L0 2.8L-2 0Z" fill={c} /></g>
+    : kind === 'raid' ? <g stroke={c} strokeWidth={1.6} strokeLinecap="round"><path d="M-5 -5L5 5M5 -5L-5 5" /></g>
+    : kind === 'level up' ? <path d="M0 -6L5.5 4H-5.5Z" fill={c} />
+    : kind === 'ritual' ? <path d="M0 -6C3 -2 5 0 5 3A5 5 0 0 1 -5 3C-5 0 -2 -1 0 -6Z" fill={c} />
+    : <path d="M0 -6L1.8 -1.8L6 -1.5L2.8 1.3L3.8 5.5L0 3.2L-3.8 5.5L-2.8 1.3L-6 -1.5L-1.8 -1.8Z" fill={c} />;
+  return <g transform={`translate(${cx} ${cy})`} className="ev-mark">{shape}</g>;
+};
 export const toMicro = (y: string) => Number(BigInt(y) / 10n ** 12n) / 1e6; // yocto NEAR per token → NEAR per 1M tokens
 const toN = (y: string) => Number(BigInt(y) / 10n ** 21n) / 1e3;
 const hhmm = (t: number) => new Date(t).toISOString().slice(11, 16);
@@ -186,7 +197,7 @@ export default function PriceChart({ points, log, now }: { points: PricePoint[];
               return <g key={i} className={up ? 'cndl up' : 'cndl down'}><line x1={cx} x2={cx} y1={y(k.h)} y2={y(k.l)} /><rect x={cx - bw / 2} y={top} width={bw} height={hgt} rx={1} /></g>;
             })}
             {candles.map((k, i) => !k.empty && k.v > 0 && <rect key={`v${i}`} className={`vbar ${k.c >= k.o ? 'up' : 'down'}`} x={x(k.t) + (plotW / CN) / 2 - bw / 2} y={vy(k.v)} width={bw} height={H - padB - vy(k.v)} rx={1} />)}
-            {events.map((ev, i) => <g key={i}><line x1={x(ev.t)} x2={x(ev.t)} y1={padT} y2={priceBottom} className="ev-line" /><circle cx={x(ev.t)} cy={y(valAt(ev.t))} r={4} className="ev-dot" /><text x={x(ev.t)} y={padT + 10} textAnchor="middle" className="ev-icon">{ev.icon}</text></g>)}
+            {events.map((ev, i) => <g key={i}><line x1={x(ev.t)} x2={x(ev.t)} y1={padT} y2={priceBottom} className="ev-line" /><circle cx={x(ev.t)} cy={y(valAt(ev.t))} r={4} className="ev-dot" /><EvMark kind={ev.icon} cx={x(ev.t)} cy={padT + 9} /></g>)}
             {now >= w0 && now <= w1 && <line x1={x(now)} x2={x(now)} y1={padT} y2={H - padB} className="now-line" />}
           </g>
           <line x1={padL} x2={w - padR} y1={priceBottom + gap / 2} y2={priceBottom + gap / 2} className="grid" />
@@ -205,7 +216,7 @@ export default function PriceChart({ points, log, now }: { points: PricePoint[];
             <div className="mono small">{new Date(hover).toISOString().slice(5, 16).replace('T', ' ')} UTC</div>
             <div className="mono">{fmtV(hv, unit)} <span className="muted small">{unit === 'mcap' ? 'N mcap' : 'N/1M'}</span></div>
             {hk && hk.v > 0 && <div className="mono small muted">vol {fmtVol(hk.v)} N · {fmtVol(hk.buy)} bought</div>}
-            {hEvent && <div className="small">{hEvent.icon} {hEvent.text}</div>}
+            {hEvent && <div className="small"><b style={{ color: EV_COLOR[hEvent.icon] }}>{hEvent.icon}</b> {hEvent.text}</div>}
           </div>
         )}
         {!data.length && <div className="chart-empty small muted">No trades in this window. Drag the other way, or press Live.</div>}

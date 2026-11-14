@@ -1215,3 +1215,17 @@ a.logo:hover .logo-mark { transform: rotate(-6deg) scale(1.06); transition: tran
 .why li.ok { color: #8CF0BD; }
 .why li.no { color: #FFD9B0; }
 .why li small { color: #B7B2AA; }
+
+/* hand groups, recent plays and the trending marker */
+.hand-group { display: flex; flex-direction: column; gap: 12px; padding-bottom: 8px; }
+.hand-group + .hand-group { border-top: 1px solid rgba(245, 239, 230, .08); padding-top: 18px; margin-top: 8px; }
+.hand-group h3 { margin: 0; font-size: 15px; }
+.ec-hand { display: grid; grid-template-columns: repeat(auto-fill, 240px); gap: 30px 22px; justify-content: start; }
+.card-slot { align-items: stretch; }
+.recent-plays { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(245, 239, 230, .08); }
+.recent-plays h3 { margin: 0 0 2px; font-size: 14px; }
+.chip.trend { display: inline-flex; align-items: center; gap: 7px; color: #FFD9B0; border-color: rgba(255, 139, 37, .7); background: rgba(255, 122, 26, .14); }
+.chip.trend i { width: 7px; height: 7px; border-radius: 50%; background: #FF8B25; box-shadow: 0 0 10px #FF6A10; animation: trendpulse 1.6s ease-in-out infinite; }
+.coin-card.trending { border-color: rgba(255, 139, 37, .75) !important; box-shadow: 0 0 30px -6px rgba(255, 90, 20, .6) !important; }
+@keyframes trendpulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .chip.trend i { animation: none; } }

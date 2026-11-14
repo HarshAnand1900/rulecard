@@ -210,7 +210,8 @@ function Discover({ ch, coins, tick, go }: Ctx) {
   const loaded = coins.filter(e => rows[e.account_id]);
   const live = loaded.filter(e => !rows[e.account_id].c.graduated), grad = loaded.filter(e => rows[e.account_id].c.graduated);
   const keyOf = (id: string): number => { const x = rows[id], m = metrics(x); return sort === 'mcap' ? toNear(x.c.mcap) : sort === 'vol' ? m.vol : sort === 'chg' ? m.chg : sort === 'holders' ? x.c.holders : x.c.created_ms; };
-  const list = [...(show === 'live' ? live : grad)].sort((a, b) => keyOf(b.account_id) - keyOf(a.account_id));
+  const hyped = (id: string) => rows[id].c.hype_until > rows[id].c.now;
+  const list = [...(show === 'live' ? live : grad)].sort((a, b) => (Number(hyped(b.account_id)) - Number(hyped(a.account_id))) || (keyOf(b.account_id) - keyOf(a.account_id)));
   const totalVol = live.reduce((a, e) => a + metrics(rows[e.account_id]).vol, 0), totalMcap = live.reduce((a, e) => a + toNear(rows[e.account_id].c.mcap), 0);
   return (
     <section>
@@ -283,7 +284,7 @@ function Discover({ ch, coins, tick, go }: Ctx) {
             );
           }
           return (
-            <button key={e.account_id} style={{ ['--m' as any]: jokerOf(c.symbol) }} className="panel coin-card" onClick={() => go({ kind: 'coin', id: e.account_id })}>
+            <button key={e.account_id} style={{ ['--m' as any]: jokerOf(c.symbol) }} className={`panel coin-card ${rows[e.account_id].c.hype_until > rows[e.account_id].c.now ? 'trending' : ''}`} onClick={() => go({ kind: 'coin', id: e.account_id })}>
               <div className="row between"><strong className="big coin-title">{x.icon && <img className="coin-ico" src={x.icon} alt="" width={28} height={28} />}${c.symbol}</strong><span className={`lvl l${c.level}`}>L{c.level} {LEVEL_NAME[c.level]}</span></div>
               <div className="muted small">{c.name} · by {short(c.creator)} · {dur(m.age)} old</div>
               <div className="row between mono"><span>{fmtNear(toNear(c.mcap))} NEAR mcap</span><span>{c.holders} holders</span></div>
@@ -292,7 +293,8 @@ function Discover({ ch, coins, tick, go }: Ctx) {
               <div className="chips">
                 <span className="chip">⚡ {c.energy}</span><span className="chip">🜂 pot {fmtNear(toNear(c.pot))}</span>
                 {raid && raid.phase === 2 && <span className="chip hot">⚔ in a raid</span>}
-                {c.hype_until > c.now && <span className="chip hot">📣 Trending</span>}
+                {c.hype_until > c.now && <span className="chip trend"><i aria-hidden="true" />Trending · {dur(c.hype_until - c.now)} left</span>}
+                {(() => { const p = x.log.find(z => z.kind === 'card'); return p ? <span className="chip" title={p.memo}>Last play: {p.memo.split(':')[0].replace(/([a-z])([A-Z])/g, '$1 $2')} · {dur(Math.max(0, c.now - p.at))} ago</span> : null; })()}
                 {c.rules.map(z => <span key={z} className="chip" title={RULE_TEXT[z]}>{z}</span>)}
               </div>
             </button>
@@ -483,6 +485,7 @@ function TradeTab({ ch, me, id, d, now, busy, act, onBought, setTab, below }: Ta
               );
             })}
           </div>
+          <RecentPlays log={d.log} now={now} />
         </div>
         {below}
       </div>
@@ -739,19 +742,23 @@ function CardsTab({ ch, me, id, d, now, busy, call, coins, setTab }: TabProps & 
       <div className="panel">
         <h2>Your hand</h2>
         {!commons.length && !hand?.cards.length && <p className="muted">No cards yet: gm, then claim a pack.</p>}
-        <div className="ec-hand">
-          {commons.map(([card, n]) => <CardTile key={card} card={card} count={n} now={now} actions={<>
-            <CardPlay card={card} call={call} busy={busy} table={d.table} me={ch.me() ?? ''} coins={coins} selfId={id} price={c.price} raidOn={d.raid?.phase === 2} goRaids={setTab ? () => setTab('raid') : undefined} />
-            <button className="btn small ghost" disabled={!!busy} onClick={() => call('Drop', 'drop_card', { card })}>Drop</button></>} />)}
-          {hand?.cards.map((x, i) => <CardTile key={i} card={x.card} exp={x.exp} now={now} actions={<>
-            <CardPlay card={x.card} call={call} busy={busy} table={d.table} me={ch.me() ?? ''} coins={coins} selfId={id} price={c.price} raidOn={d.raid?.phase === 2} goRaids={setTab ? () => setTab('raid') : undefined} />
-            <button className="btn small ghost" disabled={!!busy} onClick={() => call('Drop', 'drop_card', { card: x.card })}>Drop</button></>} />)}
-        </div>
+        {(() => {
+          const play = (card: Card) => <CardPlay card={card} call={call} busy={busy} table={d.table} me={ch.me() ?? ''} coins={coins} selfId={id} price={c.price} raidOn={d.raid?.phase === 2} goRaids={setTab ? () => setTab('raid') : undefined} />;
+          const rows: { title: string; note: string; cards: ReactNode[] }[] = [
+            { title: 'Commons', note: `${held} of 12`, cards: commons.slice().sort((a, b) => CARD_TEXT[a[0]].name.localeCompare(CARD_TEXT[b[0]].name)).map(([card, n]) => <CardTile key={card} card={card} count={n} now={now} actions={<>{play(card)}<button className="btn small ghost" disabled={!!busy} onClick={() => call('Drop', 'drop_card', { card })}>Drop</button></>} />) },
+            ...[[1, 'Rares', 3], [2, 'Epics', 3], [3, 'Mythic', 1]].map(([t, title, max]) => {
+              const mine = (hand?.cards ?? []).filter(x => TIER_OF[x.card] === t);
+              return { title: title as string, note: `${mine.length} of ${max}`, cards: mine.map((x, i) => <CardTile key={`${x.card}${i}`} card={x.card} exp={x.exp} now={now} actions={<>{play(x.card)}<button className="btn small ghost" disabled={!!busy} onClick={() => call('Drop', 'drop_card', { card: x.card })}>Drop</button></>} />) };
+            }),
+          ];
+          return rows.filter(r => r.cards.length).map(r => <section key={r.title} className="hand-group" aria-label={r.title}><h3>{r.title} <span className="muted mono small">{r.note}</span></h3><div className="ec-hand">{r.cards}</div></section>);
+        })()}
       </div>
       <div className="panel">
         <h2>Table</h2>
         {!d.table.length && <p className="muted small">Nothing on the table. Cards that need backers or signers show here.</p>}
         {d.table.map(t => <TableRow key={t.id} t={t} now={now} me={(ch.me() ?? '')} busy={busy} call={call} />)}
+        <RecentPlays log={d.log} now={now} />
         {!!d.hist.length && <><h3>Recent</h3>{d.hist.slice().reverse().map(t => <div key={t.id} className="small row between"><span>{CARD_TEXT[t.card].name} by {short(t.proposer)}</span><span className="muted">{t.result}</span></div>)}</>}
       </div>
       {c.harvest_until > now && <div className="panel row between wrap"><div><h2>Harvest is open</h2><p className="small muted">{c.harvest_claims} of 25 shares taken · ends in {dur(c.harvest_until - now)} · you need a gm in the last 24h</p></div>
@@ -904,13 +911,24 @@ function RaidTab({ ch, id, d, now, busy, call, coins, act, me, go }: TabProps) {
   );
 }
 
+/** solo cards never sit on the Table, so their plays show here: who played what, and when */
+function RecentPlays({ log, now }: { log: LogEntry[]; now: number }) {
+  const plays = log.filter(e => e.kind === 'card').slice(0, 6);
+  if (!plays.length) return null;
+  return (
+    <div className="recent-plays">
+      <h3>Recent plays</h3>
+      {plays.map(e => <div key={e.seq} className="small row between"><span><strong>{e.memo.split(':')[0].replace(/([a-z])([A-Z])/g, '$1 $2')}</strong> <span className="muted">{e.memo.includes(':') ? e.memo.slice(e.memo.indexOf(':') + 1).trim() : ''}</span></span><span className="muted mono">{e.account ? short(e.account) + ' · ' : ''}{dur(Math.max(0, now - e.at))} ago</span></div>)}
+    </div>
+  );
+}
 function LogTab({ d }: TabProps) {
   const { c, log } = d;
-  const [f, setF] = useState<'mb' | 'all'>('mb');
+  const [f, setF] = useState<'mb' | 'all'>('all');
   const rows = useMemo(() => log.filter(e => f === 'all' || ['mint', 'burn', 'to_vault'].includes(e.kind)), [log, f]);
   return (
     <div className="panel">
-      <div className="row between wrap"><h2>Every mint and burn</h2><div className="seg small" role="group"><button aria-pressed={f === 'mb'} onClick={() => setF('mb')}>Mints & burns</button><button aria-pressed={f === 'all'} onClick={() => setF('all')}>Everything</button></div></div>
+      <div className="row between wrap"><h2>Log</h2><div className="seg small" role="group"><button aria-pressed={f === 'mb'} onClick={() => setF('mb')}>Mints & burns</button><button aria-pressed={f === 'all'} onClick={() => setF('all')}>Everything</button></div></div>
       <p className="mono small">Total supply 1,000,000,000 → {Math.round(toTok(c.total_supply)).toLocaleString()} (−{(toTok(c.burned) / 1e7).toFixed(3)}%)</p>
       <table className="log"><thead><tr><th>Time (UTC)</th><th>What</th><th>Tokens</th><th>NEAR</th><th>Who / why</th></tr></thead>
         <tbody>{rows.map(e => <tr key={e.seq} className={`k-${e.kind}`}>
