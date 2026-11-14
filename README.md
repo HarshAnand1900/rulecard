@@ -122,7 +122,7 @@ The hosted app opens on two doors into the same game, both on NEAR testnet with 
   receipt links) takes you through gm, the Vault, a pack and the War Map. The coins have no value. You can back up the key from the menu.
 - **PLAY WITH MY OWN TESTNET WALLET:** MyNearWallet or Meteor, your own account, plus optional one-tap gm.
 
-There is one sound effect: a short voucher chime when a buy or a sell goes through (mute and volume in the header).
+There are two sound effects: a short voucher chime when a buy or a sell goes through, and an opening sting when an Omen is about to start (mute and volume in the header).
 
 ## Demo mode and Real mode
 

@@ -110,7 +110,8 @@ export default function ChainApp() {
           <details className="menu"><summary className="btn small ghost" aria-label="Sound settings" title={muted ? 'Sound is off' : 'Sound is on'}>{muted ? '🔇' : '🔊'}</summary><div className="menu-body" style={{ minWidth: 250 }}>
             <button onClick={() => setMuted(!muted)}>{muted ? 'Turn sound on' : 'Mute all sound'}</button>
             <label className="small" style={{ padding: '4px 10px', display: 'block' }}>Volume <input type="range" min="0.05" max="1" step="0.05" defaultValue={getVolume()} onChange={e => setVolume(Number(e.target.value))} onPointerUp={() => play('buy')} /></label>
-            <button onClick={() => play('buy')}><strong>Voucher chime</strong> <span className="small muted">· plays when a buy or sell goes through</span></button>
+            <button onClick={() => play('buy')}><strong>Voucher chime</strong> <span className="small muted">· a buy or sell goes through</span></button>
+            <button onClick={() => play('omen')}><strong>Omen sting</strong> <span className="small muted">· an Omen is about to start</span></button>
           </div></details>
           {needsDoor() && <details className="menu"><summary className="btn small ghost">{practice ? 'Practice' : 'Wallet'} ▾</summary><div className="menu-body">
             <button onClick={() => setModal('ways')}>Two ways in: what is the difference?</button>
@@ -327,6 +328,8 @@ function CoinPage(p: Ctx & { id: string }) {
     if (prevId.current !== id) { prev.current = null; prevId.current = id; }
     const q = prev.current;
     if (d && q) {
+      // an Omen is about to start: sound the opening sting once for each new one
+      if (d.omen?.phase === 'incoming' && d.omen.kind > 0 && !(q.omen?.phase === 'incoming' && q.omen.starts_at === d.omen.starts_at)) play('omen');
     }
     prev.current = d;
   }, [d, id]);
