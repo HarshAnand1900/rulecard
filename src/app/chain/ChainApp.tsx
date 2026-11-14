@@ -655,7 +655,7 @@ function CardTile({ card, count, exp, now, actions, scale = 1 }: { card: Card; c
 }
 
 const levelDrops_ = (c: CoinView, hand: HandView | null) => [2, 3, 4].filter(l => l <= c.level && hand && !(hand.drops_claimed & (1 << l)));
-function CardsTab({ ch, me, id, d, now, busy, call, coins }: TabProps) {
+function CardsTab({ ch, me, id, d, now, busy, call, coins, setTab }: TabProps & { setTab?: (t: Tab) => void }) {
   const { hand, c } = d;
   const [snap, setSnap] = useState<HandView | null>(null);
   const [dealt, setDealt] = useState<Card[] | null>(null);
@@ -741,10 +741,10 @@ function CardsTab({ ch, me, id, d, now, busy, call, coins }: TabProps) {
         {!commons.length && !hand?.cards.length && <p className="muted">No cards yet: gm, then claim a pack.</p>}
         <div className="ec-hand">
           {commons.map(([card, n]) => <CardTile key={card} card={card} count={n} now={now} actions={<>
-            <CardPlay card={card} call={call} busy={busy} table={d.table} me={ch.me() ?? ''} coins={coins} selfId={id} price={c.price} raidOn={d.raid?.phase === 2} />
+            <CardPlay card={card} call={call} busy={busy} table={d.table} me={ch.me() ?? ''} coins={coins} selfId={id} price={c.price} raidOn={d.raid?.phase === 2} goRaids={setTab ? () => setTab('raid') : undefined} />
             <button className="btn small ghost" disabled={!!busy} onClick={() => call('Drop', 'drop_card', { card })}>Drop</button></>} />)}
           {hand?.cards.map((x, i) => <CardTile key={i} card={x.card} exp={x.exp} now={now} actions={<>
-            <CardPlay card={x.card} call={call} busy={busy} table={d.table} me={ch.me() ?? ''} coins={coins} selfId={id} price={c.price} raidOn={d.raid?.phase === 2} />
+            <CardPlay card={x.card} call={call} busy={busy} table={d.table} me={ch.me() ?? ''} coins={coins} selfId={id} price={c.price} raidOn={d.raid?.phase === 2} goRaids={setTab ? () => setTab('raid') : undefined} />
             <button className="btn small ghost" disabled={!!busy} onClick={() => call('Drop', 'drop_card', { card: x.card })}>Drop</button></>} />)}
         </div>
       </div>

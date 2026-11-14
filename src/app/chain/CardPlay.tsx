@@ -7,11 +7,11 @@ import { CARD_TEXT, TIER_OF, USE_OF } from './types';
 import { tokToUnits } from './near';
 
 type Call = (label: string, m: string, a?: object, dep?: bigint, done?: string) => Promise<void>;
-interface Props { card: Card; call: Call; busy: string; table: Proposal[]; me: string; coins: CoinEntry[]; selfId: string; price: string; raidOn: boolean }
+interface Props { card: Card; call: Call; busy: string; table: Proposal[]; me: string; coins: CoinEntry[]; selfId: string; price: string; raidOn: boolean; goRaids?: () => void }
 
 const short = (a: string) => a.split('.')[0].toUpperCase();
 
-export default function CardPlay({ card, call, busy, table, me, coins, selfId, price, raidOn }: Props) {
+export default function CardPlay({ card, call, busy, table, me, coins, selfId, price, raidOn, goRaids }: Props) {
   const use = USE_OF[card], name = CARD_TEXT[card].name;
   const [q, setQ] = useState<'Tide' | 'Line' | 'Crowd' | 'Vault'>(card === 'Bounty' ? 'Crowd' : 'Tide');
   const [qv, setQv] = useState(7);
@@ -33,11 +33,18 @@ export default function CardPlay({ card, call, busy, table, me, coins, selfId, p
   );
   const play = (card2: Card, qq: Question | null = null) => call(`Play ${name}`, 'play_card', { card: card2, question: qq });
 
-  if (use === 'raid') return <span className="small muted">{card === 'Counterspell' ? '' : 'Plan it in the Raids tab.'}{card === 'Counterspell' && <CounterBox call={call} busy={busy} table={table} me={me} pid={pid} setPid={setPid} />}</span>;
+  // raid cards are played inside a raid, so the button takes you there and says whether a raid is live
+  const raidBtn = (
+    <span className="stack small">
+      <button className={`btn small ${raidOn ? 'primary' : ''}`} onClick={goRaids} disabled={!goRaids}>{raidOn ? 'Play it in the raid →' : 'Open Raids →'}</button>
+      <span className="muted">{raidOn ? 'A raid is live. Pick it there as your plan for a round.' : card === 'Scout' || card === 'Counterspell' ? 'No raid is live right now. You use it during a raid.' : 'No raid is live right now. You plan it before a raid round.'}</span>
+    </span>
+  );
+  if (use === 'raid') return card === 'Counterspell' ? <span className="stack small">{raidBtn}<CounterBox call={call} busy={busy} table={table} me={me} pid={pid} setPid={setPid} /></span> : raidBtn;
   if (card === 'Prophecy') return <>{qpick}<button className="btn small" disabled={!!busy} onClick={() => play(card, question())}>Play</button></>;
   if (card === 'Alliance') return <div className="stack small"><select value={target} onChange={e => setTarget(e.target.value)} aria-label="Ally"><option value="">Ally with…</option>{others.map(o => <option key={o.account_id} value={o.account_id}>${o.symbol}</option>)}</select>
     <button className="btn small" disabled={!!busy || !target} onClick={() => call('Play Alliance', 'play_alliance', { target })}>Propose pact</button></div>;
-  if (card === 'Scout') return <span className="small muted">{raidOn ? 'Use it from the Raids tab.' : 'Use it during a raid.'}</span>;
+  if (card === 'Scout') return raidBtn;
   if (card === 'Hedge') {
     const mine = table.filter(p => p.card === 'Prophecy' && p.phase === 1 && p.bets.some(b => b.account === me && !b.hedged));
     return <div className="stack small"><select value={pid} onChange={e => setPid(e.target.value)} aria-label="Prophecy to hedge"><option value="">{mine.length ? 'Hedge which bet?' : 'No open bet to hedge'}</option>{mine.map(p => <option key={p.id} value={p.id}>Prophecy #{p.id}</option>)}</select>
