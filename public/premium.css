@@ -384,3 +384,9 @@ section[style*="rgba(19,18,9"]::before {
 .deck-nav button:hover { transform: translateY(-2px); box-shadow: 0 0 22px -4px rgba(255, 90, 20, .8); }
 .deck-nav button:active { transform: scale(.96); }
 .deck-nav button:focus-visible, #deck-grid:focus-visible { outline: 2px solid #FFB45A; outline-offset: 3px; }
+
+/* hero slabs carry the real card designs on their front face */
+.slab .f.real { padding: 0; border: 0; background: none; box-shadow: none; overflow: hidden; border-radius: 10px; }
+.slab .f.real::before { display: none; }
+.slab.hot .f.real { box-shadow: 0 0 26px rgba(255, 90, 20, .45); }
+.slab .rc-host { display: block; width: 134px; height: 190px; pointer-events: none; }

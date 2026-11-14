@@ -15,11 +15,13 @@
     d.className = 'slab' + (c.t === 'EPIC' || c.t === 'MYTHIC' ? ' hot' : '');
     d.style.setProperty('--tone', TONE[c.t]);
     d.style.transform = 'translateY(' + ((i - (N - 1) / 2) * 30) + 'px) rotateY(' + (i * 45) + 'deg) translateZ(142px) rotateX(-6deg)';
-    d.innerHTML = '<i class="f"><span class="fc-tier">' + c.t + '</span><span class="fc-cost">⚡ ' + c.e + '</span>' +
-      '<span class="fc-art" style="--m:url(/bg/symbols/' + c.s + '.png)"></span><b class="fc-name">' + c.n + '</b><span class="fc-line"></span></i>' +
+    d.innerHTML = '<i class="f real"><span class="rc-host" data-card="' + c.n.replace(/ /g, '') + '" data-scale="0.5583"></span></i>' +
       '<i class="k"></i><i class="e1"></i><i class="e2"></i><i class="e3"></i><i class="e4"></i>';
     spin.appendChild(d);
   });
+  /* the real card designs are drawn by the landing card module: now if it is loaded, otherwise when it announces itself */
+  var drawCards = function () { if (window.RCmount) window.RCmount(spin); };
+  drawCards(); addEventListener('rc-cards-ready', drawCards);
   var rig = spin.parentNode;
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   addEventListener('pointermove', function (e) {

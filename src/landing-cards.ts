@@ -6,7 +6,7 @@ const live = new WeakMap<Element, () => void>();
 (window as any).RCmount = (root: ParentNode = document) => {
   root.querySelectorAll<HTMLElement>('[data-card]').forEach(el => {
     live.get(el)?.();
-    live.set(el, mountCard(el, el.dataset.card as Card, 1));
+    live.set(el, mountCard(el, el.dataset.card as Card, Number(el.dataset.scale) || 1));
   });
 };
 (window as any).RCunmount = (root: ParentNode = document) => {
