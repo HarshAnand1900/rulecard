@@ -32,7 +32,7 @@ coin that shows up bigger raids the other."); **▶ PLAY** (large, orange); a qu
 ### 3.2 Onboarding overlay (`Onboard.tsx`), first PLAY only
 Card titled **GETTING YOU IN** → **YOU'RE IN**. A 4-step list, each a real transaction: *Making your wallet → Sending it a little NEAR →
 Buying your first bag → Ready*. Each step has 4 states (todo ○, now ⟳ spinner, done ✓, bad ✗) and a "receipt ↗" link when done. The error
-state shows the message with **Try again** / **Use my own wallet instead**. It takes 10–20 s, so it should feel like progress, not waiting.
+state shows the message with **Try again** / **Use my own wallet instead**. It takes under a minute, so it should feel like progress, not waiting.
 
 ### 3.3 Header (`ChainApp.tsx`)
 Left: logo + tag (**PRACTICE** pill, or "testnet · your wallet"). Centre: page tabs. Right: short wallet address (`9fac34…e92d`),

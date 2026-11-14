@@ -392,6 +392,11 @@ npx vite --mode testnet         # Connect wallet: MyNearWallet or Meteor
 - **The Proof page** (top bar of the app) reads the chain live and checks, for the factory and every coin: no access keys, `admin: null`,
   one code hash for all coins, **supply adds up** (tokens held + unsold curve + reward pool + DEX reserve = total supply, exactly),
   the curve is fully backed, and the contract holds at least the NEAR its own books say it owes.
+- **The code on chain is the code in this repo.** The demo build (`bash contracts/build.sh`, then `sha256sum contracts/out/rulecard_coin_demo.wasm`) has the NEAR code hash
+  `7g6dRmFd8ixJo4RfUfVtshLXtxqhVWrUhmjJwXhQVfe3`, and that is exactly the code hash of every coin on the testnet world (FROG, MOTH, ZAP). The demo factory build hashes to
+  `EFyJQHJwCQa1LEN4JQGaXdebJQ6HCviFAtQbHiFA1QKh`, the code hash of `demo3.harshtest1.testnet`. The Proof page shows this match live. Anyone can also read a coin's hash straight from the chain:
+  `curl -s https://rpc.testnet.near.org -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"view_account","finality":"final","account_id":"frog.demo3.harshtest1.testnet"}}'`
+  (the `code_hash` field). The same Docker builder was used for both, so the hashes match on this toolchain.
 - **A randomized test** (`random_operations_keep_every_invariant`): random buys, sells, check-ins, locks, unlocks, early exits,
   transfers and pack claims from 10 wallets while time jumps by minutes, hours and days, under four creator-rule sets. After every
   operation it checks that the curve is backed, the supply identity holds, no wallet lost more than the 8% daily cap, and the Vault's

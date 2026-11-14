@@ -10,6 +10,8 @@ interface Check { label: string; ok: boolean | null; detail: string }
 interface CoinProof { entry: CoinEntry; checks: Check[]; codeHash: string; keys: number }
 interface FactoryProof { keys: number; admin: string | null; codeStored: boolean; mode: string; codeHash: string }
 
+/** NEAR code hashes of the wasm built from this repo (bash contracts/build.sh, demo scale), so the page can say "the chain runs this repo's code" */
+const REPO_COIN_HASH = '7g6dRmFd8ixJo4RfUfVtshLXtxqhVWrUhmjJwXhQVfe3', REPO_FACTORY_HASH = 'EFyJQHJwCQa1LEN4JQGaXdebJQ6HCviFAtQbHiFA1QKh';
 const explorer = (ch: Net, id: string) => (ch.explorer ? `${ch.explorer}/address/${id}` : undefined);
 const STORAGE_PER_BYTE = 10n ** 19n;
 const fmt = (y: bigint) => (Number(y / 10n ** 18n) / 1e6).toFixed(3);
@@ -47,6 +49,7 @@ export default function Proof({ ch, coins, tick, onPractice }: { ch: Net; coins:
             ],
           });
         }
+        for (const o of out) o.checks.push({ label: "Code is this repo's build", ok: o.codeHash === REPO_COIN_HASH ? true : null, detail: `code hash ${o.codeHash.slice(0, 12)}… ${o.codeHash === REPO_COIN_HASH ? 'equals the sha256 of contracts/out/rulecard_coin_demo.wasm built from this repo' : 'is not the demo build of this repo (a real-scale or newer build?)'}` });
         const hashes = new Set(out.map(o => o.codeHash));
         for (const o of out) o.checks.push({ label: 'Same code as every other coin', ok: hashes.size === 1, detail: `code hash ${o.codeHash.slice(0, 12)}… ${hashes.size === 1 ? `(${out.length} coins, one hash)` : `(${hashes.size} different hashes!)`}` });
         if (!live) return;
@@ -92,6 +95,7 @@ export default function Proof({ ch, coins, tick, onPractice }: { ch: Net; coins:
         {f && <>
           <ProofRow ok={f.keys === 0} label="No access keys" detail={`${f.keys} keys: its only key was deleted in the same transaction that deployed it, so nobody can create an impostor coin under it`} />
           <ProofRow ok={f.admin === null} label="No admin" detail={`get_params().admin = ${f.admin === null ? 'null' : f.admin}`} />
+          <ProofRow ok={f.codeHash === REPO_FACTORY_HASH ? true : null} label="Factory code is this repo's build" detail={`code hash ${f.codeHash.slice(0, 12)}… ${f.codeHash === REPO_FACTORY_HASH ? "equals the sha256 of contracts/out/rulecard_factory_demo.wasm built from this repo" : "is not the demo build of this repo (a real-scale or newer build?)"}`} />
           <ProofRow ok={f.codeStored} label="Coin code fixed" detail="the coin code was stored once, in the deploy transaction; there is no method to change it" />
         </>}
       </div>

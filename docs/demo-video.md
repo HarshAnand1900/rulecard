@@ -5,7 +5,7 @@ Say the loop in the first 20 seconds: judges will match this to pump.fun, so sho
 
 ## Open with the door
 
-Start on the landing page and press **PLAY**. Let the stepper run (wallet made, funded, first bag bought, about 15 seconds; speed it up
+Start on the landing page and press **PLAY**. Let the stepper run (wallet made, funded, first bag bought, under a minute; speed it up
 in the edit). It shows in one clip that anyone can try this with no wallet and no setup, and that the actions are real transactions
 (the receipt links open on the NEAR explorer). Turn the sound on for the recording: the voucher chime on each buy and sell, and the sting before an Omen, land well on video.
 

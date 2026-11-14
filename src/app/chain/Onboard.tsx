@@ -1,7 +1,7 @@
 // "Making your wallet": the first-visit stepper of practice mode. Every step is a real thing happening on the chain.
 import { useEffect, useRef, useState } from 'react';
 import type { Net } from './net';
-import type { CoinEntry } from './types';
+import type { CoinEntry, CoinView } from './types';
 import { nearToYocto } from './near';
 import { play } from './sound';
 
@@ -26,7 +26,13 @@ export default function Onboard({ ch, coins, onDone, onUseWallet }: { ch: Net; c
     (async () => {
       try {
         await ch.ensureWallet!(s => { if (mounted.current) setPhase(s === 'ready' ? 'buying' : s === 'waiting' ? 'funding' : s); });
-        const target = coinsRef.current[coinsRef.current.length - 1]; // the oldest coin: the one with the most going on
+        // start on the coin with the most going on: the highest level (it can raid and has Omens), the oldest when levels tie
+        let target = coinsRef.current[coinsRef.current.length - 1];
+        try {
+          const lv = await Promise.all(coinsRef.current.map(e => ch.view<CoinView>(e.account_id, 'get_coin').then(c => c.level).catch(() => 0)));
+          let best = -1;
+          for (let i = coinsRef.current.length - 1; i >= 0; i--) if (lv[i] > best) { best = lv[i]; target = coinsRef.current[i]; }
+        } catch { /* keep the oldest coin */ }
         if (!target) throw new Error('There are no coins to play with yet.');
         const have = BigInt(await ch.view<string>(target.account_id, 'ft_balance_of', { account_id: ch.me()! }));
         if (have === 0n) await ch.call(target.account_id, 'buy', {}, nearToYocto(FIRST_BUY_NEAR));
@@ -54,7 +60,7 @@ export default function Onboard({ ch, coins, onDone, onUseWallet }: { ch: Net; c
         </ol>
         {err && <div className="warn">{err}</div>}
         {err && <div className="row gap wrap"><button className="btn primary" onClick={() => setAttempt(a => a + 1)}>Try again</button><button className="btn" onClick={onUseWallet}>Use my own wallet instead</button></div>}
-        {!err && phase !== 'done' && <p className="small muted">This takes about 10–20 seconds.</p>}
+        {!err && phase !== 'done' && <p className="small muted">This takes under a minute.</p>}
       </div>
     </div>
   );
