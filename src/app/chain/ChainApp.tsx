@@ -669,8 +669,12 @@ function CardsTab({ ch, me, id, d, now, busy, call, coins }: TabProps) {
       </div>}
       <div className="panel packzone">
         <button className={`packbox ${packN > 0 ? 'ready' : ''}`} disabled={!hand || !!busy || packN === 0} onClick={claimPack} aria-label={hand && now < hand.next_pack ? `Next pack in ${dur(hand.next_pack - now)}` : 'Claim pack'}>
-          <span className="pb-glow" aria-hidden="true" /><span className="pb-foil" aria-hidden="true" /><span className="pb-edge" aria-hidden="true" />
-          {(packN > 1) && <span className="count-badge">×{packN}</span>}<span className="pb-state mono">{packN === 0 && hand ? dur(hand.next_pack - now) : 'READY'}</span>
+          <span className="pb-glow" aria-hidden="true" />
+          <span className="pb-scene" aria-hidden="true"><span className="pb-cube">
+            <span className="pb-f front"><span className="pb-foil" /><span className="pb-edge" /><span className="pb-state mono">{!hand ? 'LOCKED' : packN === 0 ? dur(hand.next_pack - now) : 'READY'}</span></span>
+            <span className="pb-f back" /><span className="pb-f left" /><span className="pb-f right" /><span className="pb-f top" /><span className="pb-f bottom" />
+          </span></span>
+          {(packN > 1) && <span className="count-badge">×{packN}</span>}
         </button>
         <div className="pack-side">
           <div className="small">{hand ? <>Commons {held}/12 · Rares {hand.cards.filter(x => TIER_OF[x.card] === 1).length}/3 · Epics {hand.cards.filter(x => TIER_OF[x.card] === 2).length}/3</> : 'Buy to collect cards'}</div>

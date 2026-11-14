@@ -1180,3 +1180,28 @@ a.logo:hover .logo-mark { transform: rotate(-6deg) scale(1.06); transition: tran
 .mini-card strong { font-size: 14px; }
 .mini-card small { color: #B7B2AA; }
 .packbox .count-badge { top: -12px; right: -12px; }
+
+/* the pack as a real 3D box: six faces, a slow sway, and it turns to you on hover */
+.packbox { width: 150px; height: 200px; margin: 18px 40px; background: none !important; border: 0 !important; box-shadow: none !important; border-radius: 0; perspective: 900px; animation: none !important; }
+.packbox:hover:not(:disabled) { transform: none; }
+.pb-scene { position: absolute; inset: 0; display: block; }
+.pb-cube { position: absolute; left: 50%; top: 50%; width: 132px; height: 184px; margin: -92px 0 0 -66px; transform-style: preserve-3d; transform: rotateX(-18deg) rotateY(-30deg); animation: packsway 6s ease-in-out infinite; transition: transform 600ms var(--ease); }
+.packbox:hover:not(:disabled) .pb-cube { animation: none; transform: rotateX(-4deg) rotateY(-12deg) scale(1.05); }
+.packbox:disabled .pb-cube { animation-duration: 12s; }
+.pb-f { position: absolute; display: block; backface-visibility: hidden; border: 1px solid rgba(255, 139, 37, .5); background: linear-gradient(160deg, #1B140F 0%, #09090B 50%, #140A05 100%); overflow: hidden; }
+.pb-f.front { inset: 0; border-radius: 6px; transform: translateZ(28px); box-shadow: inset 0 0 24px rgba(0, 0, 0, .85), inset 0 1px 0 rgba(255, 200, 140, .2); }
+.pb-f.back { inset: 0; border-radius: 6px; transform: rotateY(180deg) translateZ(28px); }
+.pb-f.left { width: 56px; height: 184px; left: 0; top: 0; transform-origin: left center; transform: rotateY(-90deg); background: linear-gradient(90deg, #2A1204, #0B0907 60%); }
+.pb-f.right { width: 56px; height: 184px; right: 0; top: 0; transform-origin: right center; transform: rotateY(90deg); background: linear-gradient(270deg, #3A1A06, #0C0906 60%); }
+.pb-f.top { width: 132px; height: 56px; left: 0; top: 0; transform-origin: center top; transform: rotateX(90deg); background: linear-gradient(180deg, #3A1C08, #120A05); }
+.pb-f.bottom { width: 132px; height: 56px; left: 0; bottom: 0; transform-origin: center bottom; transform: rotateX(-90deg); background: #070707; }
+.pb-f.left::after, .pb-f.right::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent 0 14px, rgba(255, 139, 37, .12) 14px 15px); }
+.pb-f.top::after { content: ""; position: absolute; left: 12%; right: 12%; top: 46%; height: 2px; background: linear-gradient(90deg, transparent, rgba(255, 170, 80, .9), transparent); box-shadow: 0 0 10px rgba(255, 110, 20, .8); }
+.packbox .pb-state { bottom: 40px; z-index: 3; }
+.packbox .pb-glow { inset: -10px -30px; z-index: 0; }
+.packbox.ready .pb-cube .pb-f { border-color: rgba(255, 170, 80, .8); }
+.packbox.ready .pb-f.front { box-shadow: 0 0 36px rgba(255, 90, 20, .6), inset 0 0 24px rgba(0, 0, 0, .85), inset 0 1px 0 rgba(255, 210, 160, .3); }
+.packbox.ready .pb-glow { animation: packglow 2.8s ease-in-out infinite; }
+@keyframes packsway { 0%, 100% { transform: rotateX(-18deg) rotateY(-30deg); } 50% { transform: rotateX(-16deg) rotateY(28deg); } }
+@keyframes packglow { 50% { opacity: .6; } }
+@media (prefers-reduced-motion: reduce) { .pb-cube, .packbox.ready .pb-glow { animation: none; } }
